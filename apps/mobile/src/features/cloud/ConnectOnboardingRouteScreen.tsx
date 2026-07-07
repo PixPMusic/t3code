@@ -38,13 +38,15 @@ function ConfiguredConnectOnboardingRouteScreen() {
   }, [navigation]);
 
   const handleDontShowAgain = useCallback(() => {
-    if (userId) {
-      void (async () => {
+    void (async () => {
+      // Persist before dismissing so a quick sign-out/sign-in cannot read the
+      // preference ahead of the write and re-present the sheet.
+      if (userId) {
         const result = await settlePromise(() => optOutOfConnectOnboarding(userId));
         reportAtomCommandResult(result, { label: "connect onboarding opt-out" });
-      })();
-    }
-    navigation.goBack();
+      }
+      navigation.goBack();
+    })();
   }, [navigation, userId]);
 
   return (

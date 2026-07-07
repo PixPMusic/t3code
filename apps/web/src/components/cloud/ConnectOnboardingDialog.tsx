@@ -89,15 +89,16 @@ function ConfiguredConnectOnboardingDialog() {
 
   const optOutAccounts = optOutState.optOutAccounts;
 
-  // Every sign-in that completes during this session requests the wizard. A
-  // cold load observes undefined → account and must not re-prompt — only a
-  // null → account transition is a sign-in.
+  // Every sign-in that completes during this session requests the wizard —
+  // including an in-session switch to a different account, which never passes
+  // through a signed-out state. A cold load observes undefined → account and
+  // must not re-prompt.
   useEffect(() => {
     if (!isLoaded) return;
     const previousAccount = observedAccountRef.current;
     const nextAccount = isSignedIn && userId ? userId : null;
     observedAccountRef.current = nextAccount;
-    if (previousAccount === null && nextAccount !== null) {
+    if (previousAccount !== undefined && previousAccount !== nextAccount && nextAccount !== null) {
       setRequestedAccount(nextAccount);
     }
   }, [isLoaded, isSignedIn, userId]);
@@ -133,10 +134,12 @@ function ConfiguredConnectOnboardingDialog() {
     if (openForAccount !== null && (!isSignedIn || userId !== openForAccount)) {
       setOpenForAccount(null);
     }
-    if (requestedAccount !== null && (!isSignedIn || userId !== requestedAccount)) {
-      setRequestedAccount(null);
-    }
-  }, [isSignedIn, openForAccount, requestedAccount, userId]);
+    // Functional update: an account switch queues a request for the new
+    // account in this same commit, and that request must survive this clear.
+    setRequestedAccount((account) =>
+      account !== null && (!isSignedIn || userId !== account) ? null : account,
+    );
+  }, [isSignedIn, openForAccount, userId]);
 
   // Toggles default on, but an environment that is already linked should show
   // its actual configuration instead of silently proposing to rewrite it.
