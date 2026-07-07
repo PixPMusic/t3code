@@ -30,11 +30,12 @@ import { toastManager } from "../ui/toast";
 
 /**
  * Post-sign-in onboarding wizard for T3 Connect. Opens once per account (per
- * browser) after the user is signed in: first prompts to publish this
- * environment (managed tunnel + agent activity, both defaulting on) when the
- * current session is authorized to manage the relay link, then lists the
- * account's T3 Connect environments so every device can be connected right
- * away. Dismissing the dialog counts as completion — it never nags twice.
+ * browser) after a sign-in completes during this session: first prompts to
+ * publish this environment (managed tunnel + agent activity, both defaulting
+ * on) when the current session is authorized to manage the relay link, then
+ * lists the account's T3 Connect environments so every device can be
+ * connected right away. Dismissing the dialog counts as completion — it never
+ * nags twice.
  */
 export function ConnectOnboardingDialog() {
   if (!hasCloudPublicConfig()) return null;
@@ -84,8 +85,28 @@ function ConfiguredConnectOnboardingDialog() {
 
   const completedAccounts = onboardingState.completedAccounts;
 
+  // Only a sign-in that completed during this session prompts onboarding: a
+  // cold start (a page load observing an already signed-in user) must not
+  // re-prompt, matching the mobile trigger.
+  const observedAccountRef = useRef<string | null | undefined>(undefined);
+  const [signedInAccount, setSignedInAccount] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isLoaded) return;
+    const previousObservedAccount = observedAccountRef.current;
+    const nextAccount = isSignedIn && userId ? userId : null;
+    observedAccountRef.current = nextAccount;
+    if (
+      previousObservedAccount !== undefined &&
+      previousObservedAccount !== nextAccount &&
+      nextAccount !== null
+    ) {
+      setSignedInAccount(nextAccount);
+    }
+  }, [isLoaded, isSignedIn, userId]);
+
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !userId) return;
+    if (signedInAccount !== userId) return;
     if (openForAccount !== null) return;
     if (completedAccounts.includes(userId)) return;
     if (!sessionScopesKnown) return;
@@ -102,6 +123,7 @@ function ConfiguredConnectOnboardingDialog() {
     isSignedIn,
     openForAccount,
     sessionScopesKnown,
+    signedInAccount,
     userId,
   ]);
 

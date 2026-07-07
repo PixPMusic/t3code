@@ -15,12 +15,38 @@ const connectOnboardingRequestAtom = Atom.make<string | null>(null).pipe(
   Atom.withLabel("mobile:connect-onboarding-request"),
 );
 
+// The account CloudAuthBridge currently observes. Requests are only valid
+// while their account stays signed in.
+const connectOnboardingAccountAtom = Atom.make<string | null>(null).pipe(
+  Atom.keepAlive,
+  Atom.withLabel("mobile:connect-onboarding-account"),
+);
+
+/**
+ * Records the signed-in account observed by CloudAuthBridge. A sign-out or
+ * account switch drops any pending onboarding request for another account —
+ * including a request whose preference load is still in flight — so the sheet
+ * can never present for an account that is no longer signed in.
+ */
+export function syncConnectOnboardingAccount(accountId: string | null): void {
+  appAtomRegistry.set(connectOnboardingAccountAtom, accountId);
+  const requested = appAtomRegistry.get(connectOnboardingRequestAtom);
+  if (requested !== null && requested !== accountId) {
+    clearConnectOnboardingRequest();
+  }
+}
+
 /**
  * Requests the onboarding sheet for the given account unless it already
  * completed (or skipped) onboarding on this device.
  */
 export async function requestConnectOnboardingIfNeeded(accountId: string): Promise<void> {
   const preferences = await loadPreferences();
+  // The account may have signed out (or been switched) while the preference
+  // load was in flight; a stale request must not overwrite the current state.
+  if (appAtomRegistry.get(connectOnboardingAccountAtom) !== accountId) {
+    return;
+  }
   if (preferences.connectOnboardingCompletedAccounts?.includes(accountId)) {
     return;
   }

@@ -78,15 +78,23 @@ function ConfiguredConnectOnboardingRouteScreen() {
     cloudEnvironments: null,
   });
 
-  // Dismissing the sheet (swipe, Skip, or Done) counts as completion.
+  // Dismissing the sheet (swipe, Skip, or Done) counts as completion — but
+  // only for the account the sheet opened for. Signing out or switching
+  // accounts mid-flow dismisses without persisting, so the new account still
+  // gets its own onboarding.
+  const openedForAccountRef = useRef<string | null>(null);
+  if (openedForAccountRef.current === null && userId) {
+    openedForAccountRef.current = userId;
+  }
   const completionPersistedRef = useRef(false);
   const persistCompletion = useCallback(() => {
-    if (completionPersistedRef.current || !userId) {
+    const accountId = openedForAccountRef.current;
+    if (completionPersistedRef.current || !accountId || accountId !== userId) {
       return;
     }
     completionPersistedRef.current = true;
     void (async () => {
-      const result = await settlePromise(() => markConnectOnboardingCompleted(userId));
+      const result = await settlePromise(() => markConnectOnboardingCompleted(accountId));
       reportAtomCommandResult(result, { label: "connect onboarding completion" });
     })();
   }, [userId]);
@@ -172,14 +180,26 @@ function ConfiguredConnectOnboardingRouteScreen() {
   );
 
   // Check authorization + link state once the locally saved connections are
-  // ready. Loaded once per mount: reconnect churn in the registry must not
-  // flip the section back to "checking" mid-interaction.
-  const loadedRef = useRef(false);
+  // ready. Bearer tokens can surface after the catalog is ready (prepared
+  // connections load asynchronously), so reload when a connection appears
+  // that was never checked — but never reload on removals or identity churn,
+  // which must not flip the section back to "checking" mid-interaction.
+  const loadedEnvironmentIdsRef = useRef<Set<string> | null>(null);
   useEffect(() => {
-    if (isLoadingSavedConnection || loadedRef.current) {
+    if (isLoadingSavedConnection) {
       return;
     }
-    loadedRef.current = true;
+    const loadedIds = loadedEnvironmentIdsRef.current;
+    if (
+      loadedIds !== null &&
+      bearerConnections.every((connection) => loadedIds.has(connection.environmentId))
+    ) {
+      return;
+    }
+    loadedEnvironmentIdsRef.current = new Set([
+      ...(loadedIds ?? []),
+      ...bearerConnections.map((connection) => connection.environmentId),
+    ]);
     void loadPublishTargets(bearerConnections);
   }, [bearerConnections, isLoadingSavedConnection, loadPublishTargets]);
 
