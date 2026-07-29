@@ -320,7 +320,7 @@ describe("EnvironmentConnector", () => {
       ]);
     }).pipe(
       Effect.provide(
-        connectorTestLayer(execute, {
+        layerConnectorTest(execute, {
           links: {
             ...links,
             updateLabelForUser: (input) =>
