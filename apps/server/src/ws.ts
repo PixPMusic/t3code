@@ -3031,11 +3031,15 @@ export const layerWsRpc = (
                   : Stream.empty;
               const settingsUpdates = settingsChanges.pipe(
                 Stream.map((settings) => ServerSettings.redactServerSettingsForClient(settings)),
-                Stream.map((settings) => ({
-                  version: 1 as const,
-                  type: "settingsUpdated" as const,
-                  payload: { settings },
-                })),
+                Stream.mapEffect((settings) =>
+                  serverEnvironment.getDescriptor.pipe(
+                    Effect.map((environment) => ({
+                      version: 1 as const,
+                      type: "settingsUpdated" as const,
+                      payload: { settings, environment },
+                    })),
+                  ),
+                ),
               );
 
               const liveUpdates = Stream.merge(
