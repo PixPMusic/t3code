@@ -339,7 +339,7 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
 
         expect(renamed).toEqual({ ...initial, label: "Studio Mac" });
         expect(reset).toEqual(initial);
-      }).pipe(Effect.provide(makeServerEnvironmentLayer(baseDir)));
+      }).pipe(Effect.provide(layerServerEnvironment(baseDir)));
     }),
   );
 
