@@ -5,6 +5,7 @@ import {
   resolveFileSelectionNavigationAction,
   resolveThreadSelectionNavigationAction,
   resolveThreadSelectionOverlayState,
+  shouldInvalidateSelectedThreadDetail,
 } from "./adaptive-navigation";
 
 describe("isBaseThreadRoute", () => {
@@ -135,4 +136,42 @@ describe("resolveThreadSelectionOverlayState", () => {
       }),
     ).toBeNull();
   });
+});
+
+describe("shouldInvalidateSelectedThreadDetail", () => {
+  it.each(["archive", "delete", "settle", "snooze"] as const)(
+    "invalidates the selected detail after a successful %s",
+    (action) => {
+      expect(
+        shouldInvalidateSelectedThreadDetail({
+          action,
+          actedThreadKey: "environment:thread-a",
+          selectedThreadKey: "environment:thread-a",
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it("preserves the detail when a different thread completes an action", () => {
+    expect(
+      shouldInvalidateSelectedThreadDetail({
+        action: "delete",
+        actedThreadKey: "environment:thread-a",
+        selectedThreadKey: "environment:thread-b",
+      }),
+    ).toBe(false);
+  });
+
+  it.each(["unarchive", "unsettle", "unsnooze"] as const)(
+    "preserves the selected detail after %s",
+    (action) => {
+      expect(
+        shouldInvalidateSelectedThreadDetail({
+          action,
+          actedThreadKey: "environment:thread-a",
+          selectedThreadKey: "environment:thread-a",
+        }),
+      ).toBe(false);
+    },
+  );
 });
