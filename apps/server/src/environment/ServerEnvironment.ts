@@ -46,6 +46,9 @@ export class ServerEnvironment extends Context.Service<
   {
     readonly getEnvironmentId: Effect.Effect<EnvironmentId>;
     readonly getDescriptor: Effect.Effect<ExecutionEnvironmentDescriptor>;
+    readonly getDescriptorForSettings: (settings: {
+      readonly environmentLabel: string;
+    }) => Effect.Effect<ExecutionEnvironmentDescriptor>;
   }
 >()("t3/environment/ServerEnvironment") {}
 
@@ -266,35 +269,29 @@ export const make = Effect.gen(function* () {
       serverBrowser: true,
     },
   };
+  // Relay publishing can change while the server is running; read it for every descriptor.
+  const getDescriptorForSettings = (settings: { readonly environmentLabel: string }) =>
+    readAgentActivityPublishingActive(secrets).pipe(
+      Effect.map((agentActivityPublishing): ExecutionEnvironmentDescriptor => ({
+        ...defaultDescriptor,
+        label: settings.environmentLabel || defaultLabel,
+        capabilities: { ...defaultDescriptor.capabilities, agentActivityPublishing },
+      })),
+    );
 
   return ServerEnvironment.of({
     getEnvironmentId: Effect.succeed(environmentId),
-    // The publish opt-in and relay link change at runtime (`t3 connect
-    // publish`, the client settings toggle), so the capability is read per
-    // descriptor request rather than baked in at startup.
     getDescriptor: serverSettings.getSettings.pipe(
-      Effect.map(
-        (settings): ExecutionEnvironmentDescriptor => ({
-          ...defaultDescriptor,
-          label: settings.environmentLabel || defaultLabel,
-        }),
-      ),
       Effect.catch((error) =>
         Effect.logWarning("Failed to read the configured environment label.", {
           settingsPath: error.settingsPath,
           operation: error.operation,
           cause: error.cause,
-        }).pipe(Effect.as(defaultDescriptor)),
+        }).pipe(Effect.as({ environmentLabel: "" })),
       ),
-      Effect.flatMap((descriptor) =>
-        readAgentActivityPublishingActive(secrets).pipe(
-          Effect.map((agentActivityPublishing) => ({
-            ...descriptor,
-            capabilities: { ...descriptor.capabilities, agentActivityPublishing },
-          })),
-        ),
-      ),
+      Effect.flatMap(getDescriptorForSettings),
     ),
+    getDescriptorForSettings,
   });
 });
 

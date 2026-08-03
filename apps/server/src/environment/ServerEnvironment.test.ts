@@ -336,7 +336,12 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
         const renamed = yield* serverEnvironment.getDescriptor;
         yield* serverSettings.updateSettings({ environmentLabel: "" });
         const reset = yield* serverEnvironment.getDescriptor;
+        // A queued settings event must describe its own snapshot even after another write.
+        const previousSnapshot = yield* serverEnvironment.getDescriptorForSettings({
+          environmentLabel: "Studio Mac",
+        });
 
+        expect(previousSnapshot).toEqual(renamed);
         expect(renamed).toEqual({ ...initial, label: "Studio Mac" });
         expect(reset).toEqual(initial);
       }).pipe(Effect.provide(layerServerEnvironment(baseDir)));
