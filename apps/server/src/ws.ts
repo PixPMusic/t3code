@@ -343,7 +343,14 @@ export const withLateEditorConfig = <E, R>(
           case "providerStatuses":
             return [{ ...current, providers: event.payload.providers }, [event]];
           case "settingsUpdated":
-            return [{ ...current, settings: event.payload.settings }, [event]];
+            return [
+              {
+                ...current,
+                settings: event.payload.settings,
+                environment: event.payload.environment ?? current.environment,
+              },
+              [event],
+            ];
           // Themes and usage-limit sources never ride in a snapshot; clients
           // carry their projected values across one.
           default:
@@ -3030,13 +3037,15 @@ export const layerWsRpc = (
                     )
                   : Stream.empty;
               const settingsUpdates = settingsChanges.pipe(
-                Stream.map((settings) => ServerSettings.redactServerSettingsForClient(settings)),
                 Stream.mapEffect((settings) =>
-                  serverEnvironment.getDescriptor.pipe(
+                  serverEnvironment.getDescriptorForSettings(settings).pipe(
                     Effect.map((environment) => ({
                       version: 1 as const,
                       type: "settingsUpdated" as const,
-                      payload: { settings, environment },
+                      payload: {
+                        settings: ServerSettings.redactServerSettingsForClient(settings),
+                        environment,
+                      },
                     })),
                   ),
                 ),
