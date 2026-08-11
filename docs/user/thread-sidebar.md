@@ -125,3 +125,9 @@ On web and desktop, use **Agents** to follow work delegated to subagents.
 Expand a tool call in the conversation to see its full command and output.
 Summaries shorten shell wrappers and can still describe the latest call after it
 finishes; the call's own result shows its status.
+
+## Snoozing threads
+
+Snooze a thread with a preset, or choose **Snooze for…** to set a date and time. The thread stays
+out of your inbox until then, unless it finishes or needs you sooner. Use **Undo** after snoozing,
+or expand the Snoozed section and choose **Wake** to bring it back immediately.
