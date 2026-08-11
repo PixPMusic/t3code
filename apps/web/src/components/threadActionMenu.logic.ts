@@ -94,7 +94,7 @@ export function buildThreadActionMenuItems(
                     id: `snooze:${preset.id}` as const,
                     label: `${preset.label} (${preset.whenLabel})`,
                   })),
-                  { id: "snooze-for" as const, label: "Snooze for…" },
+                  { id: "snooze-for" as const, label: "Until…" },
                 ],
               },
         ]

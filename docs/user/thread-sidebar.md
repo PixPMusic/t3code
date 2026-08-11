@@ -128,6 +128,6 @@ finishes; the call's own result shows its status.
 
 ## Snoozing threads
 
-Snooze a thread with a preset, or choose **Snooze for…** to set a date and time. The thread stays
+Snooze a thread with a preset, or choose **Until…** to set a specific date and time. The thread stays
 out of your inbox until then, unless it finishes or needs you sooner. Use **Undo** after snoozing,
 or expand the Snoozed section and choose **Wake** to bring it back immediately.
