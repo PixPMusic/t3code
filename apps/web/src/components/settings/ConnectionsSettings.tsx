@@ -1422,6 +1422,7 @@ function EnvironmentLabelControl({
   label,
   environmentLabels,
   canRename,
+  showValue = false,
 }: {
   readonly environmentId: EnvironmentId;
   readonly label: string;
@@ -1430,6 +1431,7 @@ function EnvironmentLabelControl({
     readonly label: string;
   }>;
   readonly canRename: boolean;
+  readonly showValue?: boolean;
 }) {
   const renameEnvironment = useAtomCommand(serverEnvironment.updateEnvironmentLabel, {
     reportFailure: false,
@@ -1438,7 +1440,7 @@ function EnvironmentLabelControl({
   const [value, setValue] = useState(label);
   const [saving, setSaving] = useState(false);
 
-  if (!canRename) return null;
+  if (!canRename && !showValue) return null;
 
   const cancel = () => {
     setValue(label);
@@ -1481,19 +1483,24 @@ function EnvironmentLabelControl({
     }
   };
 
-  if (!editing) {
+  if (!editing || !canRename) {
     return (
-      <Button
-        size="icon-xs"
-        variant="ghost"
-        aria-label={`Rename ${label}`}
-        onClick={() => {
-          setValue(label);
-          setEditing(true);
-        }}
-      >
-        <PencilIcon className="size-3" />
-      </Button>
+      <>
+        {showValue ? <span className="text-[13px] text-muted-foreground">{label}</span> : null}
+        {canRename ? (
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label={`Rename ${label}`}
+            onClick={() => {
+              setValue(label);
+              setEditing(true);
+            }}
+          >
+            <PencilIcon className="size-3" />
+          </Button>
+        ) : null}
+      </>
     );
   }
 
@@ -3290,7 +3297,7 @@ export function ConnectionsSettings() {
           <SettingsSection {...searchableSetting("connections-environment")}>
             {primaryEnvironment && primaryEnvironmentId ? (
               <SettingsRow
-                title={primaryEnvironment.label}
+                title="Environment name"
                 description="Shown to clients connected to this environment. Clear the name to use the machine name."
                 control={
                   <EnvironmentLabelControl
@@ -3298,6 +3305,7 @@ export function ConnectionsSettings() {
                     label={primaryEnvironment.label}
                     environmentLabels={environmentLabels}
                     canRename={canRenamePrimary}
+                    showValue
                   />
                 }
               />
@@ -3680,7 +3688,7 @@ export function ConnectionsSettings() {
         <SettingsSection {...searchableSetting("connections-environment")}>
           {primaryEnvironment && primaryEnvironmentId ? (
             <SettingsRow
-              title={primaryEnvironment.label}
+              title="Environment name"
               description="Shown to clients connected to this environment. Clear the name to use the machine name."
               control={
                 <EnvironmentLabelControl
@@ -3688,6 +3696,7 @@ export function ConnectionsSettings() {
                   label={primaryEnvironment.label}
                   environmentLabels={environmentLabels}
                   canRename={canRenamePrimary}
+                  showValue
                 />
               }
             />
