@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
 import packageJson from "../../package.json" with { type: "json" };
@@ -43,6 +44,7 @@ export class ServerEnvironment extends Context.Service<
   {
     readonly getEnvironmentId: Effect.Effect<EnvironmentId>;
     readonly getDescriptor: Effect.Effect<ExecutionEnvironmentDescriptor>;
+    readonly setEnvironmentLabel: (label: string) => Effect.Effect<void>;
   }
 >()("t3/environment/ServerEnvironment") {}
 
@@ -188,6 +190,7 @@ export const make = Effect.gen(function* () {
   const hostPlatform = yield* HostProcessPlatform;
   const hostArchitecture = yield* HostProcessArchitecture;
   const environmentId = yield* identity.getEnvironmentId;
+  const environmentLabel = yield* Ref.make("");
   const cwdBaseName = path.basename(serverConfig.cwd).trim();
   const label = yield* resolveServerEnvironmentLabel({ cwdBaseName });
   const machine = yield* detectServerEnvironmentMachineKind();
@@ -247,12 +250,17 @@ export const make = Effect.gen(function* () {
 
   return ServerEnvironment.of({
     getEnvironmentId: Effect.succeed(environmentId),
+    setEnvironmentLabel: (label) => Ref.set(environmentLabel, label),
     // The publish opt-in and relay link change at runtime (`t3 connect
     // publish`, the client settings toggle), so the capability is read per
     // descriptor request rather than baked in at startup.
-    getDescriptor: readAgentActivityPublishingActive(secrets).pipe(
-      Effect.map((agentActivityPublishing) => ({
+    getDescriptor: Effect.all({
+      agentActivityPublishing: readAgentActivityPublishingActive(secrets),
+      customLabel: Ref.get(environmentLabel),
+    }).pipe(
+      Effect.map(({ agentActivityPublishing, customLabel }) => ({
         ...descriptor,
+        label: customLabel || descriptor.label,
         capabilities: { ...descriptor.capabilities, agentActivityPublishing },
       })),
     ),
