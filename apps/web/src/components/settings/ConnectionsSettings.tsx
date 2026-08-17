@@ -1423,6 +1423,7 @@ function EnvironmentLabelControl({
   environmentLabels,
   canRename,
   showValue = false,
+  valueClassName = "text-[13px] text-muted-foreground",
 }: {
   readonly environmentId: EnvironmentId;
   readonly label: string;
@@ -1432,6 +1433,7 @@ function EnvironmentLabelControl({
   }>;
   readonly canRename: boolean;
   readonly showValue?: boolean;
+  readonly valueClassName?: string;
 }) {
   const renameEnvironment = useAtomCommand(serverEnvironment.updateEnvironmentLabel, {
     reportFailure: false,
@@ -1475,7 +1477,7 @@ function EnvironmentLabelControl({
   if (!editing || !canRename) {
     return (
       <>
-        {showValue ? <span className="text-[13px] text-muted-foreground">{label}</span> : null}
+        {showValue ? <span className={valueClassName}>{label}</span> : null}
         {canRename ? (
           <Button
             size="icon-micro"
@@ -1671,14 +1673,13 @@ function SavedBackendListRow({
               kind={resolveEnvironmentMachineKind(environment.serverConfig)}
               className="size-3.5 shrink-0 text-muted-foreground"
             />
-            <h3 className="min-w-0 truncate text-sm font-medium text-foreground">
-              {environment.label}
-            </h3>
             <EnvironmentLabelControl
               environmentId={environmentId}
               label={environment.label}
               environmentLabels={environmentLabels}
               canRename={canRename}
+              showValue
+              valueClassName="text-sm font-medium text-foreground"
             />
           </div>
           {metadataBits.length > 0 ? (
