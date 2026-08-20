@@ -373,6 +373,7 @@ describe("EnvironmentConnector", () => {
           userId: "user_123",
           environmentId: "env-connector-test",
           label: "Studio Mac",
+          checkedAt: expect.any(String),
         },
       ]);
     }).pipe(
