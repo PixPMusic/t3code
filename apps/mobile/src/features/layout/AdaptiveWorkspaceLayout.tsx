@@ -53,6 +53,8 @@ import {
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { useThreadShell } from "../../state/entities";
 import { mobilePreferencesAtom } from "../../state/preferences";
+import { environmentServerConfigsAtom } from "../../state/server";
+import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import {
   DEFAULT_MOBILE_PROJECT_GROUPING_SETTINGS,
   resolveMobileProjectGroupingSettings,
@@ -128,6 +130,8 @@ function SelectedThreadLifecycleObserver(props: {
 }) {
   const { latestSelectedThreadKey, onInvalidate, selectedThreadKey, selectedThreadRef } = props;
   const selectedThread = useThreadShell(selectedThreadRef);
+  const serverConfigs = useAtomValue(environmentServerConfigsAtom);
+  const queuedThreadKeys = useQueuedThreadKeys();
   const lifecycleRef = useRef({
     key: selectedThreadKey,
     present: false,
@@ -140,13 +144,22 @@ function SelectedThreadLifecycleObserver(props: {
       selectedThreadKey !== null &&
       selectedThread !== null &&
       scopedThreadKey(selectedThread.environmentId, selectedThread.id) === selectedThreadKey;
+    const now = new Date().toISOString();
+    const capabilities = selectedThreadRef
+      ? serverConfigs.get(selectedThreadRef.environmentId)?.environment.capabilities
+      : undefined;
     const current = {
       key: selectedThreadKey,
       present: selectedShellMatchesRoute,
-      settled: selectedShellMatchesRoute && selectedThread.settledAt !== null,
+      settled:
+        selectedShellMatchesRoute &&
+        capabilities?.threadSettlement === true &&
+        selectedThread.settledOverride === "settled" &&
+        !queuedThreadKeys.has(selectedThreadKey),
       snoozed:
         selectedShellMatchesRoute &&
-        effectiveSnoozed(selectedThread, { now: new Date().toISOString() }),
+        capabilities?.threadSnooze === true &&
+        effectiveSnoozed(selectedThread, { now }),
     };
     const previous = lifecycleRef.current;
     lifecycleRef.current = current;
@@ -156,7 +169,15 @@ function SelectedThreadLifecycleObserver(props: {
     ) {
       onInvalidate();
     }
-  }, [latestSelectedThreadKey, onInvalidate, selectedThread, selectedThreadKey]);
+  }, [
+    latestSelectedThreadKey,
+    onInvalidate,
+    queuedThreadKeys,
+    selectedThread,
+    selectedThreadKey,
+    selectedThreadRef,
+    serverConfigs,
+  ]);
 
   return null;
 }
