@@ -1,7 +1,11 @@
 import { SymbolView } from "../../components/AppSymbol";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
 import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
-import { AuthOrchestrationOperateScope, type EnvironmentId, resolveEnvironmentMachineKind } from "@t3tools/contracts";
+import {
+  AuthOrchestrationOperateScope,
+  type EnvironmentId,
+  resolveEnvironmentMachineKind,
+} from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -143,7 +147,12 @@ export function ConnectionEnvironmentRow(props: {
                 props.onRename(props.environment.environmentId);
               }}
             >
-              <SymbolView name="pencil" size={13} tintColorClassName="accent-icon-subtle" type="monochrome" />
+              <SymbolView
+                name="pencil"
+                size={13}
+                tintColorClassName="accent-icon-subtle"
+                type="monochrome"
+              />
             </Pressable>
           ) : null}
           <SymbolView

@@ -29,6 +29,14 @@ connection. Pull request diffs and provider settings keep working after the
 previous credential expires. A failed renewal affects that request; it does not
 disconnect an otherwise healthy conversation.
 
+## Name an environment
+
+Rename a connected environment in **Settings → Connections** on web or desktop,
+or **Settings → Environments** on mobile. You need permission to operate that
+environment. The name is shared with its connected clients and T3 Connect;
+it does not change the machine's hostname or connection address. Clear the name
+to restore the detected machine name.
+
 ## Pair over a LAN or private network
 
 Use direct pairing when the other device can reach the host's network address.

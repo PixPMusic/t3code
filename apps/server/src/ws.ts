@@ -2881,20 +2881,23 @@ const makeWsRpcLayer = (
                   },
                 })),
               );
-              const environmentLabelUpdates = serverSettings.streamChanges.pipe(
-                Stream.map((settings) => settings.environmentLabel),
-                Stream.changes,
-                Stream.mapEffect((environmentLabel) =>
-                  serverEnvironment
-                    .setEnvironmentLabel(environmentLabel)
-                    .pipe(Effect.andThen(serverEnvironment.getDescriptor)),
-                ),
-                Stream.map((environment) => ({
-                  version: 1 as const,
-                  type: "environmentLabelUpdated" as const,
-                  payload: { label: environment.label },
-                })),
-              );
+              const environmentLabelUpdates =
+                input.environmentLabels === true
+                  ? serverSettings.streamChanges.pipe(
+                      Stream.map((settings) => settings.environmentLabel),
+                      Stream.changes,
+                      Stream.mapEffect((environmentLabel) =>
+                        serverEnvironment
+                          .setEnvironmentLabel(environmentLabel)
+                          .pipe(Effect.andThen(serverEnvironment.getDescriptor)),
+                      ),
+                      Stream.map((environment) => ({
+                        version: 1 as const,
+                        type: "environmentLabelUpdated" as const,
+                        payload: { label: environment.label },
+                      })),
+                    )
+                  : Stream.empty;
 
               yield* providerRegistry
                 .refresh()

@@ -4,7 +4,6 @@ import {
   PencilIcon,
   PlusIcon,
   QrCodeIcon,
-  RefreshCwIcon,
   TerminalIcon,
   XIcon,
 } from "lucide-react";
@@ -1445,9 +1444,9 @@ function EnvironmentLabelControl({
   const [saving, setSaving] = useState(false);
   const [pendingDuplicateLabel, setPendingDuplicateLabel] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!canRename) setPendingDuplicateLabel(null);
-  }, [canRename]);
+  if (!canRename && pendingDuplicateLabel !== null) {
+    setPendingDuplicateLabel(null);
+  }
 
   if (!canRename && !showValue) return null;
 
@@ -1681,7 +1680,7 @@ function SavedBackendListRow({
               environmentLabels={environmentLabels}
               canRename={canRename}
               showValue
-              valueClassName="text-sm font-medium text-foreground"
+              valueClassName="min-w-0 truncate text-sm font-medium text-foreground"
               valueElement="h3"
             />
           </div>

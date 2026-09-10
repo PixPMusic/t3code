@@ -6156,6 +6156,51 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
+  it.effect.each([undefined, false, true])(
+    "streams environment label changes only when requested (%s)",
+    (environmentLabels) =>
+      Effect.gen(function* () {
+        const label = yield* Ref.make("");
+        yield* buildAppUnderTest({
+          layers: {
+            serverSettings: {
+              streamChanges: Stream.make(
+                { ...DEFAULT_SERVER_SETTINGS, environmentLabel: "Build server" },
+                { ...DEFAULT_SERVER_SETTINGS, environmentLabel: "" },
+              ),
+            },
+            serverEnvironment: {
+              setEnvironmentLabel: (next) => Ref.set(label, next),
+              getDescriptor: Ref.get(label).pipe(
+                Effect.map((current) => ({
+                  ...testEnvironmentDescriptor,
+                  label: current || testEnvironmentDescriptor.label,
+                })),
+              ),
+            },
+          },
+        });
+
+        const wsUrl = yield* getWsServerUrl("/ws");
+        const events = yield* Effect.scoped(
+          withWsRpcClient(wsUrl, (client) =>
+            client[WS_METHODS.subscribeServerConfig](
+              environmentLabels === undefined ? {} : { environmentLabels },
+            ).pipe(Stream.runCollect),
+          ),
+        );
+
+        assert.equal(events[0]?.type, "snapshot");
+        assert.equal(events.filter((event) => event.type === "settingsUpdated").length, 2);
+        assert.deepEqual(
+          events.flatMap((event) =>
+            event.type === "environmentLabelUpdated" ? [event.payload.label] : [],
+          ),
+          environmentLabels === true ? ["Build server", "Test environment"] : [],
+        );
+      }).pipe(Effect.provide(NodeHttpServer.layerTest)),
+  );
+
   it.effect("refreshes providers for each subscribeServerConfig connection", () =>
     Effect.gen(function* () {
       const refreshCalls = yield* Ref.make(0);

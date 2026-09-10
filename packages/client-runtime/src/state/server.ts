@@ -79,7 +79,7 @@ export interface ServerUpdateTarget {
   readonly input: EnvironmentRpcInput<typeof WS_METHODS.serverUpdateServer>;
 }
 
-export class EnvironmentLabelUpdateUnsupportedError extends Schema.TaggedErrorClass<EnvironmentLabelUpdateUnsupportedError>()(
+export class EnvironmentLabelUpdateUnsupportedError extends Schema.TaggedError<EnvironmentLabelUpdateUnsupportedError>()(
   "EnvironmentLabelUpdateUnsupportedError",
   {
     requestedLabel: Schema.String,
@@ -446,6 +446,7 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
     );
 
     yield* subscribe(WS_METHODS.subscribeServerConfig, {
+      environmentLabels: true,
       ...(subscription.environmentThemes === true ? { environmentThemes: true } : {}),
       ...(subscription.usageLimitSources === true ? { usageLimitSources: true } : {}),
       ...(subscription.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),

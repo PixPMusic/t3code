@@ -20,9 +20,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
-import { HttpServer } from "effect/unstable/http";
+import { HttpClient, HttpServer } from "effect/unstable/http";
 
 import * as EnvironmentAuth from "../src/auth/EnvironmentAuth.ts";
+import * as ServerSecretStore from "../src/auth/ServerSecretStore.ts";
 import * as ServiceLauncherClient from "../src/cloud/serviceLauncherClient.ts";
 import * as ServerConfig from "../src/config.ts";
 import * as ServerEnvironment from "../src/environment/ServerEnvironment.ts";
@@ -73,6 +74,11 @@ const startupDependencies = Layer.mergeAll(
     start: Effect.void,
   }),
   ServerSettings.layerTest(),
+  Layer.mock(ServerSecretStore.ServerSecretStore)({ get: () => Effect.succeedNone }),
+  Layer.succeed(
+    HttpClient.HttpClient,
+    HttpClient.make(() => Effect.die("Unexpected relay request in an unlinked environment")),
+  ),
   Layer.succeed(OrchestrationReactor.OrchestrationReactor, {
     start: () => Effect.void,
   }),
@@ -81,6 +87,7 @@ const startupDependencies = Layer.mergeAll(
   }),
   ServerLifecycleEvents.layer,
   Layer.succeed(ServerEnvironment.ServerEnvironment, {
+    setEnvironmentLabel: () => Effect.void,
     getEnvironmentId: Effect.succeed(EnvironmentId.make("environment-startup-orphan")),
     getDescriptor: Effect.succeed({
       environmentId: EnvironmentId.make("environment-startup-orphan"),
