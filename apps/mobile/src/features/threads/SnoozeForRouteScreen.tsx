@@ -86,7 +86,7 @@ export function SnoozeForRouteScreen({ route }: StaticScreenProps<SnoozeForRoute
     let succeeded = false;
     try {
       succeeded = await snoozeThread(thread, snoozeUntil.toISOString());
-      if (succeeded) {
+      if (succeeded && navigation.isFocused()) {
         navigation.goBack();
       }
     } finally {
