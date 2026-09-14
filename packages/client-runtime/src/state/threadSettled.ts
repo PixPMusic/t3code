@@ -263,7 +263,7 @@ export function resolveSnoozeWallTime(
   const candidates = [...nearbyOffsets]
     .map((offset) => new Date(initial.getTime() + (offset - initialOffset) * MINUTE_MS))
     .filter((candidate) => matchesSnoozeWallTime(candidate, wallTime))
-    .toSorted((left, right) => left.getTime() - right.getTime());
+    .sort((left, right) => left.getTime() - right.getTime());
   const future = candidates.findLast(
     (candidate) => snoozeForTimeError(candidate, options) === null,
   );
