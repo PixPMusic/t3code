@@ -1,6 +1,6 @@
 export interface SnoozeForDialogRequest {
   readonly threadCount?: number;
-  readonly onSnooze: (snoozedUntil: string) => void;
+  readonly onSnooze: (snoozedUntil: string) => Promise<boolean>;
 }
 
 export type SnoozeForDialogState =
@@ -9,7 +9,7 @@ export type SnoozeForDialogState =
       readonly status: "open";
       readonly id: number;
       readonly threadCount: number;
-      readonly onSnooze: (snoozedUntil: string) => void;
+      readonly onSnooze: SnoozeForDialogRequest["onSnooze"];
     };
 
 const idleState: SnoozeForDialogState = { status: "idle" };
@@ -40,6 +40,7 @@ export function openSnoozeForDialog(request: SnoozeForDialogRequest): void {
   });
 }
 
-export function closeSnoozeForDialog(): void {
+export function closeSnoozeForDialog(requestId?: number): void {
+  if (requestId !== undefined && (state.status !== "open" || state.id !== requestId)) return;
   publish(idleState);
 }

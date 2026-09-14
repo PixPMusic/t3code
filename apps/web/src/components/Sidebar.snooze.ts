@@ -79,9 +79,10 @@ export function snoozeWakeDescription(
   const wake = parseTimestampDate(snoozedUntil);
   if (wake === null) return "";
   const time = timeOfDayLabel(wake, timestampFormat);
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const dayDelta = Math.floor((wake.getTime() - startOfToday.getTime()) / DAY_MS);
+  const dayDelta =
+    (Date.UTC(wake.getFullYear(), wake.getMonth(), wake.getDate()) -
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) /
+    DAY_MS;
   if (dayDelta === 0) return time;
   if (dayDelta === 1) return `tomorrow ${time}`;
   const weekday = wake.toLocaleDateString(undefined, { weekday: "short" });

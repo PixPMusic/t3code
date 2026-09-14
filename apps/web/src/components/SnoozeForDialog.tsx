@@ -1,5 +1,5 @@
 import { resolveSnoozeForDefault } from "@t3tools/client-runtime/state/thread-settled";
-import { type FormEvent, useEffect, useState, useSyncExternalStore } from "react";
+import { type FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   closeSnoozeForDialog,
@@ -23,7 +23,7 @@ import { Label } from "./ui/label";
 
 const FORM_ID = "snooze-for-form";
 
-function SnoozeForForm(props: {
+export function SnoozeForForm(props: {
   readonly request: Extract<SnoozeForDialogState, { readonly status: "open" }>;
 }) {
   const { request } = props;
@@ -31,17 +31,37 @@ function SnoozeForForm(props: {
     formatSnoozeForInput(resolveSnoozeForDefault(new Date())),
   );
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submittingRef.current) return;
     // Re-read the clock here: a valid value can expire while the dialog is open.
     const result = parseSnoozeForInput(input, { now: new Date() });
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    closeSnoozeForDialog();
-    request.onSnooze(result.value.toISOString());
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    setError(null);
+    let succeeded = false;
+    try {
+      succeeded = await request.onSnooze(result.value.toISOString());
+      if (succeeded) {
+        closeSnoozeForDialog(request.id);
+      } else {
+        setError("Could not snooze. Check the selected time and try again.");
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not snooze. Try again.");
+    } finally {
+      if (!succeeded) {
+        submittingRef.current = false;
+        setIsSubmitting(false);
+      }
+    }
   };
 
   return (
@@ -61,6 +81,7 @@ function SnoozeForForm(props: {
             type="datetime-local"
             step={15 * 60}
             autoFocus
+            disabled={isSubmitting}
             value={input}
             aria-invalid={error !== null}
             aria-describedby={error ? "snooze-for-error" : undefined}
@@ -77,11 +98,11 @@ function SnoozeForForm(props: {
         </form>
       </DialogPanel>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={closeSnoozeForDialog}>
+        <Button type="button" variant="outline" onClick={() => closeSnoozeForDialog(request.id)}>
           Cancel
         </Button>
-        <Button form={FORM_ID} type="submit">
-          Snooze
+        <Button form={FORM_ID} type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Snoozing…" : "Snooze"}
         </Button>
       </DialogFooter>
     </>

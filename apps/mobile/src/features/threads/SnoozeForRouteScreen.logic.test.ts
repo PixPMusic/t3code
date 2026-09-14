@@ -28,7 +28,11 @@ describe("resolveAndroidPickerValue", () => {
       expect(timeValue.getHours()).toBe(13);
       expect(timeValue.getMinutes()).toBe(45);
     } finally {
-      process.env.TZ = originalTimezone;
+      if (originalTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTimezone;
+      }
     }
   });
 });
@@ -45,7 +49,11 @@ describe("resolveAndroidMinimumDate", () => {
         "2026-08-10T00:00:00.000Z",
       );
     } finally {
-      process.env.TZ = originalTimezone;
+      if (originalTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTimezone;
+      }
     }
   });
 });
@@ -62,7 +70,11 @@ describe("mergeAndroidPickerValue", () => {
       expect(selected.getDate()).toBe(11);
       expect(merged).toEqual({ ...wallTime, day: 12 });
     } finally {
-      process.env.TZ = originalTimezone;
+      if (originalTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTimezone;
+      }
     }
   });
 
@@ -89,7 +101,11 @@ describe("mergeAndroidPickerValue", () => {
       expect(merged).toEqual({ ...current, hour: 2, minute: 30 });
       expect(result).toEqual({ ok: false, error: "Choose a valid date and time." });
     } finally {
-      process.env.TZ = originalTimezone;
+      if (originalTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTimezone;
+      }
     }
   });
 
@@ -110,7 +126,11 @@ describe("mergeAndroidPickerValue", () => {
       expect(secondOccurrence.getHours()).toBe(1);
       expect(result).toEqual({ ok: true, value: secondOccurrence });
     } finally {
-      process.env.TZ = originalTimezone;
+      if (originalTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTimezone;
+      }
     }
   });
 });

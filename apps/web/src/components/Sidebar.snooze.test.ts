@@ -98,6 +98,40 @@ describe("snoozeWakeDescription", () => {
       "18:00",
     );
   });
+
+  it("uses calendar days across spring-forward and fall-back transitions", () => {
+    const originalTimezone = process.env.TZ;
+    try {
+      process.env.TZ = "America/Los_Angeles";
+      expect(
+        snoozeWakeDescription(
+          localDate(2026, 3, 9, 0, 15).toISOString(),
+          localDate(2026, 3, 8, 12),
+          "24-hour",
+        ),
+      ).toBe("tomorrow 00:15");
+      expect(
+        snoozeWakeDescription(
+          localDate(2026, 11, 1, 23, 30).toISOString(),
+          localDate(2026, 11, 1, 12),
+          "24-hour",
+        ),
+      ).toBe("23:30");
+      expect(
+        snoozeWakeDescription(
+          localDate(2026, 3, 15, 0, 15).toISOString(),
+          localDate(2026, 3, 8, 12),
+          "24-hour",
+        ),
+      ).toBe("Mar 15, 00:15");
+    } finally {
+      if (originalTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTimezone;
+      }
+    }
+  });
 });
 
 describe("custom snooze browser input", () => {
@@ -176,7 +210,11 @@ describe("custom snooze browser input", () => {
         }),
       ).toEqual({ ok: true, value: secondOccurrence });
     } finally {
-      process.env.TZ = originalTimezone;
+      if (originalTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalTimezone;
+      }
     }
   });
 });

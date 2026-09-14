@@ -158,7 +158,7 @@ export function useThreadActionMenu(input: {
             if (!isAtomCommandInterrupted(result)) {
               failureToast("Failed to snooze thread", squashAtomCommandFailure(result));
             }
-            return;
+            return false;
           }
           toastManager.add(
             stackedThreadToast({
@@ -177,6 +177,7 @@ export function useThreadActionMenu(input: {
               },
             }),
           );
+          return true;
         };
         if (action.startsWith("snooze:")) {
           const preset = snoozePresets.find((candidate) => `snooze:${candidate.id}` === action);
@@ -186,7 +187,7 @@ export function useThreadActionMenu(input: {
         }
         if (action === "snooze-for") {
           openSnoozeForDialog({
-            onSnooze: (snoozedUntil) => void snoozeUntil(snoozedUntil),
+            onSnooze: snoozeUntil,
           });
           return;
         }

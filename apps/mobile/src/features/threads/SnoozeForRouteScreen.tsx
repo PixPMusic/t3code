@@ -6,7 +6,7 @@ import {
 } from "@t3tools/client-runtime/state/thread-settled";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -47,6 +47,7 @@ export function SnoozeForRouteScreen({ route }: StaticScreenProps<SnoozeForRoute
   const [androidPicker, setAndroidPicker] = useState<AndroidSnoozePicker | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const handleValueChange = useCallback((selected: Date) => {
     setValues((current) => ({ ...current, instant: selected }));
@@ -54,7 +55,7 @@ export function SnoozeForRouteScreen({ route }: StaticScreenProps<SnoozeForRoute
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (isSubmitting) return;
+    if (submittingRef.current) return;
 
     const now = new Date();
     let snoozeUntil = values.instant;
@@ -80,14 +81,21 @@ export function SnoozeForRouteScreen({ route }: StaticScreenProps<SnoozeForRoute
       return;
     }
 
+    submittingRef.current = true;
     setIsSubmitting(true);
-    const succeeded = await snoozeThread(thread, snoozeUntil.toISOString());
-    if (succeeded) {
-      navigation.goBack();
-      return;
+    let succeeded = false;
+    try {
+      succeeded = await snoozeThread(thread, snoozeUntil.toISOString());
+      if (succeeded) {
+        navigation.goBack();
+      }
+    } finally {
+      if (!succeeded) {
+        submittingRef.current = false;
+        setIsSubmitting(false);
+      }
     }
-    setIsSubmitting(false);
-  }, [isSubmitting, navigation, snoozeThread, thread, values]);
+  }, [navigation, snoozeThread, thread, values]);
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">

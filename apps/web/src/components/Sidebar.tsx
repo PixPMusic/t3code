@@ -3690,39 +3690,38 @@ export default function Sidebar() {
     [planForwardNavigation, snoozeThread],
   );
   const attemptSnooze = useCallback(
-    (
+    async (
       threadRef: ScopedThreadRef,
       snoozedUntil: string,
       opts: { coSnoozingKeys?: ReadonlySet<string> } = {},
     ) => {
-      void (async () => {
-        const outcome = await performSnooze(threadRef, snoozedUntil, opts);
-        if (outcome.status === "failure") {
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: "Failed to snooze thread",
-              description:
-                outcome.error instanceof Error ? outcome.error.message : "An error occurred.",
-            }),
-          );
-          return;
-        }
-        if (outcome.status !== "success") return;
-        // Snooze hides the row, so the toast is the only confirmation —
-        // and the Undo is the escape hatch for a mis-click.
+      const outcome = await performSnooze(threadRef, snoozedUntil, opts);
+      if (outcome.status === "failure") {
         toastManager.add(
           stackedThreadToast({
-            type: "success",
-            title: `Snoozed until ${snoozeWakeDescription(snoozedUntil, new Date(), timestampFormat)}`,
-            timeout: 5_000,
-            actionProps: {
-              children: "Undo",
-              onClick: () => attemptUnsnooze(threadRef),
-            },
+            type: "error",
+            title: "Failed to snooze thread",
+            description:
+              outcome.error instanceof Error ? outcome.error.message : "An error occurred.",
           }),
         );
-      })();
+        return false;
+      }
+      if (outcome.status !== "success") return false;
+      // Snooze hides the row, so the toast is the only confirmation —
+      // and the Undo is the escape hatch for a mis-click.
+      toastManager.add(
+        stackedThreadToast({
+          type: "success",
+          title: `Snoozed until ${snoozeWakeDescription(snoozedUntil, new Date(), timestampFormat)}`,
+          timeout: 5_000,
+          actionProps: {
+            children: "Undo",
+            onClick: () => attemptUnsnooze(threadRef),
+          },
+        }),
+      );
+      return true;
     },
     [attemptUnsnooze, performSnooze, timestampFormat],
   );
@@ -3838,6 +3837,8 @@ export default function Sidebar() {
             }),
           );
         }
+        // Partial successes already report failures and offer Undo for the completed subset.
+        return snoozedThreadRefs.length > 0;
       };
       const clicked = await settlePromise(() =>
         api.contextMenu.show(
@@ -3887,7 +3888,7 @@ export default function Sidebar() {
       if (clicked.value === "snooze-for") {
         openSnoozeForDialog({
           threadCount: selectedThreads.length,
-          onSnooze: (snoozedUntil) => void snoozeSelectionUntil(snoozedUntil),
+          onSnooze: snoozeSelectionUntil,
         });
         return;
       }
