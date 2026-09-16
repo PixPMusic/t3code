@@ -23,7 +23,9 @@ import {
   resolveCustomSnooze,
   type CustomSnoozeInput,
 } from "@t3tools/client-runtime/state/thread-settled";
-import { useState } from "react";
+import { requireNativeModule } from "expo";
+import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 
 import { OverlayPortal } from "../../components/OverlayPortal";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
@@ -47,6 +49,10 @@ const units = [
   { value: "days", label: "Days" },
 ] as const;
 
+function systemUses24HourClock() {
+  return requireNativeModule<{ is24HourFormat(): boolean }>("T3NativeControls").is24HourFormat();
+}
+
 export function CustomSnoozeSheet(props: Props) {
   const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return materialYouStyleLayoutActive ? (
@@ -58,6 +64,13 @@ export function CustomSnoozeSheet(props: Props) {
 
 function MaterialCustomSnoozeDialog(props: Props) {
   const { themeAppearance, themeVariables: colors } = useAppearancePreferences();
+  const [is24Hour, setIs24Hour] = useState(systemUses24HourClock);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setIs24Hour(systemUses24HourClock());
+    });
+    return () => subscription.remove();
+  }, []);
   const titleTypography = useScaledTextRole("title");
   const bodyTypography = useScaledTextRole("footnote");
   const inputTypography = useScaledTextRole("body");
@@ -188,7 +201,7 @@ function MaterialCustomSnoozeDialog(props: Props) {
                   >
                     <Text
                       style={inputTypography}
-                    >{`Time: ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}</Text>
+                    >{`Time: ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hourCycle: is24Hour ? "h23" : "h12" })}`}</Text>
                   </TextButton>
                 </>
               ) : (
@@ -284,6 +297,7 @@ function MaterialCustomSnoozeDialog(props: Props) {
               <DateTimePicker
                 initialDate={date.toISOString()}
                 displayedComponents="hourAndMinute"
+                is24Hour={is24Hour}
                 elementColors={pickerColors}
                 onDateSelected={setPendingTime}
               />
