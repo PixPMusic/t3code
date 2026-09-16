@@ -1426,6 +1426,10 @@ export function NewTaskDraftScreen(props: {
 
   const closeNewTask = () => {
     void KeyboardController.dismiss({ animated: true });
+    if (isAndroid) {
+      navigation.goBack();
+      return;
+    }
     const parentNavigation = navigation.getParent();
     if (parentNavigation) {
       parentNavigation.goBack();

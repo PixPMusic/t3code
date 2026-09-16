@@ -1145,12 +1145,8 @@ function ThreadSettingsModelsScreen() {
               : []),
           ]}
           trailing={
-            materialYouStyleLayoutActive ? (
-              <MaterialButton
-                label={session.pendingModel ? "Save" : "Done"}
-                tone="text"
-                onPress={commitAndClose}
-              />
+            materialYouStyleLayoutActive && session.pendingModel ? (
+              <MaterialButton label="Save" tone="text" onPress={commitAndClose} />
             ) : undefined
           }
           onBack={presentation.onClose}
@@ -1314,11 +1310,12 @@ function ThreadSettingsPickerNavigator(props: ThreadSettingsPickerPresentation) 
       <ThreadSettingsPickerStack.Navigator
         initialRouteName="ThreadSettingsModels"
         screenOptions={{
-          animation: "slide_from_right",
+          animation: Platform.OS === "android" ? "default" : "slide_from_right",
           contentStyle: { backgroundColor: solidSheetBackground },
           gestureEnabled: true,
           headerBackButtonDisplayMode: "minimal",
           headerBackTitle: "",
+          headerShown: Platform.OS !== "android",
           headerShadowVisible: false,
           headerStyle: {
             backgroundColor: NATIVE_LIQUID_GLASS_SUPPORTED ? "transparent" : solidSheetBackground,

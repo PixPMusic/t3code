@@ -190,7 +190,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
             title={screenTitle}
             hideBottomBorder={materialYouStyleLayoutActive}
             subtitle={incomingShareSubtitle}
-            onBack={layout.usesSplitView ? () => navigation.goBack() : undefined}
+            onBack={() => navigation.goBack()}
             actions={
               catalogState.hasReadyEnvironment
                 ? [
