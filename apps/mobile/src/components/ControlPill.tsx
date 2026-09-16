@@ -190,10 +190,8 @@ export function ControlPill(props: {
   );
 }
 
-// iOS renders the native UIMenu (standard checkmark for `state: "on"`);
-// Android renders the token-styled AndroidAnchoredMenu, since the native
-// AppCompat popup can't be themed past its stock animation, metrics, and
-// submenu chrome.
+// iOS renders UIMenu; AndroidAnchoredMenu adapts the same actions to the
+// selected Android appearance and keeps editor menus above the keyboard.
 export function ControlPillMenu(
   props: Omit<ComponentProps<typeof MenuView>, "children" | "themeVariant"> &
     Pick<AccessibilityProps, "accessible" | "accessibilityLabel" | "accessibilityRole"> & {
