@@ -127,7 +127,8 @@ export function MaterialThreadListToolbar(props: {
             </>
           ) : (
             <>
-              <View className="min-w-0 flex-1 pl-1">
+              {/* Match the visible inset of the trailing 48dp icon button. */}
+              <View className="min-w-0 flex-1 pl-4">
                 <WorkspaceConnectionTitle
                   grow
                   onPress={props.onOpenEnvironments}

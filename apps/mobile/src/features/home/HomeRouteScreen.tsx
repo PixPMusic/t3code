@@ -32,7 +32,7 @@ import { useAppearancePreferences } from "../settings/appearance/AppearancePrefe
 
 export function HomeRouteScreen() {
   const { width: windowWidth } = useWindowDimensions();
-  const { layout } = useAdaptiveWorkspaceLayout();
+  const { layout, panes } = useAdaptiveWorkspaceLayout();
   const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const projects = useProjects();
   const threads = useThreadShells();
@@ -145,7 +145,11 @@ export function HomeRouteScreen() {
                   })
               : undefined
           }
-          onStartNewTask={() => navigation.navigate("NewTaskSheet", { screen: "NewTask" })}
+          onStartNewTask={
+            materialYouStyleLayoutActive && panes.primarySidebarVisible
+              ? undefined
+              : () => navigation.navigate("NewTaskSheet", { screen: "NewTask" })
+          }
         />
       </>
     );
