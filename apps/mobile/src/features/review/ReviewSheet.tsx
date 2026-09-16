@@ -883,7 +883,9 @@ export function ReviewSheet(props: ReviewSheetProps) {
                   <NativeReviewDiffView
                     collapsable={false}
                     testID="review-native-diff-view"
-                    refreshing={isPullRefreshing || isSelectedSectionPending || areFilePatchesPending}
+                    refreshing={
+                      isPullRefreshing || isSelectedSectionPending || areFilePatchesPending
+                    }
                     onPullToRefresh={() => void handlePullToRefresh()}
                     style={StyleSheet.absoluteFill}
                     appearanceScheme={selectedTheme}

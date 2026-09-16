@@ -9,6 +9,7 @@ import { useAppearancePreferences } from "../features/settings/appearance/Appear
 import { MaterialIconButton } from "./MaterialIconButton";
 import { AndroidAnchoredMenu } from "./AndroidAnchoredMenu";
 import { useScaledTextRole } from "../features/settings/appearance/useScaledTextRole";
+import { useMaterialToolbarHeight } from "./useMaterialToolbarHeight";
 
 export interface AndroidHeaderAction {
   readonly accessibilityLabel: string;
@@ -64,6 +65,7 @@ export function AndroidScreenHeader(props: {
   const insets = useSafeAreaInsets();
   const titleTypography = useScaledTextRole("title");
   const subtitleTypography = useScaledTextRole("label");
+  const materialToolbarHeight = useMaterialToolbarHeight();
   const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const [headerWidth, setHeaderWidth] = useState(0);
   const actions = props.actions ?? [];
@@ -90,6 +92,7 @@ export function AndroidScreenHeader(props: {
       }}
     >
       <View
+        style={materialYouStyleLayoutActive ? { minHeight: materialToolbarHeight } : undefined}
         className={
           materialYouStyleLayoutActive
             ? "min-h-14 flex-row items-center gap-1"

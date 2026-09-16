@@ -8,6 +8,7 @@ import { SymbolView } from "./AppSymbol";
 export function MaterialNewThreadButton(props: {
   readonly onPress: () => void;
   readonly extended?: boolean;
+  readonly expanded?: boolean;
   readonly className?: string;
   readonly style?: StyleProp<ViewStyle>;
 }) {
@@ -31,7 +32,7 @@ export function MaterialNewThreadButton(props: {
         tintColorClassName="accent-primary-foreground"
         type="monochrome"
       />
-      {props.extended ? (
+      {props.extended && props.expanded !== false ? (
         <AppText className="text-[16px] font-t3-medium text-primary-foreground">New thread</AppText>
       ) : null}
     </Pressable>

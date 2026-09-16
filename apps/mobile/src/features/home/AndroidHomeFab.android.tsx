@@ -1,22 +1,37 @@
-import type { ComponentProps } from "react";
-import { View } from "react-native";
+import { useCallback, useRef, useState, type ComponentProps } from "react";
+import { View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialNewThreadButton } from "../../components/MaterialNewThreadButton";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { AndroidHomeFabLayout as SharedAndroidHomeFabLayout } from "./AndroidHomeFab.shared";
 import { useWorkspaceState } from "../../state/workspace";
+import { MaterialFabScrollContext } from "./MaterialFabScrollContext";
+import { updateMaterialFabScroll } from "./material-fab-scroll";
 
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
   const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const insets = useSafeAreaInsets();
   const { state } = useWorkspaceState();
+  const [expanded, setExpanded] = useState(true);
+  const scrollState = useRef({ anchor: 0, expanded: true });
+  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const next = updateMaterialFabScroll(
+      scrollState.current,
+      contentOffset.y,
+      contentSize.height - layoutMeasurement.height,
+    );
+    if (next.expanded !== scrollState.current.expanded) setExpanded(next.expanded);
+    scrollState.current = next;
+  }, []);
   if (!materialYouStyleLayoutActive) return <SharedAndroidHomeFabLayout {...props} />;
   return (
     <View className="flex-1">
-      {props.children}
+      <MaterialFabScrollContext value={onScroll}>{props.children}</MaterialFabScrollContext>
       {state.hasConnections ? (
         <MaterialNewThreadButton
           extended
+          expanded={expanded}
           onPress={props.onStartNewTask}
           className="absolute right-5"
           style={{

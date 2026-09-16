@@ -1,9 +1,9 @@
 import {
-  Box,
   ExtendedFloatingActionButton,
   FloatingActionButton,
   Host,
   LargeFloatingActionButton,
+  RNHostView,
   Text,
 } from "@expo/ui/jetpack-compose";
 import { size } from "@expo/ui/jetpack-compose/modifiers";
@@ -17,6 +17,7 @@ export function MaterialFloatingActionButton(props: {
   readonly label: string;
   readonly icon: AppSymbolName;
   readonly variant?: "extended" | "large";
+  readonly expanded?: boolean;
   readonly tone?: "primary" | "secondary";
   readonly className?: string;
   readonly style?: StyleProp<ViewStyle>;
@@ -46,9 +47,23 @@ export function MaterialFloatingActionButton(props: {
     >
       <View importantForAccessibility="no-hide-descendants">
         <Host matchContents colorScheme={themeAppearance} ignoreSafeAreaKeyboardInsets>
-          <Component containerColor={containerColor} onClick={props.onPress}>
+          <Component
+            containerColor={containerColor}
+            onClick={props.onPress}
+            expanded={props.expanded}
+          >
             <Component.Icon>
-              <Box modifiers={[size(iconSize, iconSize)]} />
+              <RNHostView matchContents modifiers={[size(iconSize, iconSize)]}>
+                <View style={{ width: iconSize, height: iconSize }} pointerEvents="none">
+                  <SymbolView
+                    name={props.icon}
+                    size={iconSize}
+                    tintColorClassName={
+                      primary ? "accent-primary-foreground" : "accent-thread-selected-foreground"
+                    }
+                  />
+                </View>
+              </RNHostView>
             </Component.Icon>
             {props.variant === "extended" ? (
               <ExtendedFloatingActionButton.Text>
@@ -59,21 +74,6 @@ export function MaterialFloatingActionButton(props: {
             ) : null}
           </Component>
         </Host>
-      </View>
-      <View
-        pointerEvents="none"
-        className="absolute inset-y-0 justify-center"
-        style={
-          props.variant === "extended" ? { start: 20 } : { left: 0, right: 0, alignItems: "center" }
-        }
-      >
-        <SymbolView
-          name={props.icon}
-          size={iconSize}
-          tintColorClassName={
-            primary ? "accent-primary-foreground" : "accent-thread-selected-foreground"
-          }
-        />
       </View>
     </View>
   );

@@ -19,6 +19,7 @@ import { SymbolView } from "../../components/AppSymbol";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { WorkspaceConnectionTitle } from "./WorkspaceConnectionTitle";
 import { useWorkspaceState } from "../../state/workspace";
+import { useMaterialToolbarHeight } from "../../components/useMaterialToolbarHeight";
 
 /** One toolbar height for the compact list and expanded sidebar, including search. */
 export function MaterialThreadListToolbar(props: {
@@ -34,6 +35,7 @@ export function MaterialThreadListToolbar(props: {
   readonly onRequestVisibility?: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const toolbarHeight = useMaterialToolbarHeight();
   const { state } = useWorkspaceState();
   const { onRequestVisibility, onSearchQueryChange } = props;
   const searchRef = useRef<TextInput>(null);
@@ -115,7 +117,7 @@ export function MaterialThreadListToolbar(props: {
         }
         style={{ paddingTop: Math.max(insets.top, 12) }}
       >
-        <View className="min-h-14 flex-row items-center gap-1">
+        <View className="flex-row items-center gap-1" style={{ minHeight: toolbarHeight }}>
           {searching ? (
             <>
               <AndroidHeaderIconButton

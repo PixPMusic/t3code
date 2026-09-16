@@ -29,7 +29,7 @@ export function MaterialFloatingActionButton(
             : "accent-thread-selected-foreground"
         }
       />
-      {props.variant === "extended" ? (
+      {props.variant === "extended" && props.expanded !== false ? (
         <AppText
           className={cn(
             "text-sm",
