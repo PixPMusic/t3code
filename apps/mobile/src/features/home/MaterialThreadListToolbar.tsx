@@ -12,10 +12,13 @@ import type { MenuAction } from "@react-native-menu/menu";
 
 import { AndroidHeaderIconButton } from "../../components/AndroidScreenHeader";
 import { CompactBrandTitle } from "../../components/CompactBrandTitle";
+import { MaterialFloatingActionButton } from "../../components/MaterialFloatingActionButton";
+import { AndroidAnchoredMenu } from "../../components/AndroidAnchoredMenu";
 import { ControlPillMenu } from "../../components/ControlPill";
 import { SymbolView } from "../../components/AppSymbol";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { WorkspaceConnectionTitle } from "./WorkspaceConnectionTitle";
+import { useWorkspaceState } from "../../state/workspace";
 
 /** One toolbar height for the compact list and expanded sidebar, including search. */
 export function MaterialThreadListToolbar(props: {
@@ -31,6 +34,7 @@ export function MaterialThreadListToolbar(props: {
   readonly onRequestVisibility?: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { state } = useWorkspaceState();
   const { onRequestVisibility, onSearchQueryChange } = props;
   const searchRef = useRef<TextInput>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -145,33 +149,27 @@ export function MaterialThreadListToolbar(props: {
         </View>
       </View>
       {/* Sit 8dp above the 56dp extended New thread FAB. */}
-      <View
-        className="absolute right-5 z-[5]"
-        style={{
-          bottom:
-            (props.sidebar ? Math.max(insets.bottom, 12) + 6 : Math.max(insets.bottom, 16) + 16) +
-            56 +
-            8,
-        }}
-      >
-        <ControlPillMenu
-          actions={props.filterActions}
-          onPressAction={props.onFilterAction}
-          isAnchoredToRight
+      {state.hasConnections ? (
+        <View
+          className="absolute right-5 z-[5]"
+          style={{
+            bottom:
+              (props.sidebar ? Math.max(insets.bottom, 12) + 6 : Math.max(insets.bottom, 16) + 16) +
+              56 +
+              8,
+          }}
         >
-          <Pressable
-            accessibilityLabel="Filter and sort threads"
-            accessibilityRole="button"
-            className="size-[56px] items-center justify-center rounded-[16px] bg-thread-selected"
-          >
-            <SymbolView
-              name={filterIcon}
-              size={24}
-              tintColorClassName="accent-thread-selected-foreground"
-            />
-          </Pressable>
-        </ControlPillMenu>
-      </View>
+          <AndroidAnchoredMenu actions={props.filterActions} onPressAction={props.onFilterAction}>
+            {(open) => (
+              <MaterialFloatingActionButton
+                label="Filter and sort threads"
+                icon={filterIcon}
+                onPress={open}
+              />
+            )}
+          </AndroidAnchoredMenu>
+        </View>
+      ) : null}
     </>
   );
 }
