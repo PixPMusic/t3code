@@ -1,17 +1,21 @@
 import { MaterialSegmentedButtons } from "../../components/MaterialSegmentedButtons.android";
 import {
-  AlertDialog,
+  BasicAlertDialog,
+  Button,
   Column,
-  DatePickerDialog,
   DateTimePicker,
   Host,
-  OutlinedTextField,
+  FilledTonalIconButton,
+  Row,
+  Shape,
+  Surface,
   Text,
   TextButton,
-  useNativeState,
 } from "@expo/ui/jetpack-compose";
 import {
-  defaultMinSize,
+  padding,
+  size,
+  width,
   fillMaxWidth,
   testID,
   verticalScroll,
@@ -24,7 +28,7 @@ import {
 } from "@t3tools/client-runtime/state/thread-settled";
 import { requireNativeModule } from "expo";
 import { useEffect, useState } from "react";
-import { AppState } from "react-native";
+import { AppState, useWindowDimensions } from "react-native";
 
 import { OverlayPortal } from "../../components/OverlayPortal";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
@@ -37,6 +41,8 @@ import {
 } from "./customSnoozeDate";
 
 type Props = Parameters<typeof LegacyCustomSnoozeSheet>[0];
+
+const roundedCorner = Shape.RoundedCorner;
 
 const modes = [
   { value: "date", label: "Date and time" },
@@ -72,19 +78,18 @@ function MaterialCustomSnoozeDialog(props: Props) {
   }, []);
   const titleTypography = useScaledTextRole("title");
   const bodyTypography = useScaledTextRole("footnote");
-  const inputTypography = useScaledTextRole("body");
+  const { width: windowWidth } = useWindowDimensions();
   const [mode, setMode] = useState<CustomSnoozeInput["mode"]>("date");
   const [date, setDate] = useState(() => new Date(Date.now() + 3_600_000));
-  const [picker, setPicker] = useState<"date" | "time" | null>(null);
-  const [pendingTime, setPendingTime] = useState<Date | null>(null);
-  const amount = useNativeState("2");
+  const [picker, setPicker] = useState<"date" | "time">("date");
+  const [amount, setAmount] = useState(2);
   const [unit, setUnit] = useState<"minutes" | "hours" | "days">("hours");
   const [error, setError] = useState<string | null>(null);
   const submit = () => {
     const input: CustomSnoozeInput =
       mode === "date"
         ? { mode, date: localSnoozeDate(date), time: localSnoozeTime(date) }
-        : { mode, amount: amount.get().replace(",", "."), unit };
+        : { mode, amount: String(amount), unit };
     const snoozedUntil = resolveCustomSnooze(input, new Date());
     if (!snoozedUntil) {
       setError(
@@ -128,174 +133,164 @@ function MaterialCustomSnoozeDialog(props: Props) {
     // Recycled thread rows can detach a zero-sized native dialog host.
     <OverlayPortal>
       <Host colorScheme={themeAppearance} style={{ height: 0, width: 0 }}>
-        <AlertDialog
+        <BasicAlertDialog
           onDismissRequest={props.onClose}
-          tonalElevation={0}
-          colors={{
-            containerColor: colors["--color-card-alt"],
-            titleContentColor: colors["--color-foreground"],
-            textContentColor: colors["--color-foreground-secondary"],
-          }}
+          properties={{ usePlatformDefaultWidth: false }}
+          modifiers={[width(Math.min(360, windowWidth - 32))]}
         >
-          <AlertDialog.Title>
-            <Text style={titleTypography}>Custom snooze</Text>
-          </AlertDialog.Title>
-          <AlertDialog.Text>
-            <Column
-              verticalArrangement={{ spacedBy: 16 }}
-              modifiers={[fillMaxWidth(), verticalScroll()]}
-            >
-              <Text style={bodyTypography}>Choose when snoozed threads return to your inbox.</Text>
-              <MaterialSegmentedButtons
-                options={modes}
-                selected={mode}
-                onSelect={(value) => {
-                  setMode(value);
-                  setPicker(null);
-                  setError(null);
-                }}
-              />
-              {mode === "date" ? (
-                <>
-                  <TextButton
-                    colors={{ contentColor: colors["--color-primary"] }}
-                    modifiers={[
-                      fillMaxWidth(),
-                      defaultMinSize({ minHeight: 48 }),
-                      testID("snooze-choose-date"),
-                    ]}
-                    onClick={() => setPicker("date")}
-                  >
-                    <Text style={inputTypography}>{`Date: ${date.toLocaleDateString()}`}</Text>
-                  </TextButton>
-                  <TextButton
-                    colors={{ contentColor: colors["--color-primary"] }}
-                    modifiers={[
-                      fillMaxWidth(),
-                      defaultMinSize({ minHeight: 48 }),
-                      testID("snooze-choose-time"),
-                    ]}
-                    onClick={() => {
-                      setPendingTime(date);
-                      setPicker("time");
-                    }}
-                  >
-                    <Text
-                      style={inputTypography}
-                    >{`Time: ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hourCycle: is24Hour ? "h23" : "h12" })}`}</Text>
-                  </TextButton>
-                </>
-              ) : (
-                <>
-                  <OutlinedTextField
-                    value={amount}
-                    singleLine
-                    isError={Boolean(error)}
-                    textStyle={inputTypography}
-                    onValueChange={() => setError(null)}
-                    keyboardOptions={{ keyboardType: "decimal", imeAction: "done" }}
-                    keyboardActions={{ onDone: submit }}
-                    modifiers={[fillMaxWidth(), testID("snooze-duration")]}
-                    colors={{
-                      focusedTextColor: colors["--color-foreground"],
-                      unfocusedTextColor: colors["--color-foreground"],
-                      focusedIndicatorColor: colors["--color-primary"],
-                      unfocusedIndicatorColor: colors["--color-border"],
-                      cursorColor: colors["--color-primary"],
-                    }}
-                  >
-                    <OutlinedTextField.Label>
-                      <Text style={bodyTypography}>Duration</Text>
-                    </OutlinedTextField.Label>
-                  </OutlinedTextField>
+          <Surface
+            color={colors["--color-card-alt"]}
+            contentColor={colors["--color-foreground"]}
+            shape={roundedCorner({
+              cornerRadii: { topStart: 28, topEnd: 28, bottomStart: 28, bottomEnd: 28 },
+            })}
+          >
+            <Column modifiers={[fillMaxWidth(), verticalScroll()]}>
+              <Column
+                verticalArrangement={{ spacedBy: 16 }}
+                modifiers={[fillMaxWidth(), padding(24, 24, 24, 16)]}
+              >
+                <Text style={titleTypography}>Custom snooze</Text>
+                <MaterialSegmentedButtons
+                  options={modes}
+                  selected={mode}
+                  onSelect={(value) => {
+                    setMode(value);
+                    setError(null);
+                  }}
+                />
+                {mode === "date" ? (
                   <MaterialSegmentedButtons
-                    options={units}
-                    selected={unit}
-                    onSelect={(value) => {
-                      setUnit(value);
+                    options={[
+                      {
+                        value: "date",
+                        label: date.toLocaleDateString([], { month: "short", day: "numeric" }),
+                      },
+                      {
+                        value: "time",
+                        label: date.toLocaleTimeString([], {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          hourCycle: is24Hour ? "h23" : "h12",
+                        }),
+                      },
+                    ]}
+                    selected={picker}
+                    onSelect={setPicker}
+                  />
+                ) : null}
+              </Column>
+              {mode === "date" ? (
+                <Column horizontalAlignment="center" modifiers={[fillMaxWidth()]}>
+                  <SnoozeDateTimePicker
+                    key={picker}
+                    date={date}
+                    picker={picker}
+                    is24Hour={is24Hour}
+                    colors={pickerColors}
+                    onChange={(selected) => {
+                      setDate((current) =>
+                        picker === "date"
+                          ? applySnoozePickerDate(current, selected)
+                          : applySnoozePickerTime(current, selected),
+                      );
                       setError(null);
                     }}
                   />
-                </>
+                </Column>
+              ) : (
+                <Column
+                  verticalArrangement={{ spacedBy: 16 }}
+                  modifiers={[fillMaxWidth(), padding(24, 8, 24, 16)]}
+                >
+                  <Row
+                    horizontalArrangement="spaceEvenly"
+                    verticalAlignment="center"
+                    modifiers={[fillMaxWidth()]}
+                  >
+                    <FilledTonalIconButton
+                      enabled={amount > 1}
+                      onClick={() => setAmount((current) => Math.max(1, current - 1))}
+                      colors={{
+                        containerColor: colors["--color-secondary"],
+                        contentColor: colors["--color-secondary-foreground"],
+                      }}
+                      modifiers={[size(48, 48), testID("snooze-decrease-duration")]}
+                    >
+                      <Text style={titleTypography}>−</Text>
+                    </FilledTonalIconButton>
+                    <Text style={titleTypography} modifiers={[testID("snooze-duration")]}>
+                      {String(amount)}
+                    </Text>
+                    <FilledTonalIconButton
+                      enabled={amount < 99}
+                      onClick={() => setAmount((current) => Math.min(99, current + 1))}
+                      colors={{
+                        containerColor: colors["--color-secondary"],
+                        contentColor: colors["--color-secondary-foreground"],
+                      }}
+                      modifiers={[size(48, 48), testID("snooze-increase-duration")]}
+                    >
+                      <Text style={titleTypography}>+</Text>
+                    </FilledTonalIconButton>
+                  </Row>
+                  <MaterialSegmentedButtons options={units} selected={unit} onSelect={setUnit} />
+                </Column>
               )}
-              {error ? (
-                <Text style={bodyTypography} color={colors["--color-danger-foreground"]}>
-                  {error}
-                </Text>
-              ) : null}
+              <Column
+                verticalArrangement={{ spacedBy: 16 }}
+                modifiers={[fillMaxWidth(), padding(24, 8, 24, 24)]}
+              >
+                {error ? (
+                  <Text style={bodyTypography} color={colors["--color-danger-foreground"]}>
+                    {error}
+                  </Text>
+                ) : null}
+                <Row horizontalArrangement="end" modifiers={[fillMaxWidth()]}>
+                  <TextButton
+                    onClick={props.onClose}
+                    colors={{ contentColor: colors["--color-primary"] }}
+                  >
+                    <Text style={bodyTypography}>Cancel</Text>
+                  </TextButton>
+                  <Button
+                    onClick={submit}
+                    colors={{
+                      containerColor: colors["--color-primary"],
+                      contentColor: colors["--color-primary-foreground"],
+                    }}
+                  >
+                    <Text style={bodyTypography}>Snooze</Text>
+                  </Button>
+                </Row>
+              </Column>
             </Column>
-          </AlertDialog.Text>
-          <AlertDialog.DismissButton>
-            <TextButton
-              onClick={props.onClose}
-              colors={{ contentColor: colors["--color-primary"] }}
-            >
-              <Text style={bodyTypography}>Cancel</Text>
-            </TextButton>
-          </AlertDialog.DismissButton>
-          <AlertDialog.ConfirmButton>
-            <TextButton onClick={submit} colors={{ contentColor: colors["--color-primary"] }}>
-              <Text style={bodyTypography}>Snooze</Text>
-            </TextButton>
-          </AlertDialog.ConfirmButton>
-        </AlertDialog>
-        {picker === "date" ? (
-          <DatePickerDialog
-            initialDate={snoozeDateToPickerDate(date)}
-            color={colors["--color-primary"]}
-            elementColors={pickerColors}
-            onDismissRequest={() => setPicker(null)}
-            onDateSelected={(selected) => {
-              setDate(applySnoozePickerDate(date, selected));
-              setError(null);
-              setPicker(null);
-            }}
-          />
-        ) : null}
-        {picker === "time" ? (
-          <AlertDialog
-            onDismissRequest={() => setPicker(null)}
-            tonalElevation={0}
-            colors={{
-              containerColor: colors["--color-card-alt"],
-              titleContentColor: colors["--color-foreground"],
-            }}
-          >
-            <AlertDialog.Title>
-              <Text style={titleTypography}>Choose time</Text>
-            </AlertDialog.Title>
-            <AlertDialog.Text>
-              <DateTimePicker
-                initialDate={date.toISOString()}
-                displayedComponents="hourAndMinute"
-                is24Hour={is24Hour}
-                elementColors={pickerColors}
-                onDateSelected={setPendingTime}
-              />
-            </AlertDialog.Text>
-            <AlertDialog.DismissButton>
-              <TextButton
-                onClick={() => setPicker(null)}
-                colors={{ contentColor: colors["--color-primary"] }}
-              >
-                <Text style={bodyTypography}>Cancel</Text>
-              </TextButton>
-            </AlertDialog.DismissButton>
-            <AlertDialog.ConfirmButton>
-              <TextButton
-                colors={{ contentColor: colors["--color-primary"] }}
-                onClick={() => {
-                  setDate(applySnoozePickerTime(date, pendingTime ?? date));
-                  setError(null);
-                  setPicker(null);
-                }}
-              >
-                <Text style={bodyTypography}>OK</Text>
-              </TextButton>
-            </AlertDialog.ConfirmButton>
-          </AlertDialog>
-        ) : null}
+          </Surface>
+        </BasicAlertDialog>
       </Host>
     </OverlayPortal>
+  );
+}
+
+function SnoozeDateTimePicker(props: {
+  readonly date: Date;
+  readonly picker: "date" | "time";
+  readonly is24Hour: boolean;
+  readonly colors: React.ComponentProps<typeof DateTimePicker>["elementColors"];
+  readonly onChange: (date: Date) => void;
+}) {
+  // Changing initialDate resets Compose's picker state, including its active clock dial.
+  const [initialDate] = useState(() =>
+    props.picker === "date" ? snoozeDateToPickerDate(props.date) : props.date.toISOString(),
+  );
+  return (
+    <DateTimePicker
+      initialDate={initialDate}
+      displayedComponents={props.picker === "date" ? "date" : "hourAndMinute"}
+      is24Hour={props.is24Hour}
+      showVariantToggle={false}
+      elementColors={props.colors}
+      onDateSelected={props.onChange}
+    />
   );
 }
