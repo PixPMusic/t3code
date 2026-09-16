@@ -11,7 +11,10 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanim
 
 import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
 import { EnvironmentMachineSymbol } from "../../components/EnvironmentMachineSymbol";
+import { MaterialButton } from "../../components/MaterialButton";
+import { MaterialIconButton } from "../../components/MaterialIconButton";
 import { ThemedSwitch } from "../../components/ThemedSwitch";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { cn } from "../../lib/cn";
 import { copyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import type { ConnectedEnvironmentSummary } from "../../state/remote-runtime-types";
@@ -41,6 +44,7 @@ export function ConnectionEnvironmentRow(props: {
     updates: { readonly label: string; readonly displayUrl: string },
   ) => Promise<AtomCommandResult<unknown, unknown>>;
 }) {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const [label, setLabel] = useState(props.environment.environmentLabel);
   const [url, setUrl] = useState(props.environment.displayUrl);
   const serverConfig = useAtomValue(
@@ -193,49 +197,79 @@ export function ConnectionEnvironmentRow(props: {
             </>
           )}
 
-          <View className="flex-row justify-end gap-2">
-            {props.environment.isRelayManaged ? null : (
+          {materialYouStyleLayoutActive ? (
+            <View className="flex-row items-center justify-end gap-2">
+              {props.environment.isRelayManaged ? null : (
+                <View className="flex-1">
+                  <MaterialButton
+                    label="Save"
+                    tone="primary"
+                    fullWidth
+                    onPress={() => {
+                      void handleSave();
+                    }}
+                  />
+                </View>
+              )}
+              <MaterialIconButton
+                accessibilityLabel="Reconnect environment"
+                icon="arrow.clockwise"
+                variant="tonal"
+                disabled={!enabled}
+                onPress={() => props.onReconnect(props.environment.environmentId)}
+              />
+              <MaterialIconButton
+                accessibilityLabel="Remove environment"
+                icon="trash"
+                variant="danger"
+                onPress={() => props.onRemove(props.environment.environmentId)}
+              />
+            </View>
+          ) : (
+            <View className="flex-row justify-end gap-2">
+              {props.environment.isRelayManaged ? null : (
+                <Pressable
+                  className="min-h-[42px] flex-1 flex-row items-center justify-center gap-1.5 rounded-[14px] bg-primary px-3.5 py-2.5 active:opacity-70"
+                  onPress={handleSave}
+                >
+                  <SymbolView
+                    name="checkmark"
+                    size={13}
+                    tintColorClassName={"accent-primary-foreground"}
+                    type="monochrome"
+                  />
+                  <Text className="text-xs font-t3-bold tracking-[0.8px] uppercase text-primary-foreground">
+                    Save
+                  </Text>
+                </Pressable>
+              )}
+
               <Pressable
-                className="min-h-[42px] flex-1 flex-row items-center justify-center gap-1.5 rounded-[14px] bg-primary px-3.5 py-2.5 active:opacity-70"
-                onPress={handleSave}
+                className="h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-input-border bg-input active:opacity-70 disabled:opacity-40"
+                disabled={!enabled}
+                onPress={() => props.onReconnect(props.environment.environmentId)}
               >
                 <SymbolView
-                  name="checkmark"
-                  size={13}
-                  tintColorClassName={"accent-primary-foreground"}
+                  name="arrow.clockwise"
+                  size={14}
+                  tintColorClassName={"accent-icon-subtle"}
                   type="monochrome"
                 />
-                <Text className="text-xs font-t3-bold tracking-[0.8px] uppercase text-primary-foreground">
-                  Save
-                </Text>
               </Pressable>
-            )}
 
-            <Pressable
-              className="h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-input-border bg-input active:opacity-70 disabled:opacity-40"
-              disabled={!enabled}
-              onPress={() => props.onReconnect(props.environment.environmentId)}
-            >
-              <SymbolView
-                name="arrow.clockwise"
-                size={14}
-                tintColorClassName={"accent-icon-subtle"}
-                type="monochrome"
-              />
-            </Pressable>
-
-            <Pressable
-              className="h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-danger-border bg-danger active:opacity-70"
-              onPress={() => props.onRemove(props.environment.environmentId)}
-            >
-              <SymbolView
-                name="trash"
-                size={14}
-                tintColorClassName={"accent-danger-foreground"}
-                type="monochrome"
-              />
-            </Pressable>
-          </View>
+              <Pressable
+                className="h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-danger-border bg-danger active:opacity-70"
+                onPress={() => props.onRemove(props.environment.environmentId)}
+              >
+                <SymbolView
+                  name="trash"
+                  size={14}
+                  tintColorClassName={"accent-danger-foreground"}
+                  type="monochrome"
+                />
+              </Pressable>
+            </View>
+          )}
         </Animated.View>
       ) : null}
     </Animated.View>

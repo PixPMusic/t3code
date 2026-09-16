@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
 
 import { SettingsScreen } from "../settings/components/SettingsScreen";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { ConnectionSheetButton } from "./ConnectionSheetButton";
@@ -36,6 +37,7 @@ export function ConnectionsNewRouteScreen({
     pairingConnectionError,
   } = useRemoteConnections();
   const navigation = useNavigation();
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const routeName = useRoute().name;
   const params = route.params ?? {};
   // Deep-link prefill exists for development automation only. A production
@@ -294,15 +296,17 @@ export function ConnectionsNewRouteScreen({
 
               {pairingConnectionError ? <ErrorBanner message={pairingConnectionError} /> : null}
 
-              <ConnectionSheetButton
-                icon="plus"
-                label={isSubmitting ? "Pairing..." : "Add environment"}
-                disabled={connectDisabled}
-                tone="primary"
-                onPress={() => {
-                  void handleSubmit();
-                }}
-              />
+              <View className={materialYouStyleLayoutActive ? "flex-row justify-end" : undefined}>
+                <ConnectionSheetButton
+                  icon="plus"
+                  label={isSubmitting ? "Pairing..." : "Add environment"}
+                  disabled={connectDisabled}
+                  tone="primary"
+                  onPress={() => {
+                    void handleSubmit();
+                  }}
+                />
+              </View>
             </View>
           )}
         </View>
