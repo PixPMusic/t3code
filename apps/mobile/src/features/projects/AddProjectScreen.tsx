@@ -1,3 +1,5 @@
+import { MaterialListRow } from "../../components/MaterialListRow";
+import { SettingsScreen } from "../settings/components/SettingsScreen";
 import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
 import { MaterialButton } from "../../components/MaterialButton";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
@@ -125,14 +127,22 @@ function sourceFromParam(value: string | string[] | undefined): AddProjectRemote
 }
 
 function SectionTitle(props: { readonly children: string }) {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
-    <Text className="px-1 text-2xs font-t3-bold tracking-[0.7px] uppercase text-foreground-muted">
+    <Text
+      className={
+        materialYouStyleLayoutActive
+          ? "px-4 text-sm font-t3-medium text-primary"
+          : "px-1 text-2xs font-t3-bold tracking-[0.7px] uppercase text-foreground-muted"
+      }
+    >
       {props.children}
     </Text>
   );
 }
 
-function AddProjectShell(props: { readonly children: ReactNode }) {
+function AddProjectShell(props: { readonly children: ReactNode; readonly title: string }) {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const insets = useSafeAreaInsets();
 
   return (
@@ -141,25 +151,36 @@ function AddProjectShell(props: { readonly children: ReactNode }) {
     // scroll-view frame correction mistakes this full-height wrapper for a
     // "header" sibling, coercing the ScrollView to zero height (blank sheet
     // as soon as the sheet re-lays-out, e.g. when the keyboard opens).
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <SettingsScreen title={props.title} nativeAndroidHeader>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: materialYouStyleLayoutActive ? 16 : 20,
           paddingTop: 16,
           paddingBottom: Math.max(insets.bottom, 18) + 18,
-          gap: 10,
+          gap: materialYouStyleLayoutActive ? 16 : 10,
         }}
       >
         {props.children}
       </ScrollView>
-    </View>
+    </SettingsScreen>
   );
 }
 
 function ListSection(props: { readonly children: ReactNode }) {
-  return <View className="overflow-hidden rounded-[24px] bg-card">{props.children}</View>;
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
+  return (
+    <View
+      className={
+        materialYouStyleLayoutActive
+          ? "overflow-hidden rounded-[28px] bg-card"
+          : "overflow-hidden rounded-[24px] bg-card"
+      }
+    >
+      {props.children}
+    </View>
+  );
 }
 
 function ListRow(props: {
@@ -172,6 +193,21 @@ function ListRow(props: {
   readonly right?: ReactNode;
   readonly onPress?: () => void;
 }) {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
+  if (materialYouStyleLayoutActive) {
+    return (
+      <MaterialListRow
+        title={props.title}
+        subtitle={props.subtitle}
+        leading={props.icon}
+        trailing={props.right}
+        disabled={props.disabled}
+        onPress={props.onPress}
+        accessibilityRole={props.selected !== undefined ? "radio" : "button"}
+        accessibilityState={props.selected !== undefined ? { checked: props.selected } : undefined}
+      />
+    );
+  }
   return (
     <Pressable
       disabled={props.disabled}
@@ -431,6 +467,7 @@ function SourceControlRow(props: {
   readonly hint: string;
   readonly isFirst: boolean;
 }) {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const navigation = useNavigation();
   const title =
     props.source === "url" ? "Git URL" : `${addProjectRemoteSourceLabel(props.source)} repository`;
@@ -440,9 +477,18 @@ function SourceControlRow(props: {
       : `Clone ${addProjectRemoteSourceLabel(props.source)} ${props.hint}`;
   const icon =
     props.source === "url" ? (
-      <SymbolView name="link" size={17} tintColorClassName={"accent-icon"} type="monochrome" />
+      <SymbolView
+        name="link"
+        size={materialYouStyleLayoutActive ? 24 : 17}
+        tintColorClassName={"accent-icon"}
+        type="monochrome"
+      />
     ) : (
-      <SourceControlIcon kind={props.source} size={18} colorClassName="accent-icon" />
+      <SourceControlIcon
+        kind={props.source}
+        size={materialYouStyleLayoutActive ? 24 : 18}
+        colorClassName="accent-icon"
+      />
     );
 
   if (!props.ready) {
@@ -470,6 +516,7 @@ function SourceControlRow(props: {
 }
 
 export function AddProjectSourceScreen() {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const navigation = useNavigation();
   const { environmentOptions, selectedEnvironment, setSelectedEnvironmentId } =
     useSelectedEnvironment();
@@ -487,7 +534,7 @@ export function AddProjectSourceScreen() {
   );
 
   return (
-    <AddProjectShell>
+    <AddProjectShell title="Add project">
       {selectedEnvironment === null ? <EmptyEnvironmentState /> : null}
 
       {environmentOptions.length > 1 ? (
@@ -500,7 +547,7 @@ export function AddProjectSourceScreen() {
                 title={environment.label}
                 subtitle={
                   canCreateProjectInEnvironment(environment.connectionState)
-                    ? environment.environmentId
+                    ? undefined
                     : connectionStatusText({
                         phase: environment.connectionState,
                         error: environment.connectionError,
@@ -510,7 +557,7 @@ export function AddProjectSourceScreen() {
                 icon={
                   <EnvironmentMachineSymbol
                     kind={environment.machine}
-                    size={17}
+                    size={materialYouStyleLayoutActive ? 24 : 17}
                     tintColorClassName="accent-icon"
                   />
                 }
@@ -521,7 +568,7 @@ export function AddProjectSourceScreen() {
                   environment.environmentId === selectedEnvironment?.environmentId ? (
                     <SymbolView
                       name="checkmark"
-                      size={14}
+                      size={materialYouStyleLayoutActive ? 20 : 14}
                       tintColorClassName={"accent-icon"}
                       type="monochrome"
                     />
@@ -543,7 +590,7 @@ export function AddProjectSourceScreen() {
               icon={
                 <SymbolView
                   name="folder.badge.plus"
-                  size={17}
+                  size={materialYouStyleLayoutActive ? 24 : 17}
                   tintColorClassName={"accent-icon"}
                   type="monochrome"
                 />
@@ -728,7 +775,7 @@ export function AddProjectRepositoryScreen(props: {
   }, [environment, isSubmitting, lookupRepositoryQuery, repositoryInput, navigation, source]);
 
   return (
-    <AddProjectShell>
+    <AddProjectShell title={source === "url" ? "Git URL" : addProjectRemoteSourceLabel(source)}>
       {error ? <ErrorBanner message={error} /> : null}
       {environment ? (
         <>
@@ -770,6 +817,7 @@ function FolderBrowser(props: {
   }) => Promise<boolean>;
   readonly pinnedDirectoryName?: string;
 }) {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const browsePath = useMemo(
     () => getFilesystemBrowsePath(props.pathInput, props.environment.platform),
     [props.environment.platform, props.pathInput],
@@ -814,7 +862,7 @@ function FolderBrowser(props: {
             icon={
               <SymbolView
                 name="arrow.turn.left.up"
-                size={17}
+                size={materialYouStyleLayoutActive ? 24 : 17}
                 tintColorClassName={"accent-icon-muted"}
                 type="monochrome"
               />
@@ -837,7 +885,7 @@ function FolderBrowser(props: {
             icon={
               <SymbolView
                 name="folder"
-                size={17}
+                size={materialYouStyleLayoutActive ? 24 : 17}
                 tintColorClassName={"accent-icon-muted"}
                 type="monochrome"
               />
@@ -887,7 +935,7 @@ export function AddProjectLocalFolderScreen(props: { readonly environmentId?: st
   }, [createProject, environment, isBrowseNavigating, isSubmitting, pathInput]);
 
   return (
-    <AddProjectShell>
+    <AddProjectShell title="Local folder">
       {error ? <ErrorBanner message={error} /> : null}
       {environment ? (
         <>
@@ -1030,7 +1078,7 @@ export function AddProjectDestinationScreen(props: {
   ]);
 
   return (
-    <AddProjectShell>
+    <AddProjectShell title="Clone destination">
       {error ? <ErrorBanner message={error} /> : null}
       {repositoryTitle ? (
         <View className="rounded-[24px] bg-card px-4 py-3">

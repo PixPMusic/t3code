@@ -1,3 +1,4 @@
+import { MaterialListRow } from "../../components/MaterialListRow";
 import type { VcsRef } from "@t3tools/client-runtime/state/vcs";
 import { resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { LegendList } from "@legendapp/list/react-native";
@@ -49,6 +50,34 @@ function SelectionRow(props: {
   readonly title: string;
 }) {
   const { materialYouStyleLayoutActive } = useAppearancePreferences();
+  if (materialYouStyleLayoutActive) {
+    return (
+      <MaterialListRow
+        title={props.title}
+        subtitle={props.subtitle}
+        leading={
+          props.icon === "arrow.triangle.branch" ? (
+            <SymbolView
+              name="arrow.triangle.branch"
+              size={24}
+              tintColorClassName="accent-icon-muted"
+            />
+          ) : (
+            props.icon
+          )
+        }
+        trailing={
+          props.selected ? (
+            <SymbolView name="checkmark" size={20} tintColorClassName="accent-primary" />
+          ) : null
+        }
+        accessibilityRole="radio"
+        accessibilityState={{ checked: props.selected }}
+        disabled={props.disabled}
+        onPress={props.onPress}
+      />
+    );
+  }
   return (
     <Pressable
       accessibilityLabel={[props.title, props.subtitle].filter(Boolean).join(", ")}
@@ -100,9 +129,16 @@ function ToggleRow(props: {
   readonly value: boolean;
   readonly onValueChange: (value: boolean) => void;
 }) {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <View className="min-h-14 flex-row items-center gap-3 bg-card px-4 py-3">
-      <Text className="min-w-0 flex-1 text-base font-t3-medium text-foreground" numberOfLines={1}>
+      <Text
+        className={cn(
+          "min-w-0 flex-1 text-base text-foreground",
+          !materialYouStyleLayoutActive && "font-t3-medium",
+        )}
+        numberOfLines={1}
+      >
         {props.title}
       </Text>
       <ThemedSwitch
@@ -123,13 +159,20 @@ function BranchSelectionRow(props: {
   readonly onSelect: (branch: VcsRef) => void;
   readonly selected: boolean;
 }) {
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const onPress = useCallback(() => props.onSelect(props.branch), [props.branch, props.onSelect]);
 
   return (
     <View
       className={cn(
-        props.isFirst && "overflow-hidden rounded-t-2xl",
-        props.isLast && "overflow-hidden rounded-b-2xl",
+        props.isFirst &&
+          (materialYouStyleLayoutActive
+            ? "overflow-hidden rounded-t-[28px]"
+            : "overflow-hidden rounded-t-2xl"),
+        props.isLast &&
+          (materialYouStyleLayoutActive
+            ? "overflow-hidden rounded-b-[28px]"
+            : "overflow-hidden rounded-b-2xl"),
       )}
     >
       <SelectionRow
@@ -151,7 +194,7 @@ function PickerSurface(props: { readonly children: ReactNode }) {
     <View
       className={
         materialYouStyleLayoutActive
-          ? "overflow-hidden rounded-[20px] bg-card"
+          ? "overflow-hidden rounded-[28px] bg-card"
           : "overflow-hidden rounded-2xl bg-card"
       }
     >
@@ -187,8 +230,8 @@ export function NewTaskEnvironmentPickerRouteScreen() {
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{
             paddingBottom: Math.max(insets.bottom, 16) + 16,
-            paddingHorizontal: materialYouStyleLayoutActive ? 8 : 16,
-            paddingTop: materialYouStyleLayoutActive ? 8 : 16,
+            paddingHorizontal: 16,
+            paddingTop: 16,
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -201,7 +244,7 @@ export function NewTaskEnvironmentPickerRouteScreen() {
                     kind={resolveEnvironmentMachineKind(
                       serverConfigs.get(environment.environmentId) ?? null,
                     )}
-                    size={17}
+                    size={materialYouStyleLayoutActive ? 24 : 17}
                     tintColorClassName="accent-icon-muted"
                   />
                 }
@@ -247,7 +290,7 @@ export function NewTaskBranchPickerRouteScreen() {
           ? 16
           : Math.max(insets.bottom, 16) + 16,
       paddingHorizontal: 16,
-      paddingTop: 12,
+      paddingTop: 16,
     }),
     [insets.bottom, usesNativeMailSearchToolbar],
   );
@@ -349,7 +392,12 @@ export function NewTaskBranchPickerRouteScreen() {
 
   const branchListHeader =
     flow.workspaceMode === "worktree" ? (
-      <View className="mb-3 overflow-hidden rounded-2xl">
+      <View
+        className={cn(
+          "mb-3 overflow-hidden",
+          materialYouStyleLayoutActive ? "rounded-[28px]" : "rounded-2xl",
+        )}
+      >
         <ToggleRow
           onValueChange={flow.setStartFromOrigin}
           title="Start from origin"
@@ -363,7 +411,7 @@ export function NewTaskBranchPickerRouteScreen() {
       <ScrollView
         className={materialYouStyleLayoutActive ? "flex-1 bg-sheet-solid" : "flex-1 bg-sheet"}
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingTop: 12 }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingTop: 16 }}
         scrollEnabled={false}
         showsVerticalScrollIndicator={false}
       >

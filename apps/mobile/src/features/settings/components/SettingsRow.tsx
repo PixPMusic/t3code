@@ -1,3 +1,4 @@
+import { MaterialListRow } from "../../../components/MaterialListRow";
 import { useNavigation } from "@react-navigation/native";
 import type { ComponentProps } from "react";
 import { Pressable, View } from "react-native";
@@ -16,55 +17,74 @@ export function SettingsRow(props: {
   readonly icon: SymbolName;
   readonly label: string;
   readonly value?: string;
+  readonly valuePosition?: "below" | "trailing";
   readonly target?: SettingsSheetTarget;
   readonly fullScreenTarget?: SettingsLegalDocumentTarget;
   readonly onPress?: () => void;
 }) {
   const navigation = useNavigation();
-  const { materialYouStyleLayoutActive, themeVariables } = useAppearancePreferences();
-  const ripple = materialYouStyleLayoutActive
-    ? { color: themeVariables["--color-subtle-strong"] }
-    : undefined;
+  const { materialYouStyleLayoutActive } = useAppearancePreferences();
+  if (materialYouStyleLayoutActive) {
+    return (
+      <MaterialListRow
+        title={props.label}
+        subtitle={props.valuePosition === "trailing" ? undefined : props.value}
+        accessibilityLabel={[props.label, props.value].filter(Boolean).join(", ")}
+        trailing={
+          props.valuePosition === "trailing" && props.value ? (
+            <View className="flex-row items-center gap-3">
+              <Text className="text-sm text-foreground-muted">{props.value}</Text>
+              <SymbolView name="chevron.right" size={16} tintColorClassName="accent-chevron" />
+            </View>
+          ) : undefined
+        }
+        disabled={props.disabled}
+        leading={
+          <SymbolView
+            name={props.icon}
+            size={24}
+            tintColorClassName="accent-icon"
+            type="monochrome"
+            weight="regular"
+          />
+        }
+        onPress={() => {
+          if (props.target)
+            navigation.navigate("SettingsSheet", {
+              screen: "SettingsContent",
+              params: { screen: props.target },
+            });
+          else if (props.fullScreenTarget) navigation.navigate(props.fullScreenTarget);
+          else props.onPress?.();
+        }}
+      />
+    );
+  }
   const content = (
-    <View
-      className={cn(
-        "flex-row items-center gap-4 p-4",
-        materialYouStyleLayoutActive && "min-h-18",
-        props.disabled && "opacity-[0.45]",
-      )}
-    >
+    <View className={cn("flex-row items-center gap-4 p-4", props.disabled && "opacity-[0.45]")}>
       <SymbolView
         name={props.icon}
-        size={materialYouStyleLayoutActive ? 24 : 22}
+        size={22}
         tintColorClassName={"accent-icon"}
         type="monochrome"
         weight="regular"
       />
-      {materialYouStyleLayoutActive ? (
-        <View className="min-w-0 flex-1 gap-1">
-          <Text className="text-base text-foreground">{props.label}</Text>
+      <>
+        <Text className="shrink-0 text-lg text-foreground" numberOfLines={1}>
+          {props.label}
+        </Text>
+        <View className="min-w-0 flex-1 items-end">
           {props.value ? (
-            <Text className="text-sm text-foreground-muted">{props.value}</Text>
+            <Text
+              className="max-w-[180px] text-right text-base text-foreground-muted"
+              ellipsizeMode="middle"
+              numberOfLines={1}
+            >
+              {props.value}
+            </Text>
           ) : null}
         </View>
-      ) : (
-        <>
-          <Text className="shrink-0 text-lg text-foreground" numberOfLines={1}>
-            {props.label}
-          </Text>
-          <View className="min-w-0 flex-1 items-end">
-            {props.value ? (
-              <Text
-                className="max-w-[180px] text-right text-base text-foreground-muted"
-                ellipsizeMode="middle"
-                numberOfLines={1}
-              >
-                {props.value}
-              </Text>
-            ) : null}
-          </View>
-        </>
-      )}
+      </>
       <SymbolView
         name="chevron.right"
         size={16}
@@ -79,7 +99,6 @@ export function SettingsRow(props: {
   if (target) {
     return (
       <Pressable
-        android_ripple={ripple}
         accessibilityLabel={props.label}
         accessibilityRole="button"
         disabled={props.disabled}
@@ -99,7 +118,6 @@ export function SettingsRow(props: {
   if (fullScreenTarget) {
     return (
       <Pressable
-        android_ripple={ripple}
         accessibilityLabel={props.label}
         accessibilityRole="button"
         disabled={props.disabled}
@@ -114,7 +132,6 @@ export function SettingsRow(props: {
     <Pressable
       accessibilityLabel={props.label}
       accessibilityRole="button"
-      android_ripple={ripple}
       disabled={props.disabled}
       onPress={props.onPress}
     >

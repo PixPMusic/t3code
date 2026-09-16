@@ -1,3 +1,4 @@
+import { MaterialSegmentedButtons } from "../../components/MaterialSegmentedButtons.android";
 import {
   AlertDialog,
   Column,
@@ -5,8 +6,6 @@ import {
   DateTimePicker,
   Host,
   OutlinedTextField,
-  SegmentedButton,
-  SingleChoiceSegmentedButtonRow,
   Text,
   TextButton,
   useNativeState,
@@ -96,14 +95,6 @@ function MaterialCustomSnoozeDialog(props: Props) {
     props.onSnooze(snoozedUntil);
     props.onClose();
   };
-  const segmentedColors = {
-    activeContainerColor: colors["--color-secondary"],
-    activeContentColor: colors["--color-secondary-foreground"],
-    inactiveContainerColor: colors["--color-card-alt"],
-    inactiveContentColor: colors["--color-foreground"],
-    activeBorderColor: colors["--color-border"],
-    inactiveBorderColor: colors["--color-border"],
-  };
   const pickerColors = {
     containerColor: colors["--color-card-alt"],
     titleContentColor: colors["--color-foreground-secondary"],
@@ -155,25 +146,15 @@ function MaterialCustomSnoozeDialog(props: Props) {
               modifiers={[fillMaxWidth(), verticalScroll()]}
             >
               <Text style={bodyTypography}>Choose when snoozed threads return to your inbox.</Text>
-              <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-                {modes.map((option) => (
-                  <SegmentedButton
-                    key={option.value}
-                    selected={mode === option.value}
-                    colors={segmentedColors}
-                    modifiers={[defaultMinSize({ minHeight: 48 })]}
-                    onClick={() => {
-                      setMode(option.value);
-                      setPicker(null);
-                      setError(null);
-                    }}
-                  >
-                    <SegmentedButton.Label>
-                      <Text style={bodyTypography}>{option.label}</Text>
-                    </SegmentedButton.Label>
-                  </SegmentedButton>
-                ))}
-              </SingleChoiceSegmentedButtonRow>
+              <MaterialSegmentedButtons
+                options={modes}
+                selected={mode}
+                onSelect={(value) => {
+                  setMode(value);
+                  setPicker(null);
+                  setError(null);
+                }}
+              />
               {mode === "date" ? (
                 <>
                   <TextButton
@@ -227,24 +208,14 @@ function MaterialCustomSnoozeDialog(props: Props) {
                       <Text style={bodyTypography}>Duration</Text>
                     </OutlinedTextField.Label>
                   </OutlinedTextField>
-                  <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
-                    {units.map((option) => (
-                      <SegmentedButton
-                        key={option.value}
-                        selected={unit === option.value}
-                        colors={segmentedColors}
-                        modifiers={[defaultMinSize({ minHeight: 48 })]}
-                        onClick={() => {
-                          setUnit(option.value);
-                          setError(null);
-                        }}
-                      >
-                        <SegmentedButton.Label>
-                          <Text style={bodyTypography}>{option.label}</Text>
-                        </SegmentedButton.Label>
-                      </SegmentedButton>
-                    ))}
-                  </SingleChoiceSegmentedButtonRow>
+                  <MaterialSegmentedButtons
+                    options={units}
+                    selected={unit}
+                    onSelect={(value) => {
+                      setUnit(value);
+                      setError(null);
+                    }}
+                  />
                 </>
               )}
               {error ? (

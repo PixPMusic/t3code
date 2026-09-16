@@ -1,3 +1,4 @@
+import { MaterialListRow } from "../../components/MaterialListRow";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import {
   StackActions,
@@ -240,8 +241,8 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
           contentContainerStyle={{
             gap: materialYouStyleLayoutActive ? 8 : 12,
             paddingBottom: Math.max(insets.bottom, 18) + 18,
-            paddingHorizontal: materialYouStyleLayoutActive ? 8 : 20,
-            paddingTop: 8,
+            paddingHorizontal: materialYouStyleLayoutActive ? 16 : 20,
+            paddingTop: materialYouStyleLayoutActive ? 16 : 8,
             ...(materialYouStyleLayoutActive && projectScopes.length === 0
               ? { flexGrow: 1, justifyContent: "center" as const }
               : {}),
@@ -298,7 +299,9 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
             <View
               collapsable={false}
               className={
-                materialYouStyleLayoutActive ? "gap-2" : "overflow-hidden rounded-[24px] bg-card"
+                materialYouStyleLayoutActive
+                  ? "overflow-hidden rounded-[28px] bg-card"
+                  : "overflow-hidden rounded-[24px] bg-card"
               }
             >
               {projectScopes.map((scope, scopeIndex) => {
@@ -307,6 +310,30 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                   scope,
                   selectedEnvironmentId,
                 );
+                if (materialYouStyleLayoutActive) {
+                  return (
+                    <MaterialListRow
+                      key={scope.key}
+                      title={scope.title}
+                      subtitle={
+                        hasMultipleProjects
+                          ? `${scope.projects.length} workspaces`
+                          : selectionTarget.workspaceRoot
+                      }
+                      disabled={reservedDestinationProject !== null}
+                      onPress={() => void selectProject(selectionTarget)}
+                      leading={
+                        <ProjectFavicon
+                          environmentId={scope.representative.environmentId}
+                          faviconPath={scope.representative.faviconPath}
+                          size={24}
+                          projectTitle={scope.title}
+                          workspaceRoot={scope.representative.workspaceRoot}
+                        />
+                      }
+                    />
+                  );
+                }
                 return (
                   <View
                     key={scope.key}

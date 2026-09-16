@@ -1,3 +1,4 @@
+import { cn } from "../../../lib/cn";
 import type { ComponentProps } from "react";
 import { View } from "react-native";
 
@@ -19,20 +20,21 @@ export function SettingsSwitchRow(props: {
   const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <View
-      className={
-        props.disabled
-          ? "flex-row items-center gap-4 p-4 opacity-[0.45]"
-          : "flex-row items-center gap-4 p-4"
-      }
+      className={cn(
+        "flex-row items-center gap-4",
+        materialYouStyleLayoutActive ? "min-h-14 px-4 py-3" : "p-4",
+        materialYouStyleLayoutActive && props.subtitle && "min-h-18",
+        props.disabled && "opacity-[0.45]",
+      )}
     >
       <SymbolView
         name={props.icon}
-        size={22}
+        size={materialYouStyleLayoutActive ? 24 : 22}
         tintColorClassName={"accent-icon"}
         type="monochrome"
         weight="regular"
       />
-      <View className="min-w-0 flex-1">
+      <View className={cn("min-w-0 flex-1", materialYouStyleLayoutActive && "gap-1")}>
         <Text
           className={
             materialYouStyleLayoutActive ? "text-base text-foreground" : "text-lg text-foreground"

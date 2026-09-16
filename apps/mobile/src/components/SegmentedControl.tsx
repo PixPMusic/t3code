@@ -13,7 +13,7 @@ export interface SegmentedControlProps<Value extends number | string> {
   }[];
   readonly selected: Value;
   readonly onSelect: (value: Value) => void;
-  /** The tab bar is full height; filters under it are shorter so it stays primary. */
+  /** Compact sizing applies to the non-Material control. */
   readonly size?: "default" | "compact";
   /** "tab" for the view switcher; filters stay plain buttons. */
   readonly role?: "tab" | "button";
@@ -25,8 +25,7 @@ export function SegmentedControl<Value extends number | string>(
 ) {
   const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const compact = props.size === "compact";
-  const tabs = materialYouStyleLayoutActive && props.role === "tab";
-  if (materialYouStyleLayoutActive && !tabs) {
+  if (materialYouStyleLayoutActive) {
     return <MaterialSegmentedControl {...props} />;
   }
   return (
@@ -34,7 +33,7 @@ export function SegmentedControl<Value extends number | string>(
       accessible={false}
       className={cn(
         "flex-row overflow-hidden",
-        tabs ? "border-b border-border" : "rounded-full border-continuous bg-card",
+        "rounded-full border-continuous bg-card",
         props.className,
       )}
     >
@@ -43,14 +42,7 @@ export function SegmentedControl<Value extends number | string>(
         layout={LinearTransition.duration(200)
           .easing(Easing.out(Easing.cubic))
           .reduceMotion(ReduceMotion.System)}
-        className={cn(
-          "absolute bottom-0",
-          tabs
-            ? "h-[3px] rounded-t-full bg-primary"
-            : materialYouStyleLayoutActive
-              ? "top-0 rounded-full bg-secondary"
-              : "top-0 rounded-full bg-subtle-strong",
-        )}
+        className="absolute inset-y-0 rounded-full bg-subtle-strong"
         style={{
           width: `${100 / props.options.length}%`,
           start: `${
@@ -74,17 +66,13 @@ export function SegmentedControl<Value extends number | string>(
             onPress={() => props.onSelect(option.value)}
             className={cn(
               "flex-1 items-center justify-center rounded-full",
-              materialYouStyleLayoutActive ? "min-h-12 px-2 py-2" : compact ? "h-9" : "h-11",
+              compact ? "h-9" : "h-11",
             )}
           >
             <Text
               className={cn(
                 compact ? "text-xs" : "text-sm",
-                tabs && active
-                  ? "font-t3-medium text-primary"
-                  : active
-                    ? "font-t3-medium text-foreground"
-                    : "text-foreground-muted",
+                active ? "font-t3-medium text-foreground" : "text-foreground-muted",
               )}
             >
               {option.label}
