@@ -4,7 +4,10 @@ import { Pressable, View } from "react-native";
 
 import { AppText as Text } from "../../components/AppText";
 
-export function WorkspaceEmptyDetail(props: { readonly onStartNewTask?: () => void }) {
+export function WorkspaceEmptyDetail(props: {
+  readonly onShowThreads?: () => void;
+  readonly onStartNewTask?: () => void;
+}) {
   const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <View
@@ -23,8 +26,17 @@ export function WorkspaceEmptyDetail(props: { readonly onStartNewTask?: () => vo
         />
         <Text className="text-center text-xl font-t3-bold">Select a thread</Text>
         <Text className="text-center text-base text-foreground-muted">
-          Choose a thread from the sidebar or start a new task.
+          Choose an existing thread or start a new task.
         </Text>
+        {props.onShowThreads ? (
+          <Pressable
+            accessibilityRole="button"
+            className="mt-2 flex-row items-center gap-2 rounded-full bg-primary px-5 py-3 active:opacity-70"
+            onPress={props.onShowThreads}
+          >
+            <Text className="text-base font-t3-bold text-primary-foreground">Show threads</Text>
+          </Pressable>
+        ) : null}
         {props.onStartNewTask ? (
           <Pressable
             accessibilityRole="button"
