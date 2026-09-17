@@ -2,7 +2,6 @@ import { Platform, Pressable, View } from "react-native";
 import Animated, { Easing, LinearTransition, ReduceMotion } from "react-native-reanimated";
 import { AppText as Text } from "./AppText";
 import { cn } from "../lib/cn";
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 import { MaterialSegmentedControl } from "./MaterialSegmentedControl";
 
 export interface SegmentedControlProps<Value extends number | string> {
@@ -23,9 +22,8 @@ export interface SegmentedControlProps<Value extends number | string> {
 export function SegmentedControl<Value extends number | string>(
   props: SegmentedControlProps<Value>,
 ) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const compact = props.size === "compact";
-  if (materialYouStyleLayoutActive) {
+  if (Platform.OS === "android") {
     return <MaterialSegmentedControl {...props} />;
   }
   return (

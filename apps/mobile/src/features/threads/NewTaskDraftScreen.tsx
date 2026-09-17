@@ -27,12 +27,10 @@ import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { useFontFamily } from "../../lib/useFontFamily";
-
 import {
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
   resolveEnvironmentMachineKind,
-  type EnvironmentId,
 } from "@t3tools/contracts";
 
 import {
@@ -52,7 +50,6 @@ import {
 } from "../../components/ComposerToolbar";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { MaterialScreenContent } from "../../components/MaterialScreenContent";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { ComposerAttachmentButton } from "../../components/ComposerAttachmentButton";
 import { ComposerAttachmentStrip } from "../../components/ComposerAttachmentStrip";
 import { composerStripAttachments } from "../../lib/composerImages";
@@ -83,7 +80,6 @@ import {
   useThreadSettingsSheetPresentation,
   type NavigationWithFinishTransitioning,
 } from "./use-thread-settings-sheet-presentation";
-
 import { makeTurnCommandMetadata } from "../../lib/commandMetadata";
 import {
   convertPastedImagesToAttachments,
@@ -142,7 +138,7 @@ function NewTaskWorkspaceIcon(props: {
       <SymbolView
         name="folder"
         size={16}
-        tintColorClassName={"accent-icon-muted"}
+        tintColorClassName="accent-icon-muted"
         type="monochrome"
       />
     );
@@ -153,14 +149,14 @@ function NewTaskWorkspaceIcon(props: {
       <SymbolView
         name="folder"
         size={16}
-        tintColorClassName={"accent-icon-muted"}
+        tintColorClassName="accent-icon-muted"
         type="monochrome"
       />
       <View className="absolute -right-1 -bottom-1">
         <SymbolView
           name="arrow.triangle.branch"
           size={9}
-          tintColorClassName={"accent-icon-muted"}
+          tintColorClassName="accent-icon-muted"
           type="monochrome"
         />
       </View>
@@ -185,7 +181,6 @@ export function NewTaskDraftScreen(props: {
   readonly incomingShareId?: string;
 }) {
   const projects = useProjects();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const flow = useNewTaskFlow();
   const navigation = useNavigation();
   const {
@@ -1326,8 +1321,8 @@ export function NewTaskDraftScreen(props: {
           <>
             <NativeStackScreenOptions options={{ headerShown: false }} />
             <AndroidScreenHeader
-              title={materialYouStyleLayoutActive ? "New thread" : "New Thread"}
-              hideBottomBorder={materialYouStyleLayoutActive}
+              title="New thread"
+              hideBottomBorder
               onBack={() => navigation.goBack()}
             />
           </>
@@ -1549,7 +1544,7 @@ export function NewTaskDraftScreen(props: {
   const composerDock = (
     <View
       className={
-        materialYouStyleLayoutActive ? "bg-sheet-solid px-[12px] pt-1" : "bg-sheet px-[12px] pt-1"
+        Platform.OS === "android" ? "bg-sheet-solid px-[12px] pt-1" : "bg-sheet px-[12px] pt-1"
       }
       style={{ paddingBottom: controlsBottomPadding }}
     >
@@ -1766,11 +1761,7 @@ export function NewTaskDraftScreen(props: {
     return (
       <View className="flex-1 bg-sheet" collapsable={false}>
         <NativeStackScreenOptions options={{ headerShown: false }} />
-        <AndroidScreenHeader
-          title={materialYouStyleLayoutActive ? "New thread" : "New task"}
-          hideBottomBorder={materialYouStyleLayoutActive}
-          onBack={closeNewTask}
-        />
+        <AndroidScreenHeader title="New thread" hideBottomBorder onBack={closeNewTask} />
         <MaterialScreenContent>
           {heroViewport}
 

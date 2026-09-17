@@ -32,21 +32,19 @@ const palette: MaterialYouPalette = {
 
 describe("Material You system colors", () => {
   it.each(["light", "dark"] as const)(
-    "keeps the system frame in %s with either layout",
+    "uses the system surface for the Android frame in %s",
     (appearance) => {
-      const resolve = (rounded: boolean) =>
-        materialYouPaletteToMobileThemeVariables(
-          palette,
-          appearance,
-          getMobileThemeRuntimeVariables("material-you", appearance, rounded),
-        );
-      expect(resolve(true)).toEqual(resolve(false));
-      expect(resolve(true)["--color-header"]).toBe(palette.surfaceContainerHigh);
+      const variables = materialYouPaletteToMobileThemeVariables(
+        palette,
+        appearance,
+        getMobileThemeRuntimeVariables("material-you", appearance, "android"),
+      );
+      expect(variables["--color-header"]).toBe(palette.surfaceContainerHigh);
     },
   );
 
   it("overrides the selected theme without mutating its base variables", () => {
-    const base = getMobileThemeRuntimeVariables("t3-code", "dark");
+    const base = getMobileThemeRuntimeVariables("t3-code", "dark", "android");
     const snapshot = { ...base };
 
     const variables = materialYouPaletteToMobileThemeVariables(palette, "dark", base);
@@ -61,7 +59,7 @@ describe("Material You system colors", () => {
   });
 
   it("uses the Messages-style RCS tones for sent messages", () => {
-    const base = getMobileThemeRuntimeVariables("t3-code", "dark");
+    const base = getMobileThemeRuntimeVariables("t3-code", "dark", "android");
     const dark = materialYouPaletteToMobileThemeVariables(
       { ...palette, inversePrimary: "#A31D8DFF" },
       "dark",
@@ -70,7 +68,7 @@ describe("Material You system colors", () => {
     const light = materialYouPaletteToMobileThemeVariables(
       { ...palette, inversePrimary: "#A31D8DFF" },
       "light",
-      getMobileThemeRuntimeVariables("t3-code", "light"),
+      getMobileThemeRuntimeVariables("t3-code", "light", "android"),
     );
 
     expect(dark["--color-user-bubble"]).toBe("#850073FF");

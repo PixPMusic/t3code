@@ -41,7 +41,6 @@ import {
 } from "../layout/native-mail-search-toolbar";
 import type { ArchivedThreadGroup, ArchivedThreadSortOrder } from "./archivedThreadList";
 import { SettingsScreenContent } from "../settings/components/SettingsScreen";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 export interface ArchivedThreadsHeaderEnvironment {
   readonly environmentId: EnvironmentId;
@@ -76,7 +75,6 @@ function ArchivedThreadsHeader(props: {
   readonly onSortOrderChange: (sortOrder: ArchivedThreadSortOrder) => void;
 }) {
   const { width } = useWindowDimensions();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const hasCustomFilter = props.selectedEnvironmentId !== null || props.sortOrder !== "newest";
@@ -149,7 +147,7 @@ function ArchivedThreadsHeader(props: {
           className="border-b border-header-border bg-header px-3 pb-2.5"
           style={{
             paddingTop: Math.max(insets.top, 12),
-            borderBottomWidth: materialYouStyleLayoutActive ? 0 : undefined,
+            borderBottomWidth: 0,
           }}
         >
           <View className="min-h-12 flex-row items-center gap-2">
@@ -163,7 +161,7 @@ function ArchivedThreadsHeader(props: {
               <SymbolView
                 name="chevron.left"
                 size={24}
-                tintColorClassName={"accent-foreground"}
+                tintColorClassName="accent-foreground"
                 type="monochrome"
               />
             </Pressable>
@@ -171,7 +169,7 @@ function ArchivedThreadsHeader(props: {
               <SymbolView
                 name="magnifyingglass"
                 size={17}
-                tintColorClassName={"accent-icon"}
+                tintColorClassName="accent-icon"
                 type="monochrome"
               />
               <TextInput
@@ -201,7 +199,7 @@ function ArchivedThreadsHeader(props: {
                       : "line.3.horizontal.decrease.circle"
                   }
                   size={16}
-                  tintColorClassName={"accent-icon"}
+                  tintColorClassName="accent-icon"
                   type="monochrome"
                 />
               </Pressable>
@@ -459,7 +457,7 @@ function ArchivedThreadRow(props: {
             <SymbolView
               name="archivebox.fill"
               size={15}
-              tintColorClassName={"accent-icon-subtle"}
+              tintColorClassName="accent-icon-subtle"
               type="monochrome"
             />
           </View>
@@ -481,7 +479,7 @@ function ArchivedThreadRow(props: {
                 <SymbolView
                   name="arrow.triangle.branch"
                   size={10}
-                  tintColorClassName={"accent-icon-subtle"}
+                  tintColorClassName="accent-icon-subtle"
                   type="monochrome"
                 />
                 <Text
@@ -619,7 +617,7 @@ export function ArchivedThreadsScreen(props: {
     if (isInitialLoad) {
       return (
         <View className="items-center py-16">
-          <ActivityIndicator colorClassName={"accent-icon"} />
+          <ActivityIndicator colorClassName="accent-icon" />
           <Text className="mt-3 text-sm text-foreground-muted">Loading archive...</Text>
         </View>
       );

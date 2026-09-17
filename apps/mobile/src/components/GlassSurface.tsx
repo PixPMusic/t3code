@@ -1,5 +1,5 @@
 import { GlassView, isGlassEffectAPIAvailable } from "expo-glass-effect";
-import type { ReactNode, Ref, RefObject } from "react";
+import type { ReactNode, Ref } from "react";
 import {
   Platform,
   useColorScheme,
@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { withUniwind } from "uniwind";
 
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 import { cn } from "../lib/cn";
 import { GlassBackdrop } from "./GlassBackdrop";
 
@@ -29,7 +28,6 @@ interface GlassSurfaceProps extends ViewProps {
   readonly chrome?: "default" | "none";
   /** Base color for the frosted tint, or solid fill when blur is unavailable. */
   readonly fallbackColor?: ColorValue;
-  readonly blurTarget?: RefObject<View | null>;
   /** Uniwind styling used only when native Liquid Glass is unavailable. */
   readonly fallbackClassName?: string;
 }
@@ -42,16 +40,14 @@ export function GlassSurface({
   tintColor,
   tintColorClassName,
   fallbackColor,
-  blurTarget,
   fallbackClassName,
   className,
   style,
   ...props
 }: GlassSurfaceProps) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const isDarkMode = useColorScheme() === "dark";
   const supportsGlass = Platform.OS === "ios" && isGlassEffectAPIAvailable();
-  const hasShadow = chrome !== "none" && !materialYouStyleLayoutActive;
+  const hasShadow = chrome !== "none" && Platform.OS !== "android";
   const surfaceStyle: ViewStyle = {
     borderRadius: 32,
     overflow: "hidden",
@@ -97,7 +93,7 @@ export function GlassSurface({
       )}
       style={[surfaceStyle, style]}
     >
-      <GlassBackdrop blurTarget={blurTarget} fallbackColor={fallbackColor} />
+      <GlassBackdrop fallbackColor={fallbackColor} />
       {children}
     </View>
   );

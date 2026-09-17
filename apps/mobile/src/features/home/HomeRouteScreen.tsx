@@ -26,14 +26,12 @@ import { buildHomeProjectScopes } from "./homeThreadList";
 import { usePendingTaskListActions } from "./usePendingTaskListActions";
 import { useThreadListActions } from "./useThreadListActions";
 import { getConnectionAwareBrandHeaderOptions } from "./WorkspaceConnectionTitle";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 /* ─── Route screen ───────────────────────────────────────────────────── */
 
 export function HomeRouteScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const { layout, panes } = useAdaptiveWorkspaceLayout();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const projects = useProjects();
   const threads = useThreadShells();
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
@@ -137,7 +135,7 @@ export function HomeRouteScreen() {
         ) : null}
         <WorkspaceEmptyDetail
           onAddConnection={
-            materialYouStyleLayoutActive && !catalogState.hasConnections
+            Platform.OS === "android" && !catalogState.hasConnections
               ? () =>
                   navigation.navigate("SettingsSheet", {
                     screen: "SettingsContent",
@@ -146,7 +144,7 @@ export function HomeRouteScreen() {
               : undefined
           }
           onStartNewTask={
-            materialYouStyleLayoutActive && panes.primarySidebarVisible
+            Platform.OS === "android" && panes.primarySidebarVisible
               ? undefined
               : () => navigation.navigate("NewTaskSheet", { screen: "NewTask" })
           }

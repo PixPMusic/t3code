@@ -22,7 +22,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { MaterialScreenContent } from "../../components/MaterialScreenContent";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { SymbolView } from "../../components/AppSymbol";
 import { AppText as Text } from "../../components/AppText";
 import { EnvironmentMachineSymbol } from "../../components/EnvironmentMachineSymbol";
@@ -49,8 +48,7 @@ function SelectionRow(props: {
   readonly subtitle?: string;
   readonly title: string;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  if (materialYouStyleLayoutActive) {
+  if (Platform.OS === "android") {
     return (
       <MaterialListRow
         title={props.title}
@@ -85,7 +83,7 @@ function SelectionRow(props: {
       accessibilityState={{ checked: props.selected }}
       className={cn(
         "min-h-14 flex-row items-center gap-3 bg-card px-4 py-3 active:bg-subtle",
-        !materialYouStyleLayoutActive && !props.isLast && "border-b border-border-subtle",
+        !props.isLast && "border-b border-border-subtle",
       )}
       disabled={props.disabled}
       onPress={props.onPress}
@@ -95,7 +93,7 @@ function SelectionRow(props: {
         <SymbolView
           name="arrow.triangle.branch"
           size={17}
-          tintColorClassName={"accent-icon-muted"}
+          tintColorClassName="accent-icon-muted"
           type="monochrome"
         />
       ) : (
@@ -115,7 +113,7 @@ function SelectionRow(props: {
         <SymbolView
           name="checkmark"
           size={16}
-          tintColorClassName={"accent-icon"}
+          tintColorClassName="accent-icon"
           type="monochrome"
           weight="semibold"
         />
@@ -129,13 +127,12 @@ function ToggleRow(props: {
   readonly value: boolean;
   readonly onValueChange: (value: boolean) => void;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <View className="min-h-14 flex-row items-center gap-3 bg-card px-4 py-3">
       <Text
         className={cn(
           "min-w-0 flex-1 text-base text-foreground",
-          !materialYouStyleLayoutActive && "font-t3-medium",
+          Platform.OS !== "android" && "font-t3-medium",
         )}
         numberOfLines={1}
       >
@@ -159,18 +156,17 @@ function BranchSelectionRow(props: {
   readonly onSelect: (branch: VcsRef) => void;
   readonly selected: boolean;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const onPress = useCallback(() => props.onSelect(props.branch), [props.branch, props.onSelect]);
 
   return (
     <View
       className={cn(
         props.isFirst &&
-          (materialYouStyleLayoutActive
+          (Platform.OS === "android"
             ? "overflow-hidden rounded-t-[28px]"
             : "overflow-hidden rounded-t-2xl"),
         props.isLast &&
-          (materialYouStyleLayoutActive
+          (Platform.OS === "android"
             ? "overflow-hidden rounded-b-[28px]"
             : "overflow-hidden rounded-b-2xl"),
       )}
@@ -189,11 +185,10 @@ function BranchSelectionRow(props: {
 }
 
 function PickerSurface(props: { readonly children: ReactNode }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <View
       className={
-        materialYouStyleLayoutActive
+        Platform.OS === "android"
           ? "overflow-hidden rounded-[28px] bg-card"
           : "overflow-hidden rounded-2xl bg-card"
       }
@@ -204,7 +199,6 @@ function PickerSurface(props: { readonly children: ReactNode }) {
 }
 
 export function NewTaskEnvironmentPickerRouteScreen() {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const flow = useNewTaskFlow();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -221,7 +215,7 @@ export function NewTaskEnvironmentPickerRouteScreen() {
       {Platform.OS === "android" ? (
         <AndroidScreenHeader
           title="Environment"
-          hideBottomBorder={materialYouStyleLayoutActive}
+          hideBottomBorder
           onBack={() => navigation.goBack()}
         />
       ) : null}
@@ -244,7 +238,7 @@ export function NewTaskEnvironmentPickerRouteScreen() {
                     kind={resolveEnvironmentMachineKind(
                       serverConfigs.get(environment.environmentId) ?? null,
                     )}
-                    size={materialYouStyleLayoutActive ? 24 : 17}
+                    size={Platform.OS === "android" ? 24 : 17}
                     tintColorClassName="accent-icon-muted"
                   />
                 }
@@ -266,7 +260,6 @@ export function NewTaskEnvironmentPickerRouteScreen() {
 }
 
 export function NewTaskBranchPickerRouteScreen() {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const flow = useNewTaskFlow();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -395,7 +388,7 @@ export function NewTaskBranchPickerRouteScreen() {
       <View
         className={cn(
           "mb-3 overflow-hidden",
-          materialYouStyleLayoutActive ? "rounded-[28px]" : "rounded-2xl",
+          Platform.OS === "android" ? "rounded-[28px]" : "rounded-2xl",
         )}
       >
         <ToggleRow
@@ -409,7 +402,7 @@ export function NewTaskBranchPickerRouteScreen() {
   const branchContent =
     flow.filteredBranches.length === 0 ? (
       <ScrollView
-        className={materialYouStyleLayoutActive ? "flex-1 bg-sheet-solid" : "flex-1 bg-sheet"}
+        className={Platform.OS === "android" ? "flex-1 bg-sheet-solid" : "flex-1 bg-sheet"}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingTop: 16 }}
         scrollEnabled={false}
@@ -450,7 +443,7 @@ export function NewTaskBranchPickerRouteScreen() {
         alwaysBounceVertical={false}
         automaticallyAdjustsScrollIndicatorInsets
         automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-        className={materialYouStyleLayoutActive ? "flex-1 bg-sheet-solid" : "flex-1 bg-sheet"}
+        className={Platform.OS === "android" ? "flex-1 bg-sheet-solid" : "flex-1 bg-sheet"}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={branchListContentStyle}
         data={flow.filteredBranches}
@@ -480,29 +473,21 @@ export function NewTaskBranchPickerRouteScreen() {
         <NativeStackScreenOptions options={{ headerShown: false }} />
         <AndroidScreenHeader
           title={screenTitle}
-          hideBottomBorder={materialYouStyleLayoutActive}
+          hideBottomBorder
           onBack={() => navigation.goBack()}
         />
-        <View
-          className={materialYouStyleLayoutActive ? "bg-header px-4 pb-3 pt-1" : "px-4 pb-2 pt-3"}
-        >
+        <View className="bg-header px-4 pb-3 pt-1">
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
             accessibilityLabel="Find a branch"
-            className={
-              materialYouStyleLayoutActive
-                ? "h-12 rounded-full border border-input-border bg-input px-4 font-sans text-base text-foreground"
-                : "h-11 rounded-xl bg-card px-4 font-sans text-base text-foreground"
-            }
-            selectionColorClassName={materialYouStyleLayoutActive ? "accent-primary/32" : undefined}
-            cursorColorClassName={materialYouStyleLayoutActive ? "accent-primary" : undefined}
-            selectionHandleColorClassName={
-              materialYouStyleLayoutActive ? "accent-primary" : undefined
-            }
+            className="h-12 rounded-full border border-input-border bg-input px-4 font-sans text-base text-foreground"
+            selectionColorClassName="accent-primary/32"
+            cursorColorClassName="accent-primary"
+            selectionHandleColorClassName="accent-primary"
             onChangeText={flow.setBranchQuery}
             placeholder="Find a branch"
-            placeholderTextColorClassName={"accent-placeholder"}
+            placeholderTextColorClassName="accent-placeholder"
             value={flow.branchQuery}
           />
         </View>

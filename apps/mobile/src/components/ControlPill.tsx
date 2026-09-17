@@ -19,7 +19,6 @@ import {
 } from "react-native";
 import { withUniwind } from "uniwind";
 import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
-
 import { cn } from "../lib/cn";
 import { withMenuActionIconColors } from "../lib/menu-action-colors";
 import { AndroidAnchoredMenu } from "./AndroidAnchoredMenu";
@@ -68,7 +67,6 @@ export function ControlPill(props: {
   readonly className?: string;
 }) {
   const variant = props.variant ?? "circle";
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const activatedOnPressInRef = useRef(false);
 
   const handlePressIn = () => {
@@ -125,7 +123,7 @@ export function ControlPill(props: {
   );
 
   if (
-    materialYouStyleLayoutActive &&
+    Platform.OS === "android" &&
     (variant === "pill" || variant === "primary") &&
     props.label &&
     props.onPress &&
@@ -146,7 +144,7 @@ export function ControlPill(props: {
   }
 
   if (
-    materialYouStyleLayoutActive &&
+    Platform.OS === "android" &&
     props.accessibilityLabel &&
     props.icon &&
     !props.iconNode &&

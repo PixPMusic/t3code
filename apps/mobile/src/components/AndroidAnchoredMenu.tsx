@@ -6,14 +6,8 @@ import { BackHandler, Pressable, ScrollView, View } from "react-native";
 import { useKeyboardState } from "react-native-keyboard-controller";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-import { appBlurTargetRef } from "../lib/appBlurTarget";
-import { cn } from "../lib/cn";
-import { type AppSymbolName, SymbolView } from "./AppSymbol";
-import { AppText as Text } from "./AppText";
 import { OverlayPortal } from "./OverlayPortal";
-import { GlassBackdrop } from "./GlassBackdrop";
 import { MaterialMenuPopup } from "./MaterialMenuPopup";
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 
 const MENU_WIDTH = 250;
 const SCREEN_MARGIN = 12;
@@ -58,11 +52,9 @@ export type AndroidAnchoredMenuProps = {
 /**
  * Adapts the app's MenuView actions to Material dropdowns on Android. Editor
  * menus render native Material rows in-window to retain keyboard focus; other
- * menus use the native popup for placement, animation and dismissal. The
- * non-Material appearance keeps the glass overlay.
+ * menus use the native popup for placement, animation and dismissal.
  */
 export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const [anchor, setAnchor] = useState<AnchorSnapshot | null>(null);
   const [path, setPath] = useState<readonly MenuAction[]>([]);
   // Height of the modal's root view, in the modal's own coordinate space.
@@ -105,7 +97,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
   // back returns to the parent submenu before closing the overlay.
   const submenuDepth = path.length;
   useEffect(() => {
-    if (anchor === null || (materialYouStyleLayoutActive && !anchor.keyboardWasVisible)) {
+    if (anchor === null || !anchor.keyboardWasVisible) {
       return;
     }
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -117,7 +109,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
       return true;
     });
     return () => subscription.remove();
-  }, [anchor, close, materialYouStyleLayoutActive, submenuDepth]);
+  }, [anchor, close, submenuDepth]);
 
   const parent = path[path.length - 1] ?? null;
   const levelActions = (parent?.subactions ?? props.actions).filter(
@@ -206,8 +198,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
             onLayout={measureOverlay}
           >
             <Pressable accessible={false} className="absolute inset-0" onPress={close} />
-            {!placeable || local === null ? null : materialYouStyleLayoutActive &&
-              !anchor.keyboardWasVisible ? (
+            {!placeable || local === null ? null : !anchor.keyboardWasVisible ? (
               <MaterialMenuPopup
                 anchor={local}
                 actions={levelActions}
@@ -220,12 +211,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
             ) : (
               <Animated.View
                 entering={FadeIn.duration(120)}
-                className={cn(
-                  "absolute w-[250px] overflow-hidden",
-                  materialYouStyleLayoutActive
-                    ? "rounded-[4px] bg-card-alt shadow-md"
-                    : "rounded-[12px] border border-border shadow-2xl",
-                )}
+                className="absolute w-[250px] overflow-hidden rounded-[4px] bg-card-alt shadow-md"
                 style={{
                   left,
                   maxHeight,
@@ -236,116 +222,26 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
               >
                 {/* Compose DropdownMenu takes popup focus in the pinned Expo UI version.
                     Keep editor menus in-window so opening one preserves the keyboard. */}
-                {!materialYouStyleLayoutActive ? (
-                  <GlassBackdrop blurTarget={appBlurTargetRef} />
-                ) : null}
+
                 {/* keyboardShouldPersistTaps: the menu often opens over an
                   active editor; the first item tap must act, not just
                   dismiss the keyboard. */}
                 <ScrollView
-                  contentContainerClassName={materialYouStyleLayoutActive ? "py-2" : undefined}
+                  contentContainerClassName="py-2"
                   bounces={false}
                   keyboardShouldPersistTaps="always"
                   showsVerticalScrollIndicator={false}
                 >
-                  {materialYouStyleLayoutActive ? (
-                    <MaterialMenuPopup
-                      inline
-                      anchor={local}
-                      actions={levelActions}
-                      title={props.title}
-                      parent={parent}
-                      onPress={onPressItem}
-                      onBack={() => setPath((current) => current.slice(0, -1))}
-                      onClose={close}
-                    />
-                  ) : (
-                    <>
-                      {parent !== null ? (
-                        // Muted parent title as the submenu header; tapping it
-                        // steps back, but it reads as a label, not a button.
-                        <Pressable
-                          className="px-3.5 pb-1 pt-2.5"
-                          onPress={() => setPath((current) => current.slice(0, -1))}
-                        >
-                          <Text className="text-xs font-t3-bold text-foreground-muted">
-                            {parent.title}
-                          </Text>
-                        </Pressable>
-                      ) : props.title ? (
-                        <>
-                          <View className="px-3.5 py-2">
-                            <Text className="text-center text-xs text-foreground-muted">
-                              {props.title}
-                            </Text>
-                          </View>
-                          <View className="h-px bg-border" />
-                        </>
-                      ) : null}
-                      {levelActions.map((action, index) => {
-                        const destructive = action.attributes?.destructive ?? false;
-                        const disabled = action.attributes?.disabled ?? false;
-                        const hasSubmenu = (action.subactions?.length ?? 0) > 0;
-                        return (
-                          <Pressable
-                            key={action.id ?? `${index}-${action.title}`}
-                            disabled={disabled}
-                            accessibilityRole="button"
-                            accessibilityLabel={[action.title, action.subtitle]
-                              .filter(Boolean)
-                              .join(", ")}
-                            accessibilityState={{ disabled, selected: action.state === "on" }}
-                            className={cn(
-                              "flex-row items-center gap-2.5 px-3.5 py-2.5 active:bg-subtle",
-                              "min-h-11",
-                              disabled && "opacity-45",
-                            )}
-                            onPress={() => onPressItem(action)}
-                          >
-                            <View className="flex-1 gap-0.5">
-                              <Text
-                                className={cn(
-                                  "text-sm font-t3-bold",
-                                  destructive && "text-danger-foreground",
-                                )}
-                              >
-                                {action.title}
-                              </Text>
-                              {action.subtitle ? (
-                                <Text className="text-xs leading-snug text-foreground-muted">
-                                  {action.subtitle}
-                                </Text>
-                              ) : null}
-                            </View>
-                            {hasSubmenu ? (
-                              <SymbolView
-                                name="chevron.right"
-                                size={13}
-                                tintColorClassName={"accent-icon-subtle"}
-                                type="monochrome"
-                              />
-                            ) : action.state === "on" ? (
-                              <SymbolView
-                                name="checkmark"
-                                size={15}
-                                tintColorClassName={"accent-icon"}
-                                type="monochrome"
-                              />
-                            ) : action.image ? (
-                              <SymbolView
-                                name={action.image as AppSymbolName}
-                                size={15}
-                                tintColorClassName={
-                                  destructive ? "accent-danger-foreground" : "accent-icon"
-                                }
-                                type="monochrome"
-                              />
-                            ) : null}
-                          </Pressable>
-                        );
-                      })}
-                    </>
-                  )}
+                  <MaterialMenuPopup
+                    inline
+                    anchor={local}
+                    actions={levelActions}
+                    title={props.title}
+                    parent={parent}
+                    onPress={onPressItem}
+                    onBack={() => setPath((current) => current.slice(0, -1))}
+                    onClose={close}
+                  />
                 </ScrollView>
               </Animated.View>
             )}

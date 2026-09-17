@@ -1,9 +1,9 @@
 import {
+  Box,
   ExtendedFloatingActionButton,
   FloatingActionButton,
   Host,
   LargeFloatingActionButton,
-  RNHostView,
   Text,
 } from "@expo/ui/jetpack-compose";
 import { size } from "@expo/ui/jetpack-compose/modifiers";
@@ -53,17 +53,7 @@ export function MaterialFloatingActionButton(props: {
             expanded={props.expanded}
           >
             <Component.Icon>
-              <RNHostView matchContents modifiers={[size(iconSize, iconSize)]}>
-                <View style={{ width: iconSize, height: iconSize }} pointerEvents="none">
-                  <SymbolView
-                    name={props.icon}
-                    size={iconSize}
-                    tintColorClassName={
-                      primary ? "accent-primary-foreground" : "accent-thread-selected-foreground"
-                    }
-                  />
-                </View>
-              </RNHostView>
+              <Box modifiers={[size(iconSize, iconSize)]} />
             </Component.Icon>
             {props.variant === "extended" ? (
               <ExtendedFloatingActionButton.Text>
@@ -74,6 +64,22 @@ export function MaterialFloatingActionButton(props: {
             ) : null}
           </Component>
         </Host>
+      </View>
+      {/* The RN icon stays outside Compose so it cannot intercept native button taps. */}
+      <View
+        pointerEvents="none"
+        className="absolute inset-y-0 justify-center"
+        style={
+          props.variant === "extended" ? { left: 16 } : { left: 0, right: 0, alignItems: "center" }
+        }
+      >
+        <SymbolView
+          name={props.icon}
+          size={iconSize}
+          tintColorClassName={
+            primary ? "accent-primary-foreground" : "accent-thread-selected-foreground"
+          }
+        />
       </View>
     </View>
   );

@@ -1,6 +1,5 @@
 import { Platform, Switch, type SwitchProps } from "react-native";
 
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 import { MaterialSwitch } from "./MaterialSwitch";
 
 export type ThemedSwitchProps = Pick<
@@ -15,8 +14,7 @@ export type ThemedSwitchProps = Pick<
 >;
 
 export function ThemedSwitch(props: ThemedSwitchProps) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  if (materialYouStyleLayoutActive) {
+  if (Platform.OS === "android") {
     return <MaterialSwitch {...props} />;
   }
 
@@ -24,13 +22,6 @@ export function ThemedSwitch(props: ThemedSwitchProps) {
     <Switch
       {...props}
       ios_backgroundColorClassName="accent-switch-inactive-track"
-      thumbColorClassName={
-        Platform.OS === "android"
-          ? props.value
-            ? "accent-switch-active-thumb"
-            : "accent-switch-inactive-thumb"
-          : undefined
-      }
       trackColorOffClassName="accent-switch-inactive-track"
       trackColorOnClassName="accent-switch-active-track"
     />

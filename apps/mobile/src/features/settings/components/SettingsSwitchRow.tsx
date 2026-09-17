@@ -1,11 +1,10 @@
 import { cn } from "../../../lib/cn";
 import type { ComponentProps } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 
 import { SymbolView } from "../../../components/AppSymbol";
 import { AppText as Text } from "../../../components/AppText";
 import { ThemedSwitch } from "../../../components/ThemedSwitch";
-import { useAppearancePreferences } from "../appearance/AppearancePreferencesProvider";
 
 type SymbolName = ComponentProps<typeof SymbolView>["name"];
 
@@ -17,27 +16,26 @@ export function SettingsSwitchRow(props: {
   readonly value: boolean;
   readonly onValueChange: (value: boolean) => void;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <View
       className={cn(
         "flex-row items-center gap-4",
-        materialYouStyleLayoutActive ? "min-h-14 px-4 py-3" : "p-4",
-        materialYouStyleLayoutActive && props.subtitle && "min-h-18",
+        Platform.OS === "android" ? "min-h-14 px-4 py-3" : "p-4",
+        Platform.OS === "android" && props.subtitle && "min-h-18",
         props.disabled && "opacity-[0.45]",
       )}
     >
       <SymbolView
         name={props.icon}
-        size={materialYouStyleLayoutActive ? 24 : 22}
-        tintColorClassName={"accent-icon"}
+        size={Platform.OS === "android" ? 24 : 22}
+        tintColorClassName="accent-icon"
         type="monochrome"
         weight="regular"
       />
-      <View className={cn("min-w-0 flex-1", materialYouStyleLayoutActive && "gap-1")}>
+      <View className={cn("min-w-0 flex-1", Platform.OS === "android" && "gap-1")}>
         <Text
           className={
-            materialYouStyleLayoutActive ? "text-base text-foreground" : "text-lg text-foreground"
+            Platform.OS === "android" ? "text-base text-foreground" : "text-lg text-foreground"
           }
         >
           {props.label}

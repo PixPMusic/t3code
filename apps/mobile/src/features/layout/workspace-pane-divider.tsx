@@ -1,9 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View, type AccessibilityActionEvent } from "react-native";
+import { Platform, Pressable, StyleSheet, View, type AccessibilityActionEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { cn } from "../../lib/cn";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 const ACCESSIBILITY_RESIZE_STEP = 24;
 
@@ -19,7 +18,6 @@ interface WorkspacePaneDividerProps {
 
 /** A forgiving divider target for touch, pointer, and VoiceOver users. */
 export function WorkspacePaneDivider(props: WorkspacePaneDividerProps) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const latestProps = useRef(props);
   latestProps.current = props;
   const [dragging, setDragging] = useState(false);
@@ -81,7 +79,7 @@ export function WorkspacePaneDivider(props: WorkspacePaneDividerProps) {
           className={cn(
             "h-full self-center bg-border opacity-70",
             dragging ? "w-0.5 bg-primary opacity-100" : "w-px",
-            materialYouStyleLayoutActive && !dragging && "opacity-0",
+            Platform.OS === "android" && !dragging && "opacity-0",
           )}
           style={[styles.line, dragging && styles.activeLine]}
         />

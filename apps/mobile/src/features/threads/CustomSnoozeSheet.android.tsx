@@ -33,14 +33,14 @@ import { AppState, useWindowDimensions } from "react-native";
 import { OverlayPortal } from "../../components/OverlayPortal";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useScaledTextRole } from "../settings/appearance/useScaledTextRole";
-import { CustomSnoozeSheet as LegacyCustomSnoozeSheet } from "./CustomSnoozeSheet.shared";
+import type { CustomSnoozeSheet as SharedCustomSnoozeSheet } from "./CustomSnoozeSheet.shared";
 import {
   applySnoozePickerDate,
   applySnoozePickerTime,
   snoozeDateToPickerDate,
 } from "./customSnoozeDate";
 
-type Props = Parameters<typeof LegacyCustomSnoozeSheet>[0];
+type Props = Parameters<typeof SharedCustomSnoozeSheet>[0];
 
 const roundedCorner = Shape.RoundedCorner;
 
@@ -59,15 +59,6 @@ function systemUses24HourClock() {
 }
 
 export function CustomSnoozeSheet(props: Props) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  return materialYouStyleLayoutActive ? (
-    <MaterialCustomSnoozeDialog {...props} />
-  ) : (
-    <LegacyCustomSnoozeSheet {...props} />
-  );
-}
-
-function MaterialCustomSnoozeDialog(props: Props) {
   const { themeAppearance, themeVariables: colors } = useAppearancePreferences();
   const [is24Hour, setIs24Hour] = useState(systemUses24HourClock);
   useEffect(() => {

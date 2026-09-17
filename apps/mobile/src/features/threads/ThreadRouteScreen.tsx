@@ -32,7 +32,6 @@ import { recoverFailedThreadDraft } from "../../state/recover-failed-thread-draf
 import { useEnvironmentQuery } from "../../state/query";
 import { dismissGitActionResult, useGitActionProgress } from "../../state/use-vcs-action-state";
 import { vcsEnvironment } from "../../state/vcs";
-
 import { EmptyState } from "../../components/EmptyState";
 import {
   AndroidHeaderIconButton,
@@ -44,7 +43,6 @@ import { LoadingScreen } from "../../components/LoadingScreen";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { connectionTone } from "../connection/connectionTone";
-
 import {
   useRemoteConnections,
   useRemoteConnectionStatus,
@@ -227,7 +225,7 @@ function ThreadRouteContent(
     readonly selectedThreadDetailState: ReturnType<typeof useSelectedThreadDetailState>;
   },
 ) {
-  const { materialYouStyleLayoutActive, themeVariables } = useAppearancePreferences();
+  const { themeVariables } = useAppearancePreferences();
   const headerColor = themeVariables["--color-header"];
   const {
     fileInspector,
@@ -889,9 +887,9 @@ function ThreadRouteContent(
       <GitActionProgressOverlay progress={gitActionProgress} onDismiss={dismissGitActionResult} />
 
       <View
-        className={materialYouStyleLayoutActive ? "flex-1 bg-thread-canvas" : "flex-1 bg-screen"}
+        className={Platform.OS === "android" ? "flex-1 bg-thread-canvas" : "flex-1 bg-screen"}
         style={
-          materialYouStyleLayoutActive
+          Platform.OS === "android"
             ? {
                 borderTopLeftRadius: 28,
                 borderTopRightRadius: 28,
@@ -993,9 +991,7 @@ function ThreadRouteContent(
               : undefined,
           unstable_headerSubtitle: usesNativeHeaderGlass ? headerSubtitle : undefined,
           contentStyle:
-            Platform.OS === "android" && materialYouStyleLayoutActive
-              ? { backgroundColor: headerColor }
-              : undefined,
+            Platform.OS === "android" && true ? { backgroundColor: headerColor } : undefined,
         }}
       />
 
@@ -1029,7 +1025,7 @@ function ThreadRouteContent(
                 }
           }
           actions={androidHeaderActions}
-          hideBottomBorder={materialYouStyleLayoutActive}
+          hideBottomBorder
         />
       ) : null}
 

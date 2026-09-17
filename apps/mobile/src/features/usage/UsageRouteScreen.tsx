@@ -37,7 +37,6 @@ import { ControlPillMenu } from "../../components/ControlPill";
 import { SymbolView } from "../../components/AppSymbol";
 import type { UsageChartMetric } from "./usageChartData";
 import { PROVIDER_LABEL, useProviderColors } from "./usageProviders";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 type UsageTab = "usage" | "limits";
 const TAB_OPTIONS = [
@@ -70,7 +69,6 @@ export function UsageRouteScreen() {
   const route = useRoute<RouteProp<{ Usage: { tab?: string } | undefined }, "Usage">>();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   // Preserve the Limits default while honoring explicit widget/navigation links.
   const [selection, setSelection] = useState(() => ({
     params: route.params,
@@ -269,22 +267,20 @@ export function UsageRouteScreen() {
             <>
               {/* Period and metric together: neither applies to Limits, and
                 both change every number below, so they share one bar. */}
-              <View
-                className={cn("gap-3", !materialYouStyleLayoutActive && "flex-row items-center")}
-              >
+              <View className={cn("gap-3", Platform.OS !== "android" && "flex-row items-center")}>
                 <SegmentedControl
                   options={WINDOW_OPTIONS}
                   selected={windowDays}
                   onSelect={selectWindow}
                   size="compact"
-                  className={materialYouStyleLayoutActive ? "w-full" : "flex-1"}
+                  className={Platform.OS === "android" ? "w-full" : "flex-1"}
                 />
                 <SegmentedControl
                   options={METRIC_OPTIONS}
                   selected={metric}
                   onSelect={setMetric}
                   size="compact"
-                  className={materialYouStyleLayoutActive ? "w-full" : "w-36"}
+                  className={Platform.OS === "android" ? "w-full" : "w-36"}
                 />
               </View>
               {merged.duplicateSources.length > 0 ? (

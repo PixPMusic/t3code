@@ -7,18 +7,9 @@ import { View } from "react-native";
 import { AppText as Text } from "../../../../components/AppText";
 import { SymbolView } from "../../../../components/AppSymbol";
 import { useAppearancePreferences } from "../AppearancePreferencesProvider";
-import { FontSizeSliderRow as SharedFontSizeSliderRow } from "./FontSizeSliderRow.shared";
+import type { FontSizeSliderRow as SharedFontSizeSliderRow } from "./FontSizeSliderRow.shared";
 
 export function FontSizeSliderRow(props: ComponentProps<typeof SharedFontSizeSliderRow>) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  return materialYouStyleLayoutActive ? (
-    <MaterialFontSizeSliderRow {...props} />
-  ) : (
-    <SharedFontSizeSliderRow {...props} />
-  );
-}
-
-function MaterialFontSizeSliderRow(props: ComponentProps<typeof SharedFontSizeSliderRow>) {
   const {
     themeAppearance,
     systemColorsActive,

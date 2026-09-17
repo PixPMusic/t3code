@@ -1,6 +1,5 @@
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { SymbolView } from "../../components/AppSymbol";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 
 import { AppText as Text } from "../../components/AppText";
 import { MaterialNewThreadButton } from "../../components/MaterialNewThreadButton";
@@ -11,11 +10,10 @@ export function WorkspaceEmptyDetail(props: {
   readonly onStartNewTask?: () => void;
   readonly onAddConnection?: () => void;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <View
       className={
-        materialYouStyleLayoutActive
+        Platform.OS === "android"
           ? "flex-1 items-center justify-center px-10"
           : "flex-1 items-center justify-center bg-screen px-10"
       }
@@ -42,17 +40,17 @@ export function WorkspaceEmptyDetail(props: {
           <SymbolView
             name="sidebar.left"
             size={34}
-            tintColorClassName={"accent-icon-subtle"}
+            tintColorClassName="accent-icon-subtle"
             type="hierarchical"
           />
           <Text className="text-center text-xl font-t3-bold">Select a thread</Text>
           <Text className="text-center text-base text-foreground-muted">
-            {materialYouStyleLayoutActive
+            {Platform.OS === "android"
               ? "Choose a thread from the sidebar or start a new thread."
               : "Choose a thread from the sidebar or start a new task."}
           </Text>
           {props.onStartNewTask ? (
-            materialYouStyleLayoutActive ? (
+            Platform.OS === "android" ? (
               <MaterialNewThreadButton extended className="mt-2" onPress={props.onStartNewTask} />
             ) : (
               <Pressable

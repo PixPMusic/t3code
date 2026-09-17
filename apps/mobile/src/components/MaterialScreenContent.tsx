@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { View } from "react-native";
-
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
+import { Platform, View } from "react-native";
 
 /** Keeps the header surface visible behind rounded Android content corners. */
 export function MaterialScreenContent({
@@ -15,8 +13,7 @@ export function MaterialScreenContent({
   /** Allow native form sheets to measure their content instead of filling a fixed detent. */
   readonly fitToContents?: boolean;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  if (!materialYouStyleLayoutActive) return children;
+  if (Platform.OS !== "android") return children;
 
   return (
     <View className={fitToContents ? "shrink bg-header" : "flex-1 bg-header"}>

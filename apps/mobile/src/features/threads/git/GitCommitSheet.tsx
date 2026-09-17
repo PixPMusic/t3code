@@ -7,7 +7,6 @@ import { AndroidSheetHeader } from "../../../components/AndroidScreenHeader";
 import { SymbolView } from "../../../components/AppSymbol";
 import { MaterialScreenContent } from "../../../components/MaterialScreenContent";
 import { NativeStackScreenOptions } from "../../../native/StackHeader";
-import { useAppearancePreferences } from "../../settings/appearance/AppearancePreferencesProvider";
 import { AppText as Text, AppTextInput as TextInput } from "../../../components/AppText";
 import { cn } from "../../../lib/cn";
 import { useEnvironmentQuery } from "../../../state/query";
@@ -25,7 +24,6 @@ type GitCommitSheetProps = StaticScreenProps<{
 
 export function GitCommitSheet(_props: GitCommitSheetProps) {
   const navigation = useNavigation();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const { selectedThread } = useThreadSelection();
@@ -74,14 +72,14 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
   return (
     <View
       collapsable={false}
-      className={materialYouStyleLayoutActive ? "bg-sheet" : "flex-1 bg-sheet"}
-      style={materialYouStyleLayoutActive ? { maxHeight: windowHeight * 0.92 } : undefined}
+      className={Platform.OS === "android" ? "bg-sheet" : "flex-1 bg-sheet"}
+      style={Platform.OS === "android" ? { maxHeight: windowHeight * 0.92 } : undefined}
     >
       {Platform.OS === "android" ? (
         <NativeStackScreenOptions
           options={{
-            sheetCornerRadius: materialYouStyleLayoutActive ? 28 : undefined,
-            sheetAllowedDetents: materialYouStyleLayoutActive ? "fitToContents" : [0.55, 0.92],
+            sheetCornerRadius: 28,
+            sheetAllowedDetents: "fitToContents",
           }}
         />
       ) : null}
@@ -89,18 +87,18 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
         <AndroidSheetHeader
           title="Commit changes"
           onBack={() => navigation.goBack()}
-          hideBottomBorder={materialYouStyleLayoutActive}
+          hideBottomBorder
         />
       ) : null}
       <MaterialScreenContent fitToContents>
         <ScrollView
-          className={materialYouStyleLayoutActive ? "shrink grow-0" : "flex-1"}
+          className={Platform.OS === "android" ? "shrink grow-0" : "flex-1"}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentInset={{ bottom: Math.max(insets.bottom, 18) + 18 }}
-          contentContainerClassName={materialYouStyleLayoutActive ? "gap-2 p-2" : "gap-4 px-5 pt-2"}
+          contentContainerClassName={Platform.OS === "android" ? "gap-2 p-2" : "gap-4 px-5 pt-2"}
           contentContainerStyle={
-            materialYouStyleLayoutActive
+            Platform.OS === "android"
               ? { paddingBottom: Math.max(insets.bottom, 18) + 18 }
               : undefined
           }
@@ -108,23 +106,19 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
           <View
             className={cn(
               "gap-3 bg-card p-4",
-              materialYouStyleLayoutActive
-                ? "rounded-[20px]"
-                : "rounded-[22px] border border-border",
+              Platform.OS === "android" ? "rounded-[20px]" : "rounded-[22px] border border-border",
             )}
           >
             <View
               className={
-                materialYouStyleLayoutActive
-                  ? "gap-1"
-                  : "flex-row items-center justify-between gap-3"
+                Platform.OS === "android" ? "gap-1" : "flex-row items-center justify-between gap-3"
               }
             >
               <Text className="text-foreground-muted text-sm font-medium">Branch</Text>
               <Text
                 className={cn(
                   "text-foreground text-base",
-                  materialYouStyleLayoutActive ? "font-t3-medium" : "font-t3-bold",
+                  Platform.OS === "android" ? "font-t3-medium" : "font-t3-bold",
                 )}
               >
                 {gitStatus.data?.refName ?? "(detached HEAD)"}
@@ -140,9 +134,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
           <View
             className={cn(
               "gap-3 bg-card p-4",
-              materialYouStyleLayoutActive
-                ? "rounded-[20px]"
-                : "rounded-[22px] border border-border",
+              Platform.OS === "android" ? "rounded-[20px]" : "rounded-[22px] border border-border",
             )}
           >
             <View className="flex-row items-center justify-between gap-3">
@@ -150,7 +142,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                 <Text
                   className={cn(
                     "text-foreground text-base",
-                    materialYouStyleLayoutActive ? "font-t3-medium" : "font-t3-bold",
+                    Platform.OS === "android" ? "font-t3-medium" : "font-t3-bold",
                   )}
                 >
                   Files
@@ -163,7 +155,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                 {!allSelected && isEditingFiles ? (
                   <Pressable
                     className={
-                      materialYouStyleLayoutActive
+                      Platform.OS === "android"
                         ? "min-h-12 justify-center rounded-full px-3 active:bg-subtle"
                         : "bg-subtle rounded-full px-3 py-2"
                     }
@@ -171,7 +163,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                   >
                     <Text
                       className={
-                        materialYouStyleLayoutActive
+                        Platform.OS === "android"
                           ? "text-primary text-sm font-t3-medium"
                           : "text-foreground text-2xs font-t3-bold uppercase"
                       }
@@ -182,7 +174,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                 ) : null}
                 <Pressable
                   className={
-                    materialYouStyleLayoutActive
+                    Platform.OS === "android"
                       ? "min-h-12 justify-center rounded-full px-3 active:bg-subtle"
                       : "bg-subtle rounded-full px-3 py-2"
                   }
@@ -190,7 +182,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                 >
                   <Text
                     className={
-                      materialYouStyleLayoutActive
+                      Platform.OS === "android"
                         ? "text-primary text-sm font-t3-medium"
                         : "text-foreground text-2xs font-t3-bold uppercase"
                     }
@@ -233,7 +225,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                       key={file.path}
                       className={cn(
                         "px-4 py-3",
-                        materialYouStyleLayoutActive
+                        Platform.OS === "android"
                           ? included
                             ? "rounded-xl bg-subtle"
                             : "rounded-xl"
@@ -257,13 +249,13 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                         });
                       }}
                     >
-                      {!materialYouStyleLayoutActive ? (
+                      {Platform.OS !== "android" ? (
                         <View
                           className={`absolute inset-0 rounded-[18px] ${included ? "bg-card" : "bg-subtle"}`}
                         />
                       ) : null}
                       <View className="flex-row items-start justify-between gap-3">
-                        {materialYouStyleLayoutActive ? (
+                        {Platform.OS === "android" ? (
                           <View
                             className={cn(
                               "mt-0.5 size-5 items-center justify-center rounded-sm",
@@ -310,11 +302,11 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
           </View>
 
           <View
-            className={materialYouStyleLayoutActive ? "gap-3 rounded-[20px] bg-card p-4" : "gap-2"}
+            className={Platform.OS === "android" ? "gap-3 rounded-[20px] bg-card p-4" : "gap-2"}
           >
             <Text
               className={
-                materialYouStyleLayoutActive
+                Platform.OS === "android"
                   ? "text-foreground text-base font-t3-medium"
                   : "text-foreground text-sm font-t3-bold"
               }
@@ -330,13 +322,13 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
               textAlignVertical="top"
               className={cn(
                 "min-h-[128px] px-4 py-3.5",
-                materialYouStyleLayoutActive ? "rounded-xl bg-sheet-solid" : "rounded-[20px]",
+                Platform.OS === "android" ? "rounded-xl bg-sheet-solid" : "rounded-[20px]",
               )}
             />
           </View>
 
-          <View className={materialYouStyleLayoutActive ? "gap-2" : "flex-row gap-3"}>
-            <View className={materialYouStyleLayoutActive ? undefined : "flex-1"}>
+          <View className={Platform.OS === "android" ? "gap-2" : "flex-row gap-3"}>
+            <View className={Platform.OS === "android" ? undefined : "flex-1"}>
               <SheetActionButton
                 icon="arrow.branch"
                 label="Commit on new branch"
@@ -344,7 +336,7 @@ export function GitCommitSheet(_props: GitCommitSheetProps) {
                 onPress={() => void runCommitAction(true)}
               />
             </View>
-            <View className={materialYouStyleLayoutActive ? undefined : "flex-1"}>
+            <View className={Platform.OS === "android" ? undefined : "flex-1"}>
               <SheetActionButton
                 icon="checkmark.circle"
                 label="Commit"

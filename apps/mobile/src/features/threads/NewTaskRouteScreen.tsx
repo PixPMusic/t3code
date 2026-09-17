@@ -12,12 +12,10 @@ import { useEffect, useRef } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cn } from "../../lib/cn";
-
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { MaterialScreenContent } from "../../components/MaterialScreenContent";
 import { MaterialButton } from "../../components/MaterialButton";
 import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { AppText as Text } from "../../components/AppText";
 import { ProjectFavicon } from "../../components/ProjectFavicon";
 import { useProjects } from "../../state/entities";
@@ -88,7 +86,6 @@ function deriveProjectEmptyState(catalogState: WorkspaceState): {
 }
 
 export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRouteParams | undefined>) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const projects = useProjects();
   const { projectScopes, selectedEnvironmentId, setProject } = useNewTaskFlow();
   const { state: catalogState } = useWorkspaceState();
@@ -189,7 +186,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
           <NativeStackScreenOptions options={{ headerShown: false }} />
           <AndroidScreenHeader
             title={screenTitle}
-            hideBottomBorder={materialYouStyleLayoutActive}
+            hideBottomBorder
             subtitle={incomingShareSubtitle}
             onBack={() => navigation.goBack()}
             actions={
@@ -239,11 +236,11 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
           showsVerticalScrollIndicator={false}
           className="flex-1"
           contentContainerStyle={{
-            gap: materialYouStyleLayoutActive ? 8 : 12,
+            gap: Platform.OS === "android" ? 8 : 12,
             paddingBottom: Math.max(insets.bottom, 18) + 18,
-            paddingHorizontal: materialYouStyleLayoutActive ? 16 : 20,
-            paddingTop: materialYouStyleLayoutActive ? 16 : 8,
-            ...(materialYouStyleLayoutActive && projectScopes.length === 0
+            paddingHorizontal: Platform.OS === "android" ? 16 : 20,
+            paddingTop: Platform.OS === "android" ? 16 : 8,
+            ...(Platform.OS === "android" && projectScopes.length === 0
               ? { flexGrow: 1, justifyContent: "center" as const }
               : {}),
           }}
@@ -253,11 +250,11 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
               collapsable={false}
               className={cn(
                 "items-center gap-3 px-6 py-8",
-                !materialYouStyleLayoutActive && "rounded-[24px] bg-card",
+                Platform.OS !== "android" && "rounded-[24px] bg-card",
               )}
             >
               {projectEmptyState.loading ? (
-                <ActivityIndicator colorClassName={"accent-icon-muted"} />
+                <ActivityIndicator colorClassName="accent-icon-muted" />
               ) : null}
               <Text className="text-center text-lg font-t3-bold text-foreground">
                 {projectEmptyState.title}
@@ -265,7 +262,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
               <Text className="text-center text-sm leading-normal text-foreground-muted">
                 {projectEmptyState.detail}
               </Text>
-              {materialYouStyleLayoutActive ? (
+              {Platform.OS === "android" ? (
                 <MaterialButton
                   label={catalogState.hasReadyEnvironment ? "Add new project" : "Add environment"}
                   tone="primary"
@@ -299,7 +296,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
             <View
               collapsable={false}
               className={
-                materialYouStyleLayoutActive
+                Platform.OS === "android"
                   ? "overflow-hidden rounded-[28px] bg-card"
                   : "overflow-hidden rounded-[24px] bg-card"
               }
@@ -310,7 +307,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                   scope,
                   selectedEnvironmentId,
                 );
-                if (materialYouStyleLayoutActive) {
+                if (Platform.OS === "android") {
                   return (
                     <MaterialListRow
                       key={scope.key}
@@ -337,21 +334,14 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                 return (
                   <View
                     key={scope.key}
-                    className={cn(
-                      !materialYouStyleLayoutActive &&
-                        scopeIndex > 0 &&
-                        "border-t border-border-subtle",
-                    )}
+                    className={cn(scopeIndex > 0 && "border-t border-border-subtle")}
                   >
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={scope.title}
                       disabled={reservedDestinationProject !== null}
                       onPress={() => void selectProject(selectionTarget)}
-                      className={cn(
-                        "flex-row items-center gap-3 bg-card px-4 py-3.5",
-                        materialYouStyleLayoutActive && "min-h-16 rounded-[20px] active:bg-subtle",
-                      )}
+                      className="flex-row items-center gap-3 bg-card px-4 py-3.5"
                     >
                       <View className="h-7 w-7 items-center justify-center">
                         <ProjectFavicon
@@ -363,12 +353,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                         />
                       </View>
                       <View className="min-w-0 flex-1">
-                        <Text
-                          className={cn(
-                            "text-base leading-snug",
-                            materialYouStyleLayoutActive ? "font-t3-medium" : "font-t3-bold",
-                          )}
-                        >
+                        <Text className={cn("text-base leading-snug", "font-t3-bold")}>
                           {scope.title}
                         </Text>
                         <Text
@@ -384,7 +369,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                       <SymbolView
                         name="chevron.right"
                         size={14}
-                        tintColorClassName={"accent-chevron"}
+                        tintColorClassName="accent-chevron"
                         type="monochrome"
                       />
                     </Pressable>

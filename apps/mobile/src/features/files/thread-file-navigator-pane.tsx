@@ -31,8 +31,7 @@ export function ThreadFileNavigatorPane(props: {
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const { toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
-  const { themeAppearance: highlightTheme, materialYouStyleLayoutActive } =
-    useAppearancePreferences();
+  const { themeAppearance: highlightTheme } = useAppearancePreferences();
   const theme = useUniwindTheme();
   const foregroundColor = theme["--color-foreground"];
   const sheetColor = theme["--color-sheet"];
@@ -154,14 +153,14 @@ export function ThreadFileNavigatorPane(props: {
   return (
     <View
       className={
-        materialYouStyleLayoutActive ? "flex-1 bg-header" : "flex-1 border-l border-border bg-sheet"
+        Platform.OS === "android" ? "flex-1 bg-header" : "flex-1 border-l border-border bg-sheet"
       }
     >
       <View
-        className={materialYouStyleLayoutActive ? "bg-header" : "border-b border-border"}
-        style={{ paddingTop: materialYouStyleLayoutActive ? 0 : props.headerInset }}
+        className={Platform.OS === "android" ? "bg-header" : "border-b border-border"}
+        style={{ paddingTop: Platform.OS === "android" ? 0 : props.headerInset }}
       >
-        {materialYouStyleLayoutActive ? (
+        {Platform.OS === "android" ? (
           <MaterialFilesHeader
             projectName={props.projectName}
             searchQuery={searchQuery}
@@ -186,18 +185,18 @@ export function ThreadFileNavigatorPane(props: {
               <SymbolView
                 name="arrow.clockwise"
                 size={14}
-                tintColorClassName={"accent-icon-muted"}
+                tintColorClassName="accent-icon-muted"
                 type="monochrome"
               />
             </Pressable>
           </View>
         )}
-        {!materialYouStyleLayoutActive ? (
+        {Platform.OS !== "android" ? (
           <View className="flex-row items-center gap-2 border-t border-border px-3 py-2">
             <SymbolView
               name="magnifyingglass"
               size={15}
-              tintColorClassName={"accent-icon-muted"}
+              tintColorClassName="accent-icon-muted"
               type="monochrome"
             />
             <TextInput

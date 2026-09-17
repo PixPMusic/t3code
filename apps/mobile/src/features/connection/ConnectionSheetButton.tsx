@@ -4,7 +4,6 @@ import { Platform, Pressable } from "react-native";
 import { AppText as Text } from "../../components/AppText";
 import { cn } from "../../lib/cn";
 import { MaterialButton } from "../../components/MaterialButton";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 const CARD_SHADOW = Platform.select({
   ios: {
@@ -37,8 +36,7 @@ export function ConnectionSheetButton(props: {
   readonly fullWidth?: boolean;
   readonly onPress: () => void;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  if (materialYouStyleLayoutActive)
+  if (Platform.OS === "android")
     return (
       <MaterialButton
         label={props.label}

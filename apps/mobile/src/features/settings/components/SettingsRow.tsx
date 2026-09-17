@@ -1,13 +1,11 @@
 import { MaterialListRow } from "../../../components/MaterialListRow";
 import { useNavigation } from "@react-navigation/native";
 import type { ComponentProps } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 
 import { SymbolView } from "../../../components/AppSymbol";
-
 import { AppText as Text } from "../../../components/AppText";
 import type { SettingsLegalDocumentTarget, SettingsSheetTarget } from "./settings-sheet-targets";
-import { useAppearancePreferences } from "../appearance/AppearancePreferencesProvider";
 import { cn } from "../../../lib/cn";
 
 type SymbolName = ComponentProps<typeof SymbolView>["name"];
@@ -23,8 +21,7 @@ export function SettingsRow(props: {
   readonly onPress?: () => void;
 }) {
   const navigation = useNavigation();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  if (materialYouStyleLayoutActive) {
+  if (Platform.OS === "android") {
     return (
       <MaterialListRow
         title={props.label}
@@ -65,7 +62,7 @@ export function SettingsRow(props: {
       <SymbolView
         name={props.icon}
         size={22}
-        tintColorClassName={"accent-icon"}
+        tintColorClassName="accent-icon"
         type="monochrome"
         weight="regular"
       />
@@ -88,7 +85,7 @@ export function SettingsRow(props: {
       <SymbolView
         name="chevron.right"
         size={16}
-        tintColorClassName={"accent-chevron"}
+        tintColorClassName="accent-chevron"
         type="monochrome"
         weight="semibold"
       />

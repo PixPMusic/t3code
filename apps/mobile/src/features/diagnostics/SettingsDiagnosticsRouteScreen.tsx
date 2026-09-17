@@ -73,7 +73,7 @@ export function SettingsDiagnosticsRouteScreen() {
   };
 
   return (
-    <SettingsScreen title="Diagnostics" nativeAndroidHeader>
+    <SettingsScreen title="Diagnostics">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentInset={{ bottom: Math.max(insets.bottom, 18) }}
@@ -117,7 +117,7 @@ export function SettingsDiagnosticsRouteScreen() {
               <SymbolView
                 name={copied ? "checkmark" : "doc.on.doc"}
                 size={22}
-                tintColorClassName={"accent-icon"}
+                tintColorClassName="accent-icon"
                 type="monochrome"
                 weight="regular"
               />
@@ -147,7 +147,7 @@ function EmptyState(props: {
       <SymbolView
         name={props.icon}
         size={28}
-        tintColorClassName={"accent-icon"}
+        tintColorClassName="accent-icon"
         type="monochrome"
         weight="regular"
       />

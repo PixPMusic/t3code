@@ -2,14 +2,12 @@ import { useCallback, useRef, useState, type ComponentProps } from "react";
 import { View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialNewThreadButton } from "../../components/MaterialNewThreadButton";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
-import { AndroidHomeFabLayout as SharedAndroidHomeFabLayout } from "./AndroidHomeFab.shared";
+import type { AndroidHomeFabLayout as SharedAndroidHomeFabLayout } from "./AndroidHomeFab.shared";
 import { useWorkspaceState } from "../../state/workspace";
 import { MaterialFabScrollContext } from "./MaterialFabScrollContext";
 import { updateMaterialFabScroll } from "./material-fab-scroll";
 
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const insets = useSafeAreaInsets();
   const { state } = useWorkspaceState();
   const [expanded, setExpanded] = useState(true);
@@ -24,7 +22,7 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
     if (next.expanded !== scrollState.current.expanded) setExpanded(next.expanded);
     scrollState.current = next;
   }, []);
-  if (!materialYouStyleLayoutActive) return <SharedAndroidHomeFabLayout {...props} />;
+
   return (
     <View className="flex-1">
       <MaterialFabScrollContext value={onScroll}>{props.children}</MaterialFabScrollContext>

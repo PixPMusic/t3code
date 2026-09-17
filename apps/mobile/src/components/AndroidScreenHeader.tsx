@@ -1,11 +1,10 @@
 import { useState, type ReactNode } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { SymbolView, type AppSymbolName } from "./AppSymbol";
+import type { AppSymbolName } from "./AppSymbol";
 import { AppText as Text } from "./AppText";
 import { cn } from "../lib/cn";
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 import { MaterialIconButton } from "./MaterialIconButton";
 import { AndroidAnchoredMenu } from "./AndroidAnchoredMenu";
 import { useScaledTextRole } from "../features/settings/appearance/useScaledTextRole";
@@ -26,30 +25,7 @@ export function AndroidHeaderIconButton(props: {
   readonly disabled?: boolean;
   readonly selected?: boolean;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  if (materialYouStyleLayoutActive)
-    return <MaterialIconButton {...props} variant={props.selected ? "tonal" : "standard"} />;
-  return (
-    <Pressable
-      accessibilityLabel={props.accessibilityLabel}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(props.disabled), selected: props.selected }}
-      disabled={props.disabled}
-      hitSlop={8}
-      onPress={props.onPress}
-      className={cn(
-        "size-11 items-center justify-center rounded-full bg-subtle",
-        props.disabled && "opacity-55",
-      )}
-    >
-      <SymbolView
-        name={props.icon}
-        size={20}
-        tintColorClassName={props.disabled ? "accent-icon-subtle" : "accent-foreground"}
-        type="monochrome"
-      />
-    </Pressable>
-  );
+  return <MaterialIconButton {...props} variant={props.selected ? "tonal" : "standard"} />;
 }
 
 export function AndroidScreenHeader(props: {
@@ -66,82 +42,43 @@ export function AndroidScreenHeader(props: {
   const titleTypography = useScaledTextRole("title");
   const subtitleTypography = useScaledTextRole("label");
   const materialToolbarHeight = useMaterialToolbarHeight();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const [headerWidth, setHeaderWidth] = useState(0);
   const actions = props.actions ?? [];
-  const directCount =
-    materialYouStyleLayoutActive && actions.length > 2
-      ? headerWidth >= 600
-        ? 3
-        : 1
-      : actions.length;
+  const directCount = actions.length > 2 ? (headerWidth >= 600 ? 3 : 1) : actions.length;
   const visibleActions = actions.slice(0, directCount);
   const overflowActions = actions.slice(directCount);
 
   return (
     <View
       onLayout={(event) => setHeaderWidth(event.nativeEvent.layout.width)}
-      className={
-        materialYouStyleLayoutActive
-          ? "border-b border-header-border bg-header px-2 pb-2"
-          : "border-b border-header-border bg-header px-3 pb-2.5"
-      }
+      className="border-b border-header-border bg-header px-2 pb-2"
       style={{
         paddingTop: props.embedded ? 8 : Math.max(insets.top, 12),
         borderBottomWidth: props.hideBottomBorder ? 0 : undefined,
       }}
     >
       <View
-        style={materialYouStyleLayoutActive ? { minHeight: materialToolbarHeight } : undefined}
-        className={
-          materialYouStyleLayoutActive
-            ? "min-h-14 flex-row items-center gap-1"
-            : "min-h-12 flex-row items-center gap-2"
-        }
+        style={{ minHeight: materialToolbarHeight }}
+        className="min-h-14 flex-row items-center gap-1"
       >
         {props.onBack ? (
-          materialYouStyleLayoutActive ? (
-            <MaterialIconButton
-              accessibilityLabel="Navigate up"
-              icon="arrow.left"
-              onPress={props.onBack}
-            />
-          ) : (
-            <Pressable
-              accessibilityLabel="Navigate up"
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={props.onBack}
-              className="-mr-2 size-11 items-center justify-center"
-            >
-              <SymbolView
-                name="chevron.left"
-                size={24}
-                tintColorClassName={"accent-foreground"}
-                type="monochrome"
-              />
-            </Pressable>
-          )
+          <MaterialIconButton
+            accessibilityLabel="Navigate up"
+            icon="arrow.left"
+            onPress={props.onBack}
+          />
         ) : null}
 
         {props.leading}
 
         <View className={cn("min-w-0 flex-1", !props.onBack && "pl-1")}>
-          <Text
-            numberOfLines={1}
-            style={materialYouStyleLayoutActive ? titleTypography : undefined}
-            className={
-              materialYouStyleLayoutActive
-                ? "text-foreground"
-                : "text-lg font-t3-bold text-foreground"
-            }
-          >
+          <Text numberOfLines={1} style={titleTypography} className="text-foreground">
             {props.title}
           </Text>
           {props.subtitle ? (
             <Text
               numberOfLines={1}
-              style={materialYouStyleLayoutActive ? subtitleTypography : undefined}
+              style={subtitleTypography}
               className="mt-px text-[13px] font-t3-medium text-foreground-muted"
             >
               {props.subtitle}

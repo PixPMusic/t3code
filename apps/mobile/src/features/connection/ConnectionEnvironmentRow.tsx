@@ -6,7 +6,7 @@ import { useAtomValue } from "@effect/atom-react";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useCallback, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Platform, Alert, Pressable, View } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 
 import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
@@ -14,7 +14,6 @@ import { EnvironmentMachineSymbol } from "../../components/EnvironmentMachineSym
 import { MaterialButton } from "../../components/MaterialButton";
 import { MaterialIconButton } from "../../components/MaterialIconButton";
 import { ThemedSwitch } from "../../components/ThemedSwitch";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { cn } from "../../lib/cn";
 import { copyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import type { ConnectedEnvironmentSummary } from "../../state/remote-runtime-types";
@@ -44,7 +43,6 @@ export function ConnectionEnvironmentRow(props: {
     updates: { readonly label: string; readonly displayUrl: string },
   ) => Promise<AtomCommandResult<unknown, unknown>>;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const [label, setLabel] = useState(props.environment.environmentLabel);
   const [url, setUrl] = useState(props.environment.displayUrl);
   const serverConfig = useAtomValue(
@@ -146,7 +144,7 @@ export function ConnectionEnvironmentRow(props: {
         <SymbolView
           name="chevron.down"
           size={12}
-          tintColorClassName={"accent-icon-subtle"}
+          tintColorClassName="accent-icon-subtle"
           type="monochrome"
           style={{
             transform: [{ rotate: props.expanded ? "180deg" : "0deg" }],
@@ -197,7 +195,7 @@ export function ConnectionEnvironmentRow(props: {
             </>
           )}
 
-          {materialYouStyleLayoutActive ? (
+          {Platform.OS === "android" ? (
             <View className="flex-row items-center justify-end gap-2">
               {props.environment.isRelayManaged ? null : (
                 <View className="flex-1">
@@ -235,7 +233,7 @@ export function ConnectionEnvironmentRow(props: {
                   <SymbolView
                     name="checkmark"
                     size={13}
-                    tintColorClassName={"accent-primary-foreground"}
+                    tintColorClassName="accent-primary-foreground"
                     type="monochrome"
                   />
                   <Text className="text-xs font-t3-bold tracking-[0.8px] uppercase text-primary-foreground">
@@ -252,7 +250,7 @@ export function ConnectionEnvironmentRow(props: {
                 <SymbolView
                   name="arrow.clockwise"
                   size={14}
-                  tintColorClassName={"accent-icon-subtle"}
+                  tintColorClassName="accent-icon-subtle"
                   type="monochrome"
                 />
               </Pressable>
@@ -264,7 +262,7 @@ export function ConnectionEnvironmentRow(props: {
                 <SymbolView
                   name="trash"
                   size={14}
-                  tintColorClassName={"accent-danger-foreground"}
+                  tintColorClassName="accent-danger-foreground"
                   type="monochrome"
                 />
               </Pressable>

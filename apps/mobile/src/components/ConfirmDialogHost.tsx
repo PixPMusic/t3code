@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, TextInput, View } from "react-native";
+import { Platform, Modal, Pressable, TextInput, View } from "react-native";
 
 import { cn } from "../lib/cn";
 import { AppText } from "./AppText";
 import { MaterialConfirmDialog } from "./MaterialConfirmDialog";
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 
 export type ConfirmDialogRequest = {
   readonly title: string;
@@ -52,7 +51,6 @@ export function showTextInputDialog(request: TextInputDialogRequest): void {
  * button color and a dimmer message than the title.
  */
 export function ConfirmDialogHost() {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const [presented, setPresented] = useState<DialogRequest | null>(null);
   const [inputValue, setInputValue] = useState("");
   useEffect(() => {
@@ -84,7 +82,7 @@ export function ConfirmDialogHost() {
 
   const confirmDisabled = presented?.kind === "text-input" && inputValue.trim().length === 0;
 
-  if (materialYouStyleLayoutActive)
+  if (Platform.OS === "android")
     return presented ? (
       <MaterialConfirmDialog
         key={`${presented.kind}:${presented.request.title}:${presented.kind === "text-input" ? presented.request.initialValue : ""}`}

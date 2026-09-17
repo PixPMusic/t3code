@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AndroidSheetHeader } from "../../../components/AndroidScreenHeader";
 import { MaterialScreenContent } from "../../../components/MaterialScreenContent";
 import { NativeStackScreenOptions } from "../../../native/StackHeader";
-import { useAppearancePreferences } from "../../settings/appearance/AppearancePreferencesProvider";
 import { AppText as Text, AppTextInput as TextInput } from "../../../components/AppText";
 import { cn } from "../../../lib/cn";
 import { useEnvironmentQuery } from "../../../state/query";
@@ -25,7 +24,6 @@ type GitBranchesSheetProps = StaticScreenProps<{
 
 export function GitBranchesSheet(_props: GitBranchesSheetProps) {
   const navigation = useNavigation();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const { selectedThread } = useThreadSelection();
@@ -65,14 +63,14 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
   return (
     <View
       collapsable={false}
-      className={materialYouStyleLayoutActive ? "bg-sheet" : "flex-1 bg-sheet"}
-      style={materialYouStyleLayoutActive ? { maxHeight: windowHeight * 0.92 } : undefined}
+      className={Platform.OS === "android" ? "bg-sheet" : "flex-1 bg-sheet"}
+      style={Platform.OS === "android" ? { maxHeight: windowHeight * 0.92 } : undefined}
     >
       {Platform.OS === "android" ? (
         <NativeStackScreenOptions
           options={{
-            sheetCornerRadius: materialYouStyleLayoutActive ? 28 : undefined,
-            sheetAllowedDetents: materialYouStyleLayoutActive ? "fitToContents" : [0.55, 0.92],
+            sheetCornerRadius: 28,
+            sheetAllowedDetents: "fitToContents",
           }}
         />
       ) : null}
@@ -80,32 +78,32 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
         <AndroidSheetHeader
           title="Branches & worktrees"
           onBack={() => navigation.goBack()}
-          hideBottomBorder={materialYouStyleLayoutActive}
+          hideBottomBorder
         />
       ) : null}
       <MaterialScreenContent fitToContents>
         <ScrollView
-          className={materialYouStyleLayoutActive ? "shrink grow-0" : "flex-1"}
+          className={Platform.OS === "android" ? "shrink grow-0" : "flex-1"}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentInset={{ bottom: Math.max(insets.bottom, 18) + 18 }}
-          contentContainerClassName={materialYouStyleLayoutActive ? "gap-2 p-2" : "gap-4 px-5 pt-2"}
+          contentContainerClassName={Platform.OS === "android" ? "gap-2 p-2" : "gap-4 px-5 pt-2"}
           contentContainerStyle={
-            materialYouStyleLayoutActive
+            Platform.OS === "android"
               ? { paddingBottom: Math.max(insets.bottom, 18) + 18 }
               : undefined
           }
         >
           <View
             className={
-              materialYouStyleLayoutActive
+              Platform.OS === "android"
                 ? "gap-3 rounded-[20px] bg-card p-4"
                 : "gap-2 rounded-[18px] border border-border bg-card px-4 py-4"
             }
           >
             <Text
               className={
-                materialYouStyleLayoutActive
+                Platform.OS === "android"
                   ? "text-foreground text-base font-t3-medium"
                   : "text-foreground-secondary text-2xs font-t3-bold tracking-[1px] uppercase"
               }
@@ -117,9 +115,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
               onChangeText={setNewBranchName}
               placeholder="feature/mobile-polish"
               accessibilityLabel="New branch name"
-              className={
-                materialYouStyleLayoutActive ? "rounded-xl bg-sheet-solid" : "rounded-[18px]"
-              }
+              className={Platform.OS === "android" ? "rounded-xl bg-sheet-solid" : "rounded-[18px]"}
             />
             <SheetActionButton
               icon="plus"
@@ -139,21 +135,21 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
 
           <View
             className={
-              materialYouStyleLayoutActive
+              Platform.OS === "android"
                 ? "gap-3 rounded-[20px] bg-card p-4"
                 : "gap-2 rounded-[18px] border border-border bg-card px-4 py-4"
             }
           >
             <Text
               className={
-                materialYouStyleLayoutActive
+                Platform.OS === "android"
                   ? "text-foreground text-base font-t3-medium"
                   : "text-foreground-secondary text-2xs font-t3-bold tracking-[1px] uppercase"
               }
             >
               New worktree
             </Text>
-            {materialYouStyleLayoutActive ? (
+            {Platform.OS === "android" ? (
               <Text className="text-foreground-secondary text-sm">Base branch</Text>
             ) : null}
             <TextInput
@@ -161,11 +157,9 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
               onChangeText={setWorktreeBaseBranch}
               placeholder="main"
               accessibilityLabel="Worktree base branch"
-              className={
-                materialYouStyleLayoutActive ? "rounded-xl bg-sheet-solid" : "rounded-[18px]"
-              }
+              className={Platform.OS === "android" ? "rounded-xl bg-sheet-solid" : "rounded-[18px]"}
             />
-            {materialYouStyleLayoutActive ? (
+            {Platform.OS === "android" ? (
               <Text className="text-foreground-secondary text-sm">New branch</Text>
             ) : null}
             <TextInput
@@ -173,9 +167,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
               onChangeText={setWorktreeBranchName}
               placeholder="feature/mobile-thread"
               accessibilityLabel="Worktree branch name"
-              className={
-                materialYouStyleLayoutActive ? "rounded-xl bg-sheet-solid" : "rounded-[18px]"
-              }
+              className={Platform.OS === "android" ? "rounded-xl bg-sheet-solid" : "rounded-[18px]"}
             />
             <SheetActionButton
               icon="square.split.2x1"
@@ -203,7 +195,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
           <View className="gap-2">
             <Text
               className={
-                materialYouStyleLayoutActive
+                Platform.OS === "android"
                   ? "px-4 pb-1 pt-3 text-foreground-secondary text-sm font-t3-medium"
                   : "text-foreground-secondary text-2xs font-t3-bold tracking-[1px] uppercase"
               }
@@ -214,7 +206,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
               <Text
                 className={cn(
                   "text-foreground-secondary text-sm font-medium",
-                  materialYouStyleLayoutActive && "px-4",
+                  Platform.OS === "android" && "px-4",
                 )}
               >
                 Loading branches...
@@ -224,7 +216,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
               <Text
                 className={cn(
                   "text-foreground-secondary text-sm font-medium",
-                  materialYouStyleLayoutActive && "px-4",
+                  Platform.OS === "android" && "px-4",
                 )}
               >
                 No local branches found.
@@ -245,7 +237,7 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
                   key={branch.name}
                   className={cn(
                     "gap-1 px-4 py-3 disabled:opacity-[0.45]",
-                    materialYouStyleLayoutActive
+                    Platform.OS === "android"
                       ? cn(
                           "rounded-[20px] active:bg-subtle",
                           branch.current ? "bg-secondary" : "bg-card",
@@ -264,13 +256,13 @@ export function GitBranchesSheet(_props: GitBranchesSheetProps) {
                     });
                   }}
                 >
-                  {!materialYouStyleLayoutActive ? (
+                  {Platform.OS !== "android" ? (
                     <View className="absolute inset-0 rounded-[18px] bg-card" />
                   ) : null}
                   <Text
                     className={cn(
                       "text-foreground text-base",
-                      materialYouStyleLayoutActive ? "font-t3-medium" : "font-t3-bold",
+                      Platform.OS === "android" ? "font-t3-medium" : "font-t3-bold",
                     )}
                   >
                     {branch.name}

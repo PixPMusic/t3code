@@ -2,7 +2,6 @@ import { MaterialListRow } from "../../components/MaterialListRow";
 import { SettingsScreen } from "../settings/components/SettingsScreen";
 import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
 import { MaterialButton } from "../../components/MaterialButton";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import {
   addProjectRemoteSourceLabel,
   addProjectRemoteSourcePathHint,
@@ -46,14 +45,13 @@ import {
 import { CommonActions, StackActions, useNavigation } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Alert, Pressable, View } from "react-native";
+import { Platform, ActivityIndicator, Alert, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Arr from "effect/Array";
 import * as Cause from "effect/Cause";
 import * as Order from "effect/Order";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { cn } from "../../lib/cn";
-
 import { useProjects, useServerConfigs, waitForProject } from "../../state/entities";
 import { filesystemEnvironment } from "../../state/filesystem";
 import { projectEnvironment } from "../../state/projects";
@@ -127,11 +125,10 @@ function sourceFromParam(value: string | string[] | undefined): AddProjectRemote
 }
 
 function SectionTitle(props: { readonly children: string }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <Text
       className={
-        materialYouStyleLayoutActive
+        Platform.OS === "android"
           ? "px-4 text-sm font-t3-medium text-primary"
           : "px-1 text-2xs font-t3-bold tracking-[0.7px] uppercase text-foreground-muted"
       }
@@ -142,7 +139,6 @@ function SectionTitle(props: { readonly children: string }) {
 }
 
 function AddProjectShell(props: { readonly children: ReactNode; readonly title: string }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const insets = useSafeAreaInsets();
 
   return (
@@ -151,15 +147,15 @@ function AddProjectShell(props: { readonly children: ReactNode; readonly title: 
     // scroll-view frame correction mistakes this full-height wrapper for a
     // "header" sibling, coercing the ScrollView to zero height (blank sheet
     // as soon as the sheet re-lays-out, e.g. when the keyboard opens).
-    <SettingsScreen title={props.title} nativeAndroidHeader>
+    <SettingsScreen title={props.title}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
-          paddingHorizontal: materialYouStyleLayoutActive ? 16 : 20,
+          paddingHorizontal: Platform.OS === "android" ? 16 : 20,
           paddingTop: 16,
           paddingBottom: Math.max(insets.bottom, 18) + 18,
-          gap: materialYouStyleLayoutActive ? 16 : 10,
+          gap: Platform.OS === "android" ? 16 : 10,
         }}
       >
         {props.children}
@@ -169,11 +165,10 @@ function AddProjectShell(props: { readonly children: ReactNode; readonly title: 
 }
 
 function ListSection(props: { readonly children: ReactNode }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   return (
     <View
       className={
-        materialYouStyleLayoutActive
+        Platform.OS === "android"
           ? "overflow-hidden rounded-[28px] bg-card"
           : "overflow-hidden rounded-[24px] bg-card"
       }
@@ -193,8 +188,7 @@ function ListRow(props: {
   readonly right?: ReactNode;
   readonly onPress?: () => void;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  if (materialYouStyleLayoutActive) {
+  if (Platform.OS === "android") {
     return (
       <MaterialListRow
         title={props.title}
@@ -242,7 +236,7 @@ function ListRow(props: {
           <SymbolView
             name="chevron.right"
             size={13}
-            tintColorClassName={"accent-chevron"}
+            tintColorClassName="accent-chevron"
             type="monochrome"
           />
         ) : null}
@@ -257,8 +251,7 @@ function PrimaryActionButton(props: {
   readonly loading?: boolean;
   readonly onPress: () => void;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
-  if (materialYouStyleLayoutActive) return <MaterialButton {...props} tone="primary" fullWidth />;
+  if (Platform.OS === "android") return <MaterialButton {...props} tone="primary" fullWidth />;
   return (
     <Pressable
       disabled={props.disabled}
@@ -467,7 +460,6 @@ function SourceControlRow(props: {
   readonly hint: string;
   readonly isFirst: boolean;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const navigation = useNavigation();
   const title =
     props.source === "url" ? "Git URL" : `${addProjectRemoteSourceLabel(props.source)} repository`;
@@ -479,14 +471,14 @@ function SourceControlRow(props: {
     props.source === "url" ? (
       <SymbolView
         name="link"
-        size={materialYouStyleLayoutActive ? 24 : 17}
-        tintColorClassName={"accent-icon"}
+        size={Platform.OS === "android" ? 24 : 17}
+        tintColorClassName="accent-icon"
         type="monochrome"
       />
     ) : (
       <SourceControlIcon
         kind={props.source}
-        size={materialYouStyleLayoutActive ? 24 : 18}
+        size={Platform.OS === "android" ? 24 : 18}
         colorClassName="accent-icon"
       />
     );
@@ -516,7 +508,6 @@ function SourceControlRow(props: {
 }
 
 export function AddProjectSourceScreen() {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const navigation = useNavigation();
   const { environmentOptions, selectedEnvironment, setSelectedEnvironmentId } =
     useSelectedEnvironment();
@@ -557,7 +548,7 @@ export function AddProjectSourceScreen() {
                 icon={
                   <EnvironmentMachineSymbol
                     kind={environment.machine}
-                    size={materialYouStyleLayoutActive ? 24 : 17}
+                    size={Platform.OS === "android" ? 24 : 17}
                     tintColorClassName="accent-icon"
                   />
                 }
@@ -568,8 +559,8 @@ export function AddProjectSourceScreen() {
                   environment.environmentId === selectedEnvironment?.environmentId ? (
                     <SymbolView
                       name="checkmark"
-                      size={materialYouStyleLayoutActive ? 20 : 14}
-                      tintColorClassName={"accent-icon"}
+                      size={Platform.OS === "android" ? 20 : 14}
+                      tintColorClassName="accent-icon"
                       type="monochrome"
                     />
                   ) : null
@@ -590,8 +581,8 @@ export function AddProjectSourceScreen() {
               icon={
                 <SymbolView
                   name="folder.badge.plus"
-                  size={materialYouStyleLayoutActive ? 24 : 17}
-                  tintColorClassName={"accent-icon"}
+                  size={Platform.OS === "android" ? 24 : 17}
+                  tintColorClassName="accent-icon"
                   type="monochrome"
                 />
               }
@@ -622,7 +613,7 @@ export function AddProjectSourceScreen() {
             )}
           </ListSection>
           {discoveryState.isPending ? (
-            <ActivityIndicator colorClassName={"accent-icon-muted"} />
+            <ActivityIndicator colorClassName="accent-icon-muted" />
           ) : null}
         </>
       ) : null}
@@ -817,7 +808,6 @@ function FolderBrowser(props: {
   }) => Promise<boolean>;
   readonly pinnedDirectoryName?: string;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const browsePath = useMemo(
     () => getFilesystemBrowsePath(props.pathInput, props.environment.platform),
     [props.environment.platform, props.pathInput],
@@ -853,7 +843,7 @@ function FolderBrowser(props: {
       <ListSection>
         {browseState.isPending && browseState.data === null ? (
           <View className="items-center py-5">
-            <ActivityIndicator colorClassName={"accent-icon-muted"} />
+            <ActivityIndicator colorClassName="accent-icon-muted" />
           </View>
         ) : null}
         {browsePath.canBrowseUp ? (
@@ -862,8 +852,8 @@ function FolderBrowser(props: {
             icon={
               <SymbolView
                 name="arrow.turn.left.up"
-                size={materialYouStyleLayoutActive ? 24 : 17}
-                tintColorClassName={"accent-icon-muted"}
+                size={Platform.OS === "android" ? 24 : 17}
+                tintColorClassName="accent-icon-muted"
                 type="monochrome"
               />
             }
@@ -885,8 +875,8 @@ function FolderBrowser(props: {
             icon={
               <SymbolView
                 name="folder"
-                size={materialYouStyleLayoutActive ? 24 : 17}
-                tintColorClassName={"accent-icon-muted"}
+                size={Platform.OS === "android" ? 24 : 17}
+                tintColorClassName="accent-icon-muted"
                 type="monochrome"
               />
             }

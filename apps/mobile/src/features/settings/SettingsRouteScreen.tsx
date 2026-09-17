@@ -39,7 +39,6 @@ import { withNativeGlassHeaderItem } from "../layout/native-glass-header-items";
 import { WorkspaceSidebarToolbar } from "../layout/workspace-sidebar-toolbar";
 import { runtime } from "../../lib/runtime";
 import { cn } from "../../lib/cn";
-import { useAppearancePreferences } from "./appearance/AppearancePreferencesProvider";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -621,7 +620,6 @@ const AUTO_SETTLE_DEFAULT_DAYS = DEFAULT_SERVER_SETTINGS.sidebarAutoSettleAfterD
  */
 function AutoSettleSettingsRows() {
   const { environments } = useEnvironments();
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const [pendingWrites, setPendingWrites] = useState(0);
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, {
     label: "server settings update",
@@ -676,14 +674,14 @@ function AutoSettleSettingsRows() {
         <View
           className={cn(
             "flex-row items-center gap-4 px-4",
-            materialYouStyleLayoutActive ? "min-h-14 py-3" : "py-4",
+            Platform.OS === "android" ? "min-h-14 py-3" : "py-4",
           )}
         >
-          <View style={{ width: materialYouStyleLayoutActive ? 24 : 22 }} />
+          <View style={{ width: Platform.OS === "android" ? 24 : 22 }} />
           <Text
             className={cn(
               "flex-1 text-foreground",
-              materialYouStyleLayoutActive ? "text-base" : "text-lg",
+              Platform.OS === "android" ? "text-base" : "text-lg",
             )}
           >
             Inactive days
@@ -823,7 +821,7 @@ function AppSettingsSection() {
       <SymbolView
         name="info.circle"
         size={22}
-        tintColorClassName={"accent-icon"}
+        tintColorClassName="accent-icon"
         type="monochrome"
         weight="regular"
       />

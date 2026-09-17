@@ -16,8 +16,7 @@ import { mediaFileReference } from "@t3tools/client-runtime/media-reference";
 
 import { AndroidHeaderIconButton, AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { MaterialScreenContent } from "../../components/MaterialScreenContent";
-import { SymbolView } from "../../components/AppSymbol";
-import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
+import { AppText as Text } from "../../components/AppText";
 import { AudioFilePreview } from "../../components/AudioFilePreview";
 import { ControlPillMenu } from "../../components/ControlPill";
 import { EmptyState } from "../../components/EmptyState";
@@ -333,8 +332,7 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
     useAdaptiveWorkspaceLayout();
   const [searchQuery, setSearchQuery] = useState("");
   const isAndroid = Platform.OS === "android";
-  const { themeAppearance: highlightTheme, materialYouStyleLayoutActive } =
-    useAppearancePreferences();
+  const { themeAppearance: highlightTheme } = useAppearancePreferences();
   const theme = useUniwindTheme();
   const headerColor = theme["--color-header"];
   const sheetSurfaceColor = theme["--color-sheet-solid"];
@@ -456,7 +454,7 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
       <NativeStackScreenOptions
         options={{
           contentStyle: {
-            backgroundColor: materialYouStyleLayoutActive ? headerColor : sheetSurfaceColor,
+            backgroundColor: Platform.OS === "android" ? headerColor : sheetSurfaceColor,
           },
           headerShown: !isAndroid,
           unstable_headerSubtitle:
@@ -489,7 +487,7 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
       />
       {isAndroid ? (
         <>
-          {materialYouStyleLayoutActive ? (
+          {
             <MaterialFilesHeader
               projectName={projectName}
               leading={<AndroidWorkspaceSidebarButton />}
@@ -498,40 +496,7 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
               onRefresh={entriesQuery.refresh}
               onBack={handleReturnToThread}
             />
-          ) : (
-            <AndroidScreenHeader
-              title="Files"
-              subtitle={projectName}
-              leading={<AndroidWorkspaceSidebarButton />}
-              onBack={handleReturnToThread}
-              actions={[
-                {
-                  accessibilityLabel: "Refresh files",
-                  icon: "arrow.clockwise",
-                  onPress: entriesQuery.refresh,
-                },
-              ]}
-            />
-          )}
-          {!materialYouStyleLayoutActive ? (
-            <View className="flex-row items-center gap-2 border-b border-border px-3 py-2">
-              <SymbolView
-                name="magnifyingglass"
-                size={17}
-                tintColorClassName={"accent-icon-muted"}
-                type="monochrome"
-              />
-              <TextInput
-                accessibilityLabel="Search files"
-                autoCapitalize="none"
-                autoCorrect={false}
-                className="min-h-10 flex-1 rounded-xl py-2 text-sm"
-                placeholder="Search files"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-          ) : null}
+          }
         </>
       ) : (
         <>
@@ -576,7 +541,7 @@ export function ThreadFilesTreeScreen(props: ThreadFilesRouteScreenProps) {
     </>
   );
 
-  return materialYouStyleLayoutActive ? (
+  return Platform.OS === "android" ? (
     <View className="flex-1" style={{ backgroundColor: headerColor }}>
       {content}
     </View>
@@ -589,7 +554,7 @@ export function ThreadFileScreen(props: ThreadFileRouteScreenProps) {
   useAdaptiveWorkspacePaneRole("inspector");
   const navigation = useNavigation();
   const { fileInspector, panes, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
-  const { appearance, setCodeWordBreak, materialYouStyleLayoutActive } = useAppearancePreferences();
+  const { appearance, setCodeWordBreak } = useAppearancePreferences();
   const iconColor = useUniwindTheme()["--color-icon"];
   const isAndroid = Platform.OS === "android";
   const params = props.route.params;
@@ -944,7 +909,7 @@ export function ThreadFileScreen(props: ThreadFileRouteScreenProps) {
           title={basename(relativePath)}
           subtitle={headerSubtitle}
           leading={<AndroidWorkspaceSidebarButton />}
-          hideBottomBorder={materialYouStyleLayoutActive}
+          hideBottomBorder
           onBack={handleBack}
           trailing={
             <>

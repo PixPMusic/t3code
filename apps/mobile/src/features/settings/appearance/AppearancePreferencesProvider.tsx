@@ -51,9 +51,6 @@ interface AppearancePreferencesContextValue {
   readonly themeIds: MobileThemeIds;
   readonly themeMode: MobileThemeMode;
   readonly themeAppearance: MobileThemeAppearance;
-  readonly materialYouStyleLayoutEnabled: boolean;
-  readonly materialYouStyleLayoutActive: boolean;
-  readonly setMaterialYouStyleLayoutEnabled: (value: boolean) => void;
   readonly systemColorsAvailable: boolean;
   readonly systemColorsActive: boolean;
   readonly themeVariables: MobileThemeVariables;
@@ -97,9 +94,6 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     [resolvedThemeIds.dark, resolvedThemeIds.light],
   );
   const themeId = themeIds[themeAppearance];
-  const materialYouStyleLayoutEnabled =
-    storedPreferences?.materialYouStyleLayoutEnabled ?? Platform.OS === "android";
-  const materialYouStyleLayoutActive = Platform.OS === "android" && materialYouStyleLayoutEnabled;
   const systemColorsActive = themeId === "material-you" && isSystemColorsAvailable;
   const [systemColorPalettes, setSystemColorPalettes] = useState(readSystemColorPalettes);
   useEffect(() => {
@@ -121,11 +115,7 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
   }, []);
   const themeVariablesByAppearance = useMemo(() => {
     const resolve = (appearance: MobileThemeAppearance) => {
-      const base = getMobileThemeRuntimeVariables(
-        themeIds[appearance],
-        appearance,
-        materialYouStyleLayoutActive,
-      );
+      const base = getMobileThemeRuntimeVariables(themeIds[appearance], appearance, Platform.OS);
       return themeIds[appearance] === "material-you" && systemColorPalettes
         ? materialYouPaletteToMobileThemeVariables(
             systemColorPalettes[appearance],
@@ -135,7 +125,7 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
         : base;
     };
     return { light: resolve("light"), dark: resolve("dark") };
-  }, [themeIds, systemColorPalettes, materialYouStyleLayoutActive]);
+  }, [themeIds, systemColorPalettes]);
   const themeVariables = themeVariablesByAppearance[themeAppearance];
   const activeThemeName = getMobileUniwindThemeName(themeId, themeAppearance);
   const { baseFontSize, codeFontSize, codeWordBreak, terminalFontSize } = preferences;
@@ -252,13 +242,6 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     [runtimeState, syncThemeRuntime, updateThemePreferences],
   );
 
-  const setMaterialYouStyleLayoutEnabled = useCallback(
-    (value: boolean) => {
-      updatePreferences({ materialYouStyleLayoutEnabled: value });
-    },
-    [updatePreferences],
-  );
-
   const setBaseFontSize = useCallback(
     (value: number) => {
       const current = appliedRuntimeStateRef.current ?? runtimeState;
@@ -298,9 +281,6 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeAppearance,
       systemColorsAvailable: isSystemColorsAvailable,
       systemColorsActive,
-      materialYouStyleLayoutEnabled,
-      materialYouStyleLayoutActive,
-      setMaterialYouStyleLayoutEnabled,
       themeVariables,
       themeVariablesByAppearance,
       systemColorPalettes,
@@ -320,9 +300,6 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeMode,
       themeAppearance,
       systemColorsActive,
-      materialYouStyleLayoutEnabled,
-      materialYouStyleLayoutActive,
-      setMaterialYouStyleLayoutEnabled,
       themeVariables,
       themeVariablesByAppearance,
       systemColorPalettes,

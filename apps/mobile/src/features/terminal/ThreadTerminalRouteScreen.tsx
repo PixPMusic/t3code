@@ -1,4 +1,3 @@
-import { BlurTargetView } from "expo-blur";
 import { DEFAULT_TERMINAL_ID, EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { type KnownTerminalSession } from "@t3tools/client-runtime/state/terminal";
 import type { MenuAction } from "@react-native-menu/menu";
@@ -164,7 +163,6 @@ type ThreadTerminalRouteScreenProps = StaticScreenProps<{
 
 export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps) {
   const insets = useSafeAreaInsets();
-  const terminalBlurTarget = useRef<View>(null);
   const navigation = useNavigation();
   const writeTerminal = useAtomCommand(terminalEnvironment.write, "terminal write");
   const resizeTerminal = useAtomCommand(terminalEnvironment.resize, "terminal resize");
@@ -196,7 +194,6 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
     themeAppearance: appearanceScheme,
     themeId,
     setTerminalFontSize,
-    materialYouStyleLayoutActive,
     themeVariables,
   } = useAppearancePreferences();
   const fontSize = appearance.terminalFontSize;
@@ -1287,9 +1284,10 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
         <View
           className="flex-1"
           style={{
-            backgroundColor: materialYouStyleLayoutActive
-              ? themeVariables["--color-card-alt"]
-              : terminalTheme.background,
+            backgroundColor:
+              Platform.OS === "android"
+                ? themeVariables["--color-card-alt"]
+                : terminalTheme.background,
             paddingBottom:
               Platform.OS === "android" && !keyboardState.isVisible ? insets.bottom : 0,
           }}
@@ -1313,8 +1311,7 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
             />
           ) : (
             <>
-              <BlurTargetView
-                ref={terminalBlurTarget}
+              <View
                 style={{
                   flex: 1,
                   paddingBottom: terminalBottomInset,
@@ -1345,9 +1342,9 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
                   terminalKey={terminalKey}
                   theme={terminalTheme}
                 />
-              </BlurTargetView>
+              </View>
 
-              {materialYouStyleLayoutActive && !keyboardState.isVisible ? (
+              {Platform.OS === "android" && !keyboardState.isVisible ? (
                 <View className="min-h-14 flex-row items-center gap-2 bg-card-alt px-2">
                   {selectedThread && hasNativeTerminalSurface() ? (
                     <MaterialButton
@@ -1363,7 +1360,7 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
                     onPress={handleShowKeyboard}
                   />
                 </View>
-              ) : !materialYouStyleLayoutActive && selectedThread && hasNativeTerminalSurface() ? (
+              ) : Platform.OS !== "android" && selectedThread && hasNativeTerminalSurface() ? (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => {
@@ -1425,7 +1422,7 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
                     </ComposerToolbarRow>
                   </View>
                 </KeyboardStickyView>
-              ) : !keyboardState.isVisible && !materialYouStyleLayoutActive ? (
+              ) : !keyboardState.isVisible && Platform.OS !== "android" ? (
                 <Pressable
                   accessibilityLabel="Show keyboard"
                   accessibilityRole="button"
@@ -1440,7 +1437,6 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
                 >
                   <GlassSurface
                     chrome="none"
-                    blurTarget={terminalBlurTarget}
                     fallbackColor={terminalTheme.background}
                     glassEffectStyle="regular"
                     tintColor="transparent"

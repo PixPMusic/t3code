@@ -17,14 +17,11 @@ import {
 } from "react-native";
 import { AppText } from "../../components/AppText";
 import { SegmentedControl } from "../../components/SegmentedControl";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
-import { applySnoozePickerDate, snoozeDateToPickerDate } from "./customSnoozeDate";
 
 export function CustomSnoozeSheet(props: {
   readonly onClose: () => void;
   readonly onSnooze: (snoozedUntil: string) => void;
 }) {
-  const { materialYouStyleLayoutActive } = useAppearancePreferences();
   const [mode, setMode] = useState<CustomSnoozeInput["mode"]>("date");
   const [date, setDate] = useState(() => new Date(Date.now() + 3_600_000));
   const [picker, setPicker] = useState<"date" | "time" | null>(null);
@@ -71,11 +68,7 @@ export function CustomSnoozeSheet(props: {
                   key={value}
                   accessibilityRole="button"
                   accessibilityLabel={value === "date" ? "Choose date" : "Choose time"}
-                  className={
-                    materialYouStyleLayoutActive
-                      ? "min-h-12 flex-row items-center justify-between rounded-xl border border-input-border bg-input px-3"
-                      : "min-h-12 flex-row items-center justify-between rounded-xl bg-subtle px-3"
-                  }
+                  className="min-h-12 flex-row items-center justify-between rounded-xl bg-subtle px-3"
                   onPress={() => setPicker(value)}
                 >
                   <AppText>{value === "date" ? "Date" : "Time"}</AppText>
@@ -88,21 +81,11 @@ export function CustomSnoozeSheet(props: {
               ))}
               {picker && (
                 <DateTimePicker
-                  value={
-                    Platform.OS === "android" && picker === "date"
-                      ? new Date(snoozeDateToPickerDate(date))
-                      : date
-                  }
+                  value={date}
                   mode={picker}
                   display={Platform.OS === "ios" ? "spinner" : "default"}
                   onDismiss={() => setPicker(null)}
                   onValueChange={(_, selected) => {
-                    if (Platform.OS === "android" && picker === "date") {
-                      setDate(applySnoozePickerDate(date, selected));
-                      setError(null);
-                      setPicker(null);
-                      return;
-                    }
                     const next = new Date(date);
                     if (picker === "date")
                       next.setFullYear(
@@ -113,7 +96,6 @@ export function CustomSnoozeSheet(props: {
                     else next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
                     setDate(next);
                     setError(null);
-                    if (Platform.OS === "android") setPicker(null);
                   }}
                 />
               )}
@@ -123,11 +105,7 @@ export function CustomSnoozeSheet(props: {
               <AppText>Snooze for</AppText>
               <TextInput
                 accessibilityLabel="Duration"
-                className={
-                  materialYouStyleLayoutActive
-                    ? "min-h-12 rounded-xl border border-input-border bg-input px-3 text-base text-foreground"
-                    : "min-h-12 rounded-xl bg-subtle px-3 text-base text-foreground"
-                }
+                className="min-h-12 rounded-xl bg-subtle px-3 text-base text-foreground"
                 keyboardType="decimal-pad"
                 value={amount}
                 onChangeText={(value) => {
