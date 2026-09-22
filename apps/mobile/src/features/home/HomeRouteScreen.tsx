@@ -27,13 +27,19 @@ import { getConnectionAwareBrandHeaderOptions } from "./WorkspaceConnectionTitle
 
 export function HomeRouteScreen() {
   const { width: windowWidth } = useWindowDimensions();
-  const { layout, panes } = useAdaptiveWorkspaceLayout();
+  const { layout, panes, primarySidebarSearchQuery, setPrimarySidebarSearchQuery } =
+    useAdaptiveWorkspaceLayout();
   const projects = useProjects();
   const threads = useThreadShells();
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const navigation = useNavigation();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [localSearchQuery, setLocalSearchQuery] = useState("");
+  // Android's controlled fields share search text across compact/split remounts.
+  // Keep iOS search local because its native fields do not restore text from this state.
+  const searchQuery = Platform.OS === "android" ? primarySidebarSearchQuery : localSearchQuery;
+  const setSearchQuery =
+    Platform.OS === "android" ? setPrimarySidebarSearchQuery : setLocalSearchQuery;
   const handleSelectThread = useHomeThreadSelection();
 
   useEffect(() => {
@@ -79,11 +85,12 @@ export function HomeRouteScreen() {
   const {
     options: listOptions,
     setSelectedEnvironmentId,
+    setSelectedProjectKey,
     setProjectSortOrder,
     setThreadSortOrder,
   } = useHomeListOptions(availableEnvironmentIds);
   const selectedEnvironmentId = listOptions.selectedEnvironmentId;
-  const [selectedProjectKey, setSelectedProjectKey] = useState<string | null>(null);
+  const selectedProjectKey = listOptions.selectedProjectKey;
   const projectFilterOptions = useMemo(
     () =>
       buildHomeProjectScopes({
@@ -103,7 +110,7 @@ export function HomeRouteScreen() {
     ) {
       setSelectedProjectKey(null);
     }
-  }, [projectFilterOptions, selectedProjectKey]);
+  }, [projectFilterOptions, selectedProjectKey, setSelectedProjectKey]);
 
   // In split layouts the persistent sidebar IS the thread list — Home becomes
   // an empty detail pane so selecting a thread never transitions layouts.
