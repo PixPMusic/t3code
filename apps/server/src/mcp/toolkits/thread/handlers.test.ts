@@ -464,8 +464,7 @@ describe("thread metadata tools", () => {
       const reads = yield* makeHarness({ readFailure: true });
       const readError = yield* reads.call("get_thread_metadata", {}).pipe(Effect.flip);
       expect(readError).toMatchObject({
-        _tag: "ThreadMetadataOperationError",
-        operation: "read",
+        _tag: "ThreadMetadataReadError",
         cause: { _tag: "PersistenceSqlError" },
       });
       const renames = yield* makeHarness({ renameFailure: true });
@@ -473,8 +472,7 @@ describe("thread metadata tools", () => {
         .call("set_thread_name", { name: "Name" })
         .pipe(Effect.flip);
       expect(renameError).toMatchObject({
-        _tag: "ThreadMetadataOperationError",
-        operation: "rename",
+        _tag: "ThreadMetadataRenameError",
         cause: { _tag: "OrchestrationCommandInvariantError" },
       });
       expect(encodeJson([readError.message, renameError.message])).not.toContain("secret");

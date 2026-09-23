@@ -117,11 +117,20 @@ export class ThreadMetadataNotFoundError extends Schema.TaggedError<ThreadMetada
   }
 }
 
-export class ThreadMetadataOperationError extends Schema.TaggedError<ThreadMetadataOperationError>()(
-  "ThreadMetadataOperationError",
-  { operation: Schema.Literals(["read", "rename"]), cause: Schema.Defect() },
+export class ThreadMetadataReadError extends Schema.TaggedError<ThreadMetadataReadError>()(
+  "ThreadMetadataReadError",
+  { cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return `Could not ${this.operation} the current thread.`;
+    return "Could not read the current thread.";
+  }
+}
+
+export class ThreadMetadataRenameError extends Schema.TaggedError<ThreadMetadataRenameError>()(
+  "ThreadMetadataRenameError",
+  { cause: Schema.Defect() },
+) {
+  override get message(): string {
+    return "Could not rename the current thread.";
   }
 }

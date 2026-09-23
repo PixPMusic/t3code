@@ -5,7 +5,8 @@ import {
   SetThreadNameResult,
   ThreadMetadata,
   ThreadMetadataNotFoundError,
-  ThreadMetadataOperationError,
+  ThreadMetadataReadError,
+  ThreadMetadataRenameError,
 } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import * as Tool from "effect/unstable/ai/Tool";
@@ -15,7 +16,8 @@ import * as McpInvocationContext from "../../McpInvocationContext.ts";
 const failure = Schema.Union([
   McpCapabilityUnavailableError,
   ThreadMetadataNotFoundError,
-  ThreadMetadataOperationError,
+  ThreadMetadataReadError,
+  ThreadMetadataRenameError,
 ]);
 const dependencies = [McpInvocationContext.McpInvocationContext];
 

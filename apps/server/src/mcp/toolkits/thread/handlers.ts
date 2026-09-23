@@ -2,7 +2,8 @@ import * as NodeOS from "node:os";
 import {
   CommandId,
   ThreadMetadataNotFoundError,
-  ThreadMetadataOperationError,
+  ThreadMetadataReadError,
+  ThreadMetadataRenameError,
   type ModelSelection,
   type ThreadMetadata,
   type ThreadMetadataField,
@@ -36,7 +37,13 @@ const make = Effect.gen(function* () {
     const scope = yield* McpInvocationContext.requireMcpCapability("thread");
     const thread = yield* snapshots
       .getThreadShellById(scope.threadId)
-      .pipe(Effect.mapError((cause) => new ThreadMetadataOperationError({ operation, cause })));
+      .pipe(
+        Effect.mapError((cause) =>
+          operation === "read"
+            ? new ThreadMetadataReadError({ cause })
+            : new ThreadMetadataRenameError({ cause }),
+        ),
+      );
     if (Option.isNone(thread)) {
       return yield* new ThreadMetadataNotFoundError({ threadId: scope.threadId });
     }
@@ -67,11 +74,7 @@ const make = Effect.gen(function* () {
           ? Option.getOrNull(
               yield* snapshots
                 .getProjectShellById(thread.projectId)
-                .pipe(
-                  Effect.mapError(
-                    (cause) => new ThreadMetadataOperationError({ operation: "read", cause }),
-                  ),
-                ),
+                .pipe(Effect.mapError((cause) => new ThreadMetadataReadError({ cause }))),
             )
           : null;
       const provider =
@@ -190,11 +193,7 @@ const make = Effect.gen(function* () {
           threadId: thread.id,
           title: name,
         })
-        .pipe(
-          Effect.mapError(
-            (cause) => new ThreadMetadataOperationError({ operation: "rename", cause }),
-          ),
-        );
+        .pipe(Effect.mapError((cause) => new ThreadMetadataRenameError({ cause })));
       return { id: thread.id, name };
     }),
   });
