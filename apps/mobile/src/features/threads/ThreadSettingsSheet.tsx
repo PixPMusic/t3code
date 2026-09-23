@@ -10,6 +10,7 @@ import type { LegendListRenderItemProps } from "@legendapp/list/react-native";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import {
+  carryCodexCyberAccessProgram,
   getProviderOptionCurrentLabel,
   getProviderOptionCurrentValue,
   getProviderOptionDescriptors,
@@ -433,15 +434,29 @@ function ThreadSettingsSessionProvider(
   const pressModel = useCallback(
     (option: ModelOption) => {
       void Haptics.selectionAsync();
-      setPendingModel((current) =>
-        pendingModelAfterPress({
-          current,
-          pressed: option,
-          pressedIsApplied: isApplied(option),
-        }),
-      );
+      const pending = pendingModelAfterPress({
+        current: pendingModel,
+        pressed: option,
+        pressedIsApplied: isApplied(option),
+      });
+      if (!pending) {
+        setPendingModel(null);
+        return;
+      }
+      const { selection, didReset } = carryCodexCyberAccessProgram({
+        current: pendingModel?.selection ?? props.selectedModel,
+        next: pending.selection,
+        nextCapabilities: pending.capabilities,
+      });
+      setPendingModel({ ...pending, selection });
+      if (didReset) {
+        Alert.alert(
+          "Daybreak selection reset",
+          "The selected model does not support the previous Daybreak program.",
+        );
+      }
     },
-    [isApplied],
+    [isApplied, pendingModel, props.selectedModel],
   );
 
   const value = useMemo<ThreadSettingsSessionValue>(

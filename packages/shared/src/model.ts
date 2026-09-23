@@ -153,6 +153,44 @@ export function getProviderOptionDescriptors(input: {
   );
 }
 
+/** Carry an active Daybreak choice across a model switch when the catalog supports it. */
+export function carryCodexCyberAccessProgram(input: {
+  current: ModelSelection | null | undefined;
+  next: ModelSelection;
+  nextCapabilities: ModelCapabilities | null | undefined;
+}): { selection: ModelSelection; didReset: boolean } {
+  const program = getModelSelectionStringOptionValue(input.current, "cyberAccessProgram");
+  if (program !== "standard" && program !== "daybreakBlue" && program !== "daybreakRed") {
+    return { selection: input.next, didReset: false };
+  }
+  if (input.next.instanceId !== input.current?.instanceId) {
+    return { selection: input.next, didReset: program !== "standard" };
+  }
+  const supportsProgram = input.nextCapabilities?.optionDescriptors?.some(
+    (descriptor) =>
+      descriptor.id === "cyberAccessProgram" &&
+      descriptor.type === "select" &&
+      descriptor.options.some((option) => option.id === program),
+  );
+  const supportsStandard = input.nextCapabilities?.optionDescriptors?.some(
+    (descriptor) =>
+      descriptor.id === "cyberAccessProgram" &&
+      descriptor.type === "select" &&
+      descriptor.options.some((option) => option.id === "standard"),
+  );
+  const nextProgram = supportsProgram ? program : supportsStandard ? "standard" : undefined;
+  return {
+    selection: {
+      ...input.next,
+      options: [
+        ...(input.next.options ?? []).filter((option) => option.id !== "cyberAccessProgram"),
+        ...(nextProgram ? [{ id: "cyberAccessProgram", value: nextProgram }] : []),
+      ],
+    },
+    didReset: program !== "standard" && !supportsProgram,
+  };
+}
+
 export function getProviderOptionCurrentValue(
   descriptor: ProviderOptionDescriptor | null | undefined,
 ): string | boolean | undefined {

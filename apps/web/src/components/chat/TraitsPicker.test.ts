@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import { ProviderDriverKind, type ProviderOptionDescriptor } from "@t3tools/contracts";
-import { buildTraitsTriggerDisplay, buildUnavailableModelOptionDescriptors } from "./TraitsPicker";
+import {
+  buildTraitsTriggerAccessibleLabel,
+  buildTraitsTriggerDisplay,
+  buildUnavailableModelOptionDescriptors,
+  getDaybreakTriggerSelection,
+} from "./TraitsPicker";
 
 function selectDescriptor(
   id: string,
@@ -102,6 +107,77 @@ describe("buildTraitsTriggerDisplay", () => {
       label: "Fast",
       showFastModeIcon: false,
     });
+  });
+
+  it("keeps Daybreak out of the visible label and announces each available state", () => {
+    const daybreak = selectDescriptor(
+      "cyberAccessProgram",
+      [
+        { id: "standard", label: "Off", isDefault: true },
+        { id: "daybreakRed", label: "Red" },
+        { id: "daybreakBlue", label: "Blue" },
+      ],
+      "standard",
+    );
+    for (const [program, announcement] of [
+      ["standard", "Daybreak Off"],
+      ["daybreakBlue", "Daybreak Blue"],
+      ["daybreakRed", "Daybreak Red"],
+    ] as const) {
+      const descriptors = [EFFORT, { ...daybreak, currentValue: program }];
+      const trigger = display(descriptors);
+      expect(trigger.label).toBe("High");
+      expect(
+        buildTraitsTriggerAccessibleLabel(trigger, getDaybreakTriggerSelection(CODEX, descriptors)),
+      ).toBe(`High, ${announcement}`);
+    }
+  });
+
+  it("omits the Daybreak announcement when the model has no Daybreak descriptor", () => {
+    const trigger = display([EFFORT, serviceTierDescriptor("priority")]);
+    expect(
+      getDaybreakTriggerSelection(CODEX, [EFFORT, serviceTierDescriptor("priority")]),
+    ).toBeNull();
+    expect(buildTraitsTriggerAccessibleLabel(trigger, null)).toBe("High, Fast mode on");
+  });
+
+  it("announces Fast mode and Daybreak together while keeping reasoning as the visible text", () => {
+    const descriptors = [
+      EFFORT,
+      serviceTierDescriptor("priority"),
+      selectDescriptor(
+        "cyberAccessProgram",
+        [
+          { id: "standard", label: "Off", isDefault: true },
+          { id: "daybreakBlue", label: "On" },
+        ],
+        "daybreakBlue",
+      ),
+    ];
+    const trigger = display(descriptors);
+    expect(trigger).toEqual({ label: "High", showFastModeIcon: true });
+    expect(
+      buildTraitsTriggerAccessibleLabel(trigger, getDaybreakTriggerSelection(CODEX, descriptors)),
+    ).toBe("High, Fast mode on, Daybreak On");
+  });
+
+  it("announces On for an account with only Daybreak Red", () => {
+    const descriptors = [
+      EFFORT,
+      selectDescriptor(
+        "cyberAccessProgram",
+        [
+          { id: "standard", label: "Off", isDefault: true },
+          { id: "daybreakRed", label: "On" },
+        ],
+        "daybreakRed",
+      ),
+    ];
+    const selection = getDaybreakTriggerSelection(CODEX, descriptors);
+    expect(selection).toEqual({ program: "daybreakRed", label: "On" });
+    expect(buildTraitsTriggerAccessibleLabel(display(descriptors), selection)).toBe(
+      "High, Daybreak On",
+    );
   });
 
   it("keeps non-fastMode booleans as text labels", () => {

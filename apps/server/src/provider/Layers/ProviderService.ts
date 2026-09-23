@@ -33,6 +33,7 @@ import {
   type ProviderDriverKind,
   type ProviderRuntimeEvent,
   type ProviderSession,
+  type ServerProvider,
   type ServerSettings as ServerSettingsValue,
 } from "@t3tools/contracts";
 import { expandAssistantCitationsForProvider } from "@t3tools/shared/assistantCitations";
@@ -77,6 +78,7 @@ import {
 } from "../Errors.ts";
 import type { ProviderAdapterShape } from "../Services/ProviderAdapter.ts";
 import * as ProviderAdapterRegistry from "../Services/ProviderAdapterRegistry.ts";
+import * as ProviderRegistry from "../Services/ProviderRegistry.ts";
 import * as ProviderService from "../Services/ProviderService.ts";
 import * as ProviderSessionDirectory from "../Services/ProviderSessionDirectory.ts";
 import { type EventNdjsonLogger } from "./EventNdjsonLogger.ts";
@@ -88,6 +90,43 @@ import * as ServerSettings from "../../serverSettings.ts";
 import * as ProjectionSnapshotQuery from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 const isModelSelection = Schema.is(ModelSelection);
 const encodePromptJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+
+export function withCatalogCodexDaybreakDefault(
+  input: ProviderSendTurnInput,
+  instanceId: ProviderInstanceId,
+  providers: ReadonlyArray<ServerProvider>,
+): ProviderSendTurnInput {
+  const selection = input.modelSelection;
+  if (
+    !selection ||
+    selection.instanceId !== instanceId ||
+    getModelSelectionStringOptionValue(selection, "cyberAccessProgram") !== undefined
+  ) {
+    return input;
+  }
+  const provider = providers.find(
+    (candidate) => candidate.instanceId === instanceId && candidate.driver === "codex",
+  );
+  if (!provider || provider.auth.status === "unauthenticated") {
+    return input;
+  }
+  const model = provider.models.find(
+    (candidate) => candidate.slug === selection.model && !candidate.isCustom,
+  );
+  const daybreak = model?.capabilities?.optionDescriptors?.find(
+    (descriptor) => descriptor.id === "cyberAccessProgram" && descriptor.type === "select",
+  );
+  if (daybreak?.type !== "select" || !daybreak.options.some((option) => option.id === "standard")) {
+    return input;
+  }
+  return {
+    ...input,
+    modelSelection: {
+      ...selection,
+      options: [...(selection.options ?? []), { id: "cyberAccessProgram", value: "standard" }],
+    },
+  };
+}
 
 interface SnapShotPromptAccessibilityNode {
   readonly role: string;
@@ -477,6 +516,7 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
   const canonicalEventLogger = options?.canonicalEventLogger ?? eventLoggers.canonical;
 
   const registry = yield* ProviderAdapterRegistry.ProviderAdapterRegistry;
+  const providerSnapshots = yield* ProviderRegistry.ProviderRegistry;
   const directory = yield* ProviderSessionDirectory.ProviderSessionDirectory;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const projectionQuery = yield* Effect.serviceOption(
@@ -1709,6 +1749,16 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
       }
       metricProvider = routed.adapter.provider;
       metricModel = input.modelSelection?.model;
+      const dispatchInput =
+        routed.adapter.provider === "codex" &&
+        input.modelSelection?.instanceId === routed.instanceId &&
+        getModelSelectionStringOptionValue(input.modelSelection, "cyberAccessProgram") === undefined
+          ? withCatalogCodexDaybreakDefault(
+              input,
+              routed.instanceId,
+              yield* providerSnapshots.getProviders,
+            )
+          : input;
       yield* Effect.annotateCurrentSpan({
         "provider.kind": routed.adapter.provider,
         ...(input.modelSelection?.model ? { "provider.model": input.modelSelection.model } : {}),
@@ -1732,7 +1782,7 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
         }),
         (turnMetadata) =>
           Effect.gen(function* () {
-            const turn = yield* routed.adapter.sendTurn(input);
+            const turn = yield* routed.adapter.sendTurn(dispatchInput);
             yield* associateTurnAnalytics({
               providerInstanceId: routed.instanceId,
               threadId: input.threadId,

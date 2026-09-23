@@ -67,6 +67,7 @@ import {
 } from "@t3tools/client-runtime/environment";
 import {
   applyClaudePromptEffortPrefix,
+  carryCodexCyberAccessProgram,
   createModelSelection,
   resolvePromptInjectedEffort,
 } from "@t3tools/shared/model";
@@ -9365,10 +9366,25 @@ export default function ChatView(props: ChatViewProps) {
         if (options?.focusComposer !== false) scheduleComposerFocus();
         return;
       }
-      const nextModelSelection: ModelSelection = {
+      const composerDraft = useComposerDraftStore.getState().getComposerDraft(composerDraftTarget);
+      const requestedModelSelection = createModelSelection(
         instanceId,
-        model: resolvedModel,
-      };
+        resolvedModel,
+        composerDraft?.modelSelectionByProvider[instanceId]?.options,
+      );
+      const nextModel = entry?.models.find((candidate) => candidate.slug === resolvedModel);
+      const currentModelSelection =
+        composerRef.current?.getSendContext().selectedModelSelection ?? activeThread.modelSelection;
+      const savedSelection =
+        composerDraft?.modelSelectionByProvider[currentModelSelection.instanceId];
+      const { selection: nextModelSelection, didReset } = carryCodexCyberAccessProgram({
+        current:
+          savedSelection?.model === currentModelSelection.model
+            ? savedSelection
+            : currentModelSelection,
+        next: requestedModelSelection,
+        nextCapabilities: nextModel?.capabilities,
+      });
       const modelChangeBlockReason = getStartedThreadModelChangeBlockReason({
         providers: providerStatuses,
         hasStartedSession: activeThread.session !== null,
@@ -9388,13 +9404,22 @@ export default function ChatView(props: ChatViewProps) {
       setComposerDraftModelSelection(
         scopeThreadRef(activeThread.environmentId, activeThread.id),
         nextModelSelection,
-        { explicit: true },
+        { explicit: true, replaceOptions: true },
       );
       setStickyComposerModelSelection(nextModelSelection);
+      if (didReset) {
+        toastManager.add({
+          type: "warning",
+          title: "Daybreak selection reset",
+          description: "The selected model does not support the previous Daybreak program.",
+        });
+      }
       if (options?.focusComposer !== false) scheduleComposerFocus();
     },
     [
       activeThread,
+      composerDraftTarget,
+      composerRef,
       lockedProvider,
       scheduleComposerFocus,
       setComposerDraftModelSelection,
