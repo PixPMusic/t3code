@@ -448,13 +448,18 @@ function ThreadSettingsSessionProvider(
         next: pending.selection,
         nextCapabilities: pending.capabilities,
       });
-      setPendingModel({ ...pending, selection });
       if (didReset) {
         Alert.alert(
-          "Daybreak selection reset",
-          "The selected model does not support the previous Daybreak program.",
+          "Switch models and reset Daybreak?",
+          "The selected model does not support your current Daybreak setting.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "OK", onPress: () => setPendingModel({ ...pending, selection }) },
+          ],
         );
+        return;
       }
+      setPendingModel({ ...pending, selection });
     },
     [isApplied, pendingModel, props.selectedModel],
   );

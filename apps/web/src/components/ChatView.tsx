@@ -1755,6 +1755,11 @@ export default function ChatView(props: ChatViewProps) {
   const [terminalFocusRequestId, setTerminalFocusRequestId] = useState(0);
   const [pullRequestDialogState, setPullRequestDialogState] =
     useState<PullRequestDialogState | null>(null);
+  const [pendingDaybreakModelSwitch, setPendingDaybreakModelSwitch] = useState<{
+    threadKey: string;
+    selection: ModelSelection;
+    focusComposer: boolean;
+  } | null>(null);
   const [terminalUiLaunchContext, setTerminalUiLaunchContext] =
     useState<TerminalLaunchContext | null>(null);
   const [attachmentPreviewHandoffByMessageId, setAttachmentPreviewHandoffByMessageId] = useState<
@@ -5744,6 +5749,7 @@ export default function ChatView(props: ChatViewProps) {
 
   useEffect(() => {
     setPullRequestDialogState(null);
+    setPendingDaybreakModelSwitch(null);
     const followEnd = readTimelinePosition(routeThreadKey)?.atEnd !== false;
     isAtEndRef.current = followEnd;
     timelineScrollIntentRef.current = null;
@@ -9401,19 +9407,20 @@ export default function ChatView(props: ChatViewProps) {
         if (options?.focusComposer !== false) scheduleComposerFocus();
         return;
       }
+      if (didReset) {
+        setPendingDaybreakModelSwitch({
+          threadKey: routeThreadKey,
+          selection: nextModelSelection,
+          focusComposer: options?.focusComposer !== false,
+        });
+        return;
+      }
       setComposerDraftModelSelection(
         scopeThreadRef(activeThread.environmentId, activeThread.id),
         nextModelSelection,
         { explicit: true, replaceOptions: true },
       );
       setStickyComposerModelSelection(nextModelSelection);
-      if (didReset) {
-        toastManager.add({
-          type: "warning",
-          title: "Daybreak selection reset",
-          description: "The selected model does not support the previous Daybreak program.",
-        });
-      }
       if (options?.focusComposer !== false) scheduleComposerFocus();
     },
     [
@@ -9425,6 +9432,7 @@ export default function ChatView(props: ChatViewProps) {
       setComposerDraftModelSelection,
       setStickyComposerModelSelection,
       providerStatuses,
+      routeThreadKey,
       settings,
     ],
   );
@@ -10529,6 +10537,43 @@ export default function ChatView(props: ChatViewProps) {
               }}
             >
               Revert and keep changes
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
+      <AlertDialog
+        open={
+          pendingDaybreakModelSwitch !== null &&
+          pendingDaybreakModelSwitch.threadKey === routeThreadKey
+        }
+        onOpenChange={(open) => {
+          if (!open) setPendingDaybreakModelSwitch(null);
+        }}
+      >
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Switch models and reset Daybreak?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The selected model does not support your current Daybreak setting.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline" />}>Cancel</AlertDialogClose>
+            <Button
+              onClick={() => {
+                if (!pendingDaybreakModelSwitch || !activeThread) return;
+                if (pendingDaybreakModelSwitch.threadKey !== routeThreadKey) return;
+                setComposerDraftModelSelection(
+                  scopeThreadRef(activeThread.environmentId, activeThread.id),
+                  pendingDaybreakModelSwitch.selection,
+                  { explicit: true, replaceOptions: true },
+                );
+                setStickyComposerModelSelection(pendingDaybreakModelSwitch.selection);
+                if (pendingDaybreakModelSwitch.focusComposer) scheduleComposerFocus();
+                setPendingDaybreakModelSwitch(null);
+              }}
+            >
+              OK
             </Button>
           </AlertDialogFooter>
         </AlertDialogPopup>

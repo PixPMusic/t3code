@@ -10,8 +10,8 @@ When the signed-in account and selected model both have Daybreak access, choose
 **On** under **Daybreak** in the model options. If the model offers both programs,
 choose **Red** or **Blue** instead. The control is in
 the composer on web and desktop, and in thread settings on mobile. Choose
-**Off** to return to standard access. If you switch to a model without the
-selected Daybreak program, T3 Code resets the selection and shows a warning.
+**Off** to return to standard access. If you choose a model without the
+selected Daybreak program, T3 Code asks before switching and resetting Daybreak.
 
 ## Use multiple accounts
 

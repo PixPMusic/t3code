@@ -5,6 +5,7 @@ import {
   buildTraitsTriggerDisplay,
   buildUnavailableModelOptionDescriptors,
   getDaybreakTriggerSelection,
+  shouldRenderTraitsControls,
 } from "./TraitsPicker";
 
 function selectDescriptor(
@@ -55,6 +56,37 @@ const CONTEXT_WINDOW = selectDescriptor(
 );
 
 const CODEX = ProviderDriverKind.make("codex");
+
+it("keeps the traits control available when Daybreak is a model's only option", () => {
+  expect(
+    shouldRenderTraitsControls({
+      provider: CODEX,
+      models: [
+        {
+          slug: "daybreak-only",
+          name: "Daybreak only",
+          isCustom: false,
+          capabilities: {
+            optionDescriptors: [
+              selectDescriptor(
+                "cyberAccessProgram",
+                [
+                  { id: "standard", label: "Off" },
+                  { id: "daybreakBlue", label: "On" },
+                ],
+                "standard",
+              ),
+            ],
+          },
+        },
+      ],
+      model: "daybreak-only",
+      prompt: "",
+      modelOptions: null,
+      planModeEnabled: false,
+    }),
+  ).toBe(true);
+});
 
 function display(descriptors: ReadonlyArray<ProviderOptionDescriptor>) {
   return buildTraitsTriggerDisplay({
