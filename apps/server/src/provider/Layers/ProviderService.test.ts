@@ -75,6 +75,7 @@ import {
   SqlitePersistenceMemory,
 } from "../../persistence/Layers/Sqlite.ts";
 import * as ServerConfig from "../../config.ts";
+import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as AnalyticsService from "../../telemetry/AnalyticsService.ts";
 import { makeAdapterRegistryMock } from "../testUtils/providerAdapterRegistryMock.ts";
@@ -430,6 +431,7 @@ function makeProviderServiceLayer(
     readonly analyticsLayer?: Layer.Layer<AnalyticsService.AnalyticsService>;
     readonly registry?: ProviderAdapterRegistry.ProviderAdapterRegistry["Service"];
     readonly providerSnapshots?: ReadonlyArray<ServerProvider>;
+    readonly serviceOptions?: Parameters<typeof makeProviderServiceLiveWithCatalog>[0];
   } = {},
 ) {
   const codex = makeFakeCodexAdapter(CODEX_DRIVER, input.supportsConversationRollback);
@@ -457,7 +459,7 @@ function makeProviderServiceLayer(
 
   const layer = it.layer(
     Layer.mergeAll(
-      makeProviderServiceLive(undefined, input.providerSnapshots).pipe(
+      makeProviderServiceLive(input.serviceOptions, input.providerSnapshots).pipe(
         Layer.provide(NodeServices.layer),
         Layer.provide(providerAdapterLayer),
         Layer.provide(directoryLayer),
@@ -999,6 +1001,20 @@ it.effect("ProviderServiceLive rejects new sessions for disabled custom instance
 
 const routing = makeProviderServiceLayer();
 const daybreakRouting = makeProviderServiceLayer({
+  serviceOptions: {
+    issueMcpCredential: (request) =>
+      Effect.succeed({
+        config: {
+          environmentId: EnvironmentId.make("environment-metadata-test"),
+          threadId: request.threadId,
+          providerInstanceId: request.providerInstanceId,
+          providerSessionId: `mcp-${request.threadId}`,
+          endpoint: "http://localhost/mcp",
+          authorizationHeader: "Bearer fixture",
+          capabilities: request.capabilities,
+        },
+      }),
+  },
   providerSnapshots: [
     decodeServerProvider({
       instanceId: "codex",
@@ -1084,6 +1100,96 @@ daybreakRouting.layer("Codex Daybreak default", (it) => {
           [],
           [{ id: "cyberAccessProgram", value: "standard" }],
         ],
+      );
+    }),
+  );
+
+  it.effect(
+    "publishes the sanitized request before sendTurn and restores only its own failed update",
+    () =>
+      Effect.gen(function* () {
+        const provider = yield* ProviderService.ProviderService;
+        const threadId = asThreadId("daybreak-mcp-request");
+        const initialSelection = createModelSelection(codexInstanceId, "initial-model");
+        yield* provider.startSession(threadId, {
+          providerInstanceId: codexInstanceId,
+          threadId,
+          runtimeMode: "full-access",
+          modelSelection: initialSelection,
+        });
+        const initial = McpProviderSession.readMcpProviderSession(threadId);
+        assert.deepEqual(initial?.requestedModelSelection, initialSelection);
+        const invalidSelection = createModelSelection(codexInstanceId, "daybreak-model", [
+          { id: "cyberAccessProgram", value: "daybreakRed" },
+        ]);
+        const sanitized = createModelSelection(codexInstanceId, "daybreak-model", [
+          { id: "cyberAccessProgram", value: "standard" },
+        ]);
+        daybreakRouting.codex.sendTurn.mockImplementationOnce((input) =>
+          Effect.sync(() => {
+            assert.deepEqual(input.modelSelection, sanitized);
+            assert.deepEqual(
+              McpProviderSession.readMcpProviderSession(threadId)?.requestedModelSelection,
+              sanitized,
+            );
+            return { threadId, turnId: asTurnId("mcp-sanitized-turn") };
+          }),
+        );
+        yield* provider.sendTurn({ threadId, input: "hello", modelSelection: invalidSelection });
+        const accepted = McpProviderSession.readMcpProviderSession(threadId);
+        assert.deepEqual(accepted?.requestedModelSelection, sanitized);
+        const failure = new ProviderAdapterRequestError({
+          provider: CODEX_DRIVER,
+          method: "sendTurn",
+          detail: "Rejected",
+        });
+        daybreakRouting.codex.sendTurn.mockImplementationOnce(() => Effect.fail(failure));
+        yield* provider
+          .sendTurn({ threadId, input: "fail", modelSelection: initialSelection })
+          .pipe(Effect.flip);
+        assert.strictEqual(McpProviderSession.readMcpProviderSession(threadId), accepted);
+        assert(accepted);
+        const replacement = { ...accepted, providerSessionId: "replacement-session" };
+        daybreakRouting.codex.sendTurn.mockImplementationOnce(() =>
+          Effect.gen(function* () {
+            McpProviderSession.setMcpProviderSession(replacement);
+            return yield* failure;
+          }),
+        );
+        yield* provider
+          .sendTurn({ threadId, input: "fail", modelSelection: initialSelection })
+          .pipe(Effect.flip);
+        assert.strictEqual(McpProviderSession.readMcpProviderSession(threadId), replacement);
+      }),
+  );
+
+  it.effect("seeds resumed MCP sessions from the persisted model request", () =>
+    Effect.gen(function* () {
+      const provider = yield* ProviderService.ProviderService;
+      const threadId = asThreadId("mcp-resume-model");
+      const selection = createModelSelection(codexInstanceId, "daybreak-model");
+      yield* provider.startSession(threadId, {
+        providerInstanceId: codexInstanceId,
+        threadId,
+        runtimeMode: "full-access",
+        modelSelection: selection,
+      });
+      yield* daybreakRouting.codex.stopSession(threadId);
+      McpProviderSession.clearMcpProviderSession(threadId);
+      const startSession = daybreakRouting.codex.startSession.getMockImplementation()!;
+      daybreakRouting.codex.startSession.mockImplementationOnce((input) =>
+        Effect.gen(function* () {
+          assert.deepEqual(
+            McpProviderSession.readMcpProviderSession(threadId)?.requestedModelSelection,
+            selection,
+          );
+          return yield* startSession(input);
+        }),
+      );
+      yield* provider.sendTurn({ threadId, input: "resume" });
+      assert.deepEqual(
+        McpProviderSession.readMcpProviderSession(threadId)?.requestedModelSelection,
+        selection,
       );
     }),
   );

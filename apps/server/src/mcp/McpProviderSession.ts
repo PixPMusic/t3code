@@ -1,13 +1,20 @@
-import type { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
+import type {
+  EnvironmentId,
+  ModelSelection,
+  ProviderInstanceId,
+  ThreadId,
+} from "@t3tools/contracts";
 
 export interface McpProviderSessionConfig {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly providerSessionId: string;
   readonly providerInstanceId: ProviderInstanceId;
+  /** Latest selection passed to the adapter, not provider-confirmed runtime state. */
+  readonly requestedModelSelection?: ModelSelection;
   readonly endpoint: string;
   readonly authorizationHeader: string;
-  /** Capabilities the credential grants ("preview", "device"). */
+  /** Tool capabilities granted to this provider session. */
   readonly capabilities: ReadonlySet<string>;
   /**
    * Set when the session may drive devices. Adapters spread this into the

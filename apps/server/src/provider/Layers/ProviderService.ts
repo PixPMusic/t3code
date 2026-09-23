@@ -988,7 +988,11 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
     } satisfies Record<string, string>;
   });
 
-  const prepareMcpSession = (threadId: ThreadId, providerInstanceId: ProviderInstanceId) =>
+  const prepareMcpSession = (
+    threadId: ThreadId,
+    providerInstanceId: ProviderInstanceId,
+    modelSelection?: ModelSelection,
+  ) =>
     Effect.gen(function* () {
       const capabilities = yield* agentAccessCapabilities(threadId);
       const credential = yield* issueMcpCredential({ threadId, providerInstanceId, capabilities });
@@ -999,6 +1003,9 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
         yield* Effect.sync(() =>
           McpProviderSession.setMcpProviderSession({
             ...credential.config,
+            ...(modelSelection?.instanceId === providerInstanceId
+              ? { requestedModelSelection: modelSelection }
+              : {}),
             ...(deviceEnvironment ? { agentDeviceEnvironment: deviceEnvironment } : {}),
           }),
         );
@@ -1317,7 +1324,7 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
       const persistedCwd = readPersistedCwd(input.binding.runtimePayload);
       const persistedModelSelection = readPersistedModelSelection(input.binding.runtimePayload);
 
-      yield* prepareMcpSession(input.binding.threadId, bindingInstanceId);
+      yield* prepareMcpSession(input.binding.threadId, bindingInstanceId, persistedModelSelection);
       const resumed = yield* adapter
         .startSession({
           threadId: input.binding.threadId,
@@ -1548,7 +1555,7 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
         }
         const adapter = yield* registry.getByInstance(resolvedInstanceId);
         yield* clearTurnAnalyticsSession(resolvedInstanceId, threadId);
-        yield* prepareMcpSession(threadId, resolvedInstanceId);
+        yield* prepareMcpSession(threadId, resolvedInstanceId, input.modelSelection);
         const session = yield* adapter
           .startSession({
             ...input,
@@ -1789,7 +1796,26 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
         }),
         (turnMetadata) =>
           Effect.gen(function* () {
-            const turn = yield* routed.adapter.sendTurn(dispatchInput);
+            const previousMcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
+            const updatedMcpSession =
+              previousMcpSession?.providerInstanceId === routed.instanceId &&
+              dispatchInput.modelSelection?.instanceId === routed.instanceId
+                ? { ...previousMcpSession, requestedModelSelection: dispatchInput.modelSelection }
+                : undefined;
+            if (updatedMcpSession) McpProviderSession.setMcpProviderSession(updatedMcpSession);
+            const turn = yield* routed.adapter.sendTurn(dispatchInput).pipe(
+              Effect.onError(() =>
+                Effect.sync(() => {
+                  if (
+                    previousMcpSession &&
+                    updatedMcpSession &&
+                    McpProviderSession.readMcpProviderSession(input.threadId) === updatedMcpSession
+                  ) {
+                    McpProviderSession.setMcpProviderSession(previousMcpSession);
+                  }
+                }),
+              ),
+            );
             yield* associateTurnAnalytics({
               providerInstanceId: routed.instanceId,
               threadId: input.threadId,
