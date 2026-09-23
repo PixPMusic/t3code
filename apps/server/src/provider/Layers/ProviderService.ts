@@ -91,7 +91,7 @@ import * as ProjectionSnapshotQuery from "../../orchestration/Services/Projectio
 const isModelSelection = Schema.is(ModelSelection);
 const encodePromptJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
-export function withCatalogCodexDaybreakDefault(
+function withCatalogCodexDaybreakDefault(
   input: ProviderSendTurnInput,
   instanceId: ProviderInstanceId,
   providers: ReadonlyArray<ServerProvider>,
