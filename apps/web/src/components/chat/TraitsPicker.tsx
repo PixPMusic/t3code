@@ -698,7 +698,7 @@ export const TraitsPicker = memo(function TraitsPicker({
                   size={size}
                   className={
                     !daybreakSelection.hasBothPrograms
-                      ? "text-white"
+                      ? "text-foreground"
                       : daybreakSelection.program === "daybreakBlue"
                         ? "text-blue-400"
                         : "text-red-400"

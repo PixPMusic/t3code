@@ -159,35 +159,42 @@ export function carryCodexCyberAccessProgram(input: {
   next: ModelSelection;
   nextCapabilities: ModelCapabilities | null | undefined;
 }): { selection: ModelSelection; didReset: boolean } {
+  const daybreak = input.nextCapabilities?.optionDescriptors?.find(
+    (descriptor) => descriptor.id === "cyberAccessProgram" && descriptor.type === "select",
+  );
+  const supportsProgram = (program: string) =>
+    daybreak?.type === "select" && daybreak.options.some((option) => option.id === program);
+  const nextProgram = getModelSelectionStringOptionValue(input.next, "cyberAccessProgram");
+  const next =
+    nextProgram !== undefined && !supportsProgram(nextProgram)
+      ? {
+          ...input.next,
+          options: (input.next.options ?? []).filter(
+            (option) => option.id !== "cyberAccessProgram",
+          ),
+        }
+      : input.next;
   const program = getModelSelectionStringOptionValue(input.current, "cyberAccessProgram");
   if (program !== "standard" && program !== "daybreakBlue" && program !== "daybreakRed") {
-    return { selection: input.next, didReset: false };
+    return { selection: next, didReset: false };
   }
   if (input.next.instanceId !== input.current?.instanceId) {
-    return { selection: input.next, didReset: program !== "standard" };
+    return { selection: next, didReset: program !== "standard" };
   }
-  const supportsProgram = input.nextCapabilities?.optionDescriptors?.some(
-    (descriptor) =>
-      descriptor.id === "cyberAccessProgram" &&
-      descriptor.type === "select" &&
-      descriptor.options.some((option) => option.id === program),
-  );
-  const supportsStandard = input.nextCapabilities?.optionDescriptors?.some(
-    (descriptor) =>
-      descriptor.id === "cyberAccessProgram" &&
-      descriptor.type === "select" &&
-      descriptor.options.some((option) => option.id === "standard"),
-  );
-  const nextProgram = supportsProgram ? program : supportsStandard ? "standard" : undefined;
+  const selectedProgram = supportsProgram(program)
+    ? program
+    : supportsProgram("standard")
+      ? "standard"
+      : undefined;
   return {
     selection: {
-      ...input.next,
+      ...next,
       options: [
-        ...(input.next.options ?? []).filter((option) => option.id !== "cyberAccessProgram"),
-        ...(nextProgram ? [{ id: "cyberAccessProgram", value: nextProgram }] : []),
+        ...(next.options ?? []).filter((option) => option.id !== "cyberAccessProgram"),
+        ...(selectedProgram ? [{ id: "cyberAccessProgram", value: selectedProgram }] : []),
       ],
     },
-    didReset: program !== "standard" && !supportsProgram,
+    didReset: program !== "standard" && !supportsProgram(program),
   };
 }
 

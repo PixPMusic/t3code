@@ -128,6 +128,37 @@ describe("Daybreak model switching", () => {
       didReset: true,
     });
   });
+
+  it("drops a saved program that the next model does not advertise", () => {
+    const staleNext = createModelSelection(instanceId, "gpt-6-astra", [
+      { id: "reasoningEffort", value: "high" },
+      { id: "cyberAccessProgram", value: "daybreakBlue" },
+    ]);
+    expect(
+      carryCodexCyberAccessProgram({
+        current: createModelSelection(instanceId, "gpt-6-astra"),
+        next: staleNext,
+        nextCapabilities: codexCaps,
+      }),
+    ).toEqual({
+      selection: createModelSelection(instanceId, "gpt-6-astra", [
+        { id: "reasoningEffort", value: "high" },
+      ]),
+      didReset: false,
+    });
+    expect(
+      carryCodexCyberAccessProgram({
+        current: selected,
+        next: { ...staleNext, instanceId: ProviderInstanceId.make("codex_work") },
+        nextCapabilities: codexCaps,
+      }),
+    ).toEqual({
+      selection: createModelSelection(ProviderInstanceId.make("codex_work"), "gpt-6-astra", [
+        { id: "reasoningEffort", value: "high" },
+      ]),
+      didReset: true,
+    });
+  });
 });
 
 const claudeCaps: ModelCapabilities = createModelCapabilities({

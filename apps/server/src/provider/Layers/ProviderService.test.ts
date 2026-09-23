@@ -1061,12 +1061,28 @@ daybreakRouting.layer("Codex Daybreak default", (it) => {
           { id: "cyberAccessProgram", value: "daybreakBlue" },
         ]),
       });
+      yield* provider.sendTurn({
+        threadId,
+        input: "hello",
+        modelSelection: createModelSelection(codexInstanceId, "other-model", [
+          { id: "cyberAccessProgram", value: "daybreakBlue" },
+        ]),
+      });
+      yield* provider.sendTurn({
+        threadId,
+        input: "hello",
+        modelSelection: createModelSelection(codexInstanceId, "daybreak-model", [
+          { id: "cyberAccessProgram", value: "daybreakRed" },
+        ]),
+      });
       assert.deepEqual(
         daybreakRouting.codex.sendTurn.mock.calls.map(([input]) => input.modelSelection?.options),
         [
           [{ id: "cyberAccessProgram", value: "standard" }],
           undefined,
           [{ id: "cyberAccessProgram", value: "daybreakBlue" }],
+          [],
+          [{ id: "cyberAccessProgram", value: "standard" }],
         ],
       );
     }),

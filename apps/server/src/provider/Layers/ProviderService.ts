@@ -91,39 +91,47 @@ import * as ProjectionSnapshotQuery from "../../orchestration/Services/Projectio
 const isModelSelection = Schema.is(ModelSelection);
 const encodePromptJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
-function withCatalogCodexDaybreakDefault(
+function withCatalogCodexDaybreakSelection(
   input: ProviderSendTurnInput,
   instanceId: ProviderInstanceId,
   providers: ReadonlyArray<ServerProvider>,
 ): ProviderSendTurnInput {
   const selection = input.modelSelection;
-  if (
-    !selection ||
-    selection.instanceId !== instanceId ||
-    getModelSelectionStringOptionValue(selection, "cyberAccessProgram") !== undefined
-  ) {
+  if (!selection || selection.instanceId !== instanceId) {
     return input;
   }
   const provider = providers.find(
     (candidate) => candidate.instanceId === instanceId && candidate.driver === "codex",
   );
-  if (!provider || provider.auth.status === "unauthenticated") {
-    return input;
-  }
-  const model = provider.models.find(
-    (candidate) => candidate.slug === selection.model && !candidate.isCustom,
-  );
+  const model =
+    provider?.auth.status !== "unauthenticated"
+      ? provider?.models.find(
+          (candidate) => candidate.slug === selection.model && !candidate.isCustom,
+        )
+      : undefined;
   const daybreak = model?.capabilities?.optionDescriptors?.find(
     (descriptor) => descriptor.id === "cyberAccessProgram" && descriptor.type === "select",
   );
-  if (daybreak?.type !== "select" || !daybreak.options.some((option) => option.id === "standard")) {
+  const program = getModelSelectionStringOptionValue(selection, "cyberAccessProgram");
+  if (
+    program &&
+    daybreak?.type === "select" &&
+    daybreak.options.some((option) => option.id === program)
+  ) {
     return input;
   }
+  const hasSavedProgram = selection.options?.some((option) => option.id === "cyberAccessProgram");
+  const offersStandard =
+    daybreak?.type === "select" && daybreak.options.some((option) => option.id === "standard");
+  if (!hasSavedProgram && !offersStandard) return input;
   return {
     ...input,
     modelSelection: {
       ...selection,
-      options: [...(selection.options ?? []), { id: "cyberAccessProgram", value: "standard" }],
+      options: [
+        ...(selection.options ?? []).filter((option) => option.id !== "cyberAccessProgram"),
+        ...(offersStandard ? [{ id: "cyberAccessProgram", value: "standard" }] : []),
+      ],
     },
   };
 }
@@ -1751,9 +1759,8 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
       metricModel = input.modelSelection?.model;
       const dispatchInput =
         routed.adapter.provider === "codex" &&
-        input.modelSelection?.instanceId === routed.instanceId &&
-        getModelSelectionStringOptionValue(input.modelSelection, "cyberAccessProgram") === undefined
-          ? withCatalogCodexDaybreakDefault(
+        input.modelSelection?.instanceId === routed.instanceId
+          ? withCatalogCodexDaybreakSelection(
               input,
               routed.instanceId,
               yield* providerSnapshots.getProviders,
