@@ -44,6 +44,7 @@ import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -1796,26 +1797,18 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
         }),
         (turnMetadata) =>
           Effect.gen(function* () {
-            const previousMcpSession = McpProviderSession.readMcpProviderSession(input.threadId);
-            const updatedMcpSession =
-              previousMcpSession?.providerInstanceId === routed.instanceId &&
-              dispatchInput.modelSelection?.instanceId === routed.instanceId
-                ? { ...previousMcpSession, requestedModelSelection: dispatchInput.modelSelection }
-                : undefined;
-            if (updatedMcpSession) McpProviderSession.setMcpProviderSession(updatedMcpSession);
-            const turn = yield* routed.adapter.sendTurn(dispatchInput).pipe(
-              Effect.onError(() =>
-                Effect.sync(() => {
-                  if (
-                    previousMcpSession &&
-                    updatedMcpSession &&
-                    McpProviderSession.readMcpProviderSession(input.threadId) === updatedMcpSession
-                  ) {
-                    McpProviderSession.setMcpProviderSession(previousMcpSession);
-                  }
-                }),
-              ),
+            const completeMcpRequest = McpProviderSession.beginMcpModelSelectionRequest(
+              input.threadId,
+              routed.instanceId,
+              dispatchInput.modelSelection,
             );
+            const turn = yield* routed.adapter
+              .sendTurn(dispatchInput)
+              .pipe(
+                Effect.onExit((exit) =>
+                  Effect.sync(() => completeMcpRequest?.(Exit.isSuccess(exit))),
+                ),
+              );
             yield* associateTurnAnalytics({
               providerInstanceId: routed.instanceId,
               threadId: input.threadId,
@@ -1831,6 +1824,15 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
             requestId: turnMetadata.requestId,
           }),
       );
+      // A later request may have succeeded before this one. Persist the latest
+      // accepted selection, never a newer request that could still fail.
+      const acceptedSelection = McpProviderSession.readMcpProviderSession(input.threadId, {
+        includePending: false,
+      })?.requestedModelSelection;
+      const persistedSelection =
+        acceptedSelection?.instanceId === routed.instanceId
+          ? acceptedSelection
+          : dispatchInput.modelSelection;
       yield* directory.upsert({
         threadId: input.threadId,
         provider: routed.adapter.provider,
@@ -1838,7 +1840,7 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
         status: "running",
         ...(turn.resumeCursor !== undefined ? { resumeCursor: turn.resumeCursor } : {}),
         runtimePayload: {
-          ...(input.modelSelection !== undefined ? { modelSelection: input.modelSelection } : {}),
+          ...(persistedSelection !== undefined ? { modelSelection: persistedSelection } : {}),
           activeTurnId: turn.turnId,
           // Admission and marker consumption must survive the same restart.
           continueAfterServerUpdate: null,

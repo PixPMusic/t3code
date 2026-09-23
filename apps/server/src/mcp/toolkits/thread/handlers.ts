@@ -11,11 +11,11 @@ import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { ServerEnvironment } from "../../../environment/ServerEnvironment.ts";
-import { OrchestrationEngineService } from "../../../orchestration/Services/OrchestrationEngine.ts";
-import { ProjectionSnapshotQuery } from "../../../orchestration/Services/ProjectionSnapshotQuery.ts";
-import { ProviderRegistry } from "../../../provider/Services/ProviderRegistry.ts";
-import { requireMcpCapability } from "../../McpInvocationContext.ts";
+import * as ServerEnvironment from "../../../environment/ServerEnvironment.ts";
+import * as OrchestrationEngine from "../../../orchestration/Services/OrchestrationEngine.ts";
+import * as ProjectionSnapshotQuery from "../../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import * as ProviderRegistry from "../../../provider/Services/ProviderRegistry.ts";
+import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import { readMcpProviderSession } from "../../McpProviderSession.ts";
 import { ThreadToolkit } from "./tools.ts";
 
@@ -24,19 +24,19 @@ const optionValue = (selection: ModelSelection | null, ...ids: ReadonlyArray<str
   null;
 
 const make = Effect.gen(function* () {
-  const snapshots = yield* ProjectionSnapshotQuery;
-  const engine = yield* OrchestrationEngineService;
-  const providers = yield* ProviderRegistry;
-  const environment = yield* ServerEnvironment;
+  const snapshots = yield* ProjectionSnapshotQuery.ProjectionSnapshotQuery;
+  const engine = yield* OrchestrationEngine.OrchestrationEngineService;
+  const providers = yield* ProviderRegistry.ProviderRegistry;
+  const environment = yield* ServerEnvironment.ServerEnvironment;
   const crypto = yield* Crypto.Crypto;
 
   const requireThread = Effect.fn("ThreadToolkit.requireThread")(function* (
     operation: "read" | "rename",
   ) {
-    const scope = yield* requireMcpCapability("thread");
+    const scope = yield* McpInvocationContext.requireMcpCapability("thread");
     const thread = yield* snapshots
       .getThreadShellById(scope.threadId)
-      .pipe(Effect.mapError(() => new ThreadMetadataOperationError({ operation })));
+      .pipe(Effect.mapError((cause) => new ThreadMetadataOperationError({ operation, cause })));
     if (Option.isNone(thread)) {
       return yield* new ThreadMetadataNotFoundError({ threadId: scope.threadId });
     }
@@ -68,7 +68,9 @@ const make = Effect.gen(function* () {
               yield* snapshots
                 .getProjectShellById(thread.projectId)
                 .pipe(
-                  Effect.mapError(() => new ThreadMetadataOperationError({ operation: "read" })),
+                  Effect.mapError(
+                    (cause) => new ThreadMetadataOperationError({ operation: "read", cause }),
+                  ),
                 ),
             )
           : null;
@@ -188,7 +190,11 @@ const make = Effect.gen(function* () {
           threadId: thread.id,
           title: name,
         })
-        .pipe(Effect.mapError(() => new ThreadMetadataOperationError({ operation: "rename" })));
+        .pipe(
+          Effect.mapError(
+            (cause) => new ThreadMetadataOperationError({ operation: "rename", cause }),
+          ),
+        );
       return { id: thread.id, name };
     }),
   });

@@ -35,8 +35,8 @@ fields it needs with `get_thread_metadata` and rename the thread with
 Metadata distinguishes your saved selections from the latest request sent to the
 provider. Neither confirms what the provider actually used. Missing information
 is reported as unknown; Daybreak availability comes from the provider's cached
-model catalog. These tools require T3 Code's managed provider connection, including
-for OpenCode.
+model catalog. For OpenCode, these tools are available when T3 Code starts its
+server. They are unavailable when connecting to an externally managed OpenCode server.
 
 ## Pin and reorder threads
 

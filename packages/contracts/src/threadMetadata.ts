@@ -119,7 +119,7 @@ export class ThreadMetadataNotFoundError extends Schema.TaggedError<ThreadMetada
 
 export class ThreadMetadataOperationError extends Schema.TaggedError<ThreadMetadataOperationError>()(
   "ThreadMetadataOperationError",
-  { operation: Schema.Literals(["read", "rename"]) },
+  { operation: Schema.Literals(["read", "rename"]), cause: Schema.Defect() },
 ) {
   override get message(): string {
     return `Could not ${this.operation} the current thread.`;

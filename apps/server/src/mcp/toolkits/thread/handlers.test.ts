@@ -459,11 +459,15 @@ describe("thread metadata tools", () => {
     }),
   );
 
-  it.effect("returns safe errors for failed reads and renames", () =>
+  it.effect("preserves failed read and rename causes behind safe messages", () =>
     Effect.gen(function* () {
       const reads = yield* makeHarness({ readFailure: true });
       const readError = yield* reads.call("get_thread_metadata", {}).pipe(Effect.flip);
-      expect(readError).toMatchObject({ _tag: "ThreadMetadataOperationError", operation: "read" });
+      expect(readError).toMatchObject({
+        _tag: "ThreadMetadataOperationError",
+        operation: "read",
+        cause: { _tag: "PersistenceSqlError" },
+      });
       const renames = yield* makeHarness({ renameFailure: true });
       const renameError = yield* renames
         .call("set_thread_name", { name: "Name" })
@@ -471,8 +475,9 @@ describe("thread metadata tools", () => {
       expect(renameError).toMatchObject({
         _tag: "ThreadMetadataOperationError",
         operation: "rename",
+        cause: { _tag: "OrchestrationCommandInvariantError" },
       });
-      expect(encodeJson([readError, renameError])).not.toContain("secret");
+      expect(encodeJson([readError.message, renameError.message])).not.toContain("secret");
     }),
   );
 });

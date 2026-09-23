@@ -1163,7 +1163,7 @@ daybreakRouting.layer("Codex Daybreak default", (it) => {
       }),
   );
 
-  it.effect("seeds resumed MCP sessions from the persisted model request", () =>
+  it.effect("seeds resumed MCP sessions from the sanitized successful model request", () =>
     Effect.gen(function* () {
       const provider = yield* ProviderService.ProviderService;
       const threadId = asThreadId("mcp-resume-model");
@@ -1174,6 +1174,16 @@ daybreakRouting.layer("Codex Daybreak default", (it) => {
         runtimeMode: "full-access",
         modelSelection: selection,
       });
+      yield* provider.sendTurn({
+        threadId,
+        input: "normalized request",
+        modelSelection: createModelSelection(codexInstanceId, "daybreak-model", [
+          { id: "cyberAccessProgram", value: "daybreakRed" },
+        ]),
+      });
+      const sanitized = createModelSelection(codexInstanceId, "daybreak-model", [
+        { id: "cyberAccessProgram", value: "standard" },
+      ]);
       yield* daybreakRouting.codex.stopSession(threadId);
       McpProviderSession.clearMcpProviderSession(threadId);
       const startSession = daybreakRouting.codex.startSession.getMockImplementation()!;
@@ -1181,7 +1191,7 @@ daybreakRouting.layer("Codex Daybreak default", (it) => {
         Effect.gen(function* () {
           assert.deepEqual(
             McpProviderSession.readMcpProviderSession(threadId)?.requestedModelSelection,
-            selection,
+            sanitized,
           );
           return yield* startSession(input);
         }),
@@ -1189,9 +1199,72 @@ daybreakRouting.layer("Codex Daybreak default", (it) => {
       yield* provider.sendTurn({ threadId, input: "resume" });
       assert.deepEqual(
         McpProviderSession.readMcpProviderSession(threadId)?.requestedModelSelection,
-        selection,
+        sanitized,
       );
     }),
+  );
+
+  it.effect(
+    "persists the latest accepted request when overlapping sends complete out of order",
+    () =>
+      Effect.gen(function* () {
+        const provider = yield* ProviderService.ProviderService;
+        const threadId = asThreadId("mcp-out-of-order-model");
+        yield* provider.startSession(threadId, {
+          providerInstanceId: codexInstanceId,
+          threadId,
+          runtimeMode: "full-access",
+        });
+        const firstStarted = yield* Deferred.make<void>();
+        const secondStarted = yield* Deferred.make<void>();
+        const firstResult = yield* Deferred.make<ProviderTurnStartResult>();
+        const secondResult = yield* Deferred.make<ProviderTurnStartResult>();
+        daybreakRouting.codex.sendTurn
+          .mockImplementationOnce(() =>
+            Deferred.succeed(firstStarted, undefined).pipe(
+              Effect.andThen(Deferred.await(firstResult)),
+            ),
+          )
+          .mockImplementationOnce(() =>
+            Deferred.succeed(secondStarted, undefined).pipe(
+              Effect.andThen(Deferred.await(secondResult)),
+            ),
+          );
+        const first = yield* provider
+          .sendTurn({
+            threadId,
+            input: "first",
+            modelSelection: createModelSelection(codexInstanceId, "other-model"),
+          })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(firstStarted);
+        const second = yield* provider
+          .sendTurn({
+            threadId,
+            input: "second",
+            modelSelection: createModelSelection(codexInstanceId, "daybreak-model"),
+          })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(secondStarted);
+        yield* Deferred.succeed(secondResult, { threadId, turnId: asTurnId("second") });
+        yield* Fiber.join(second);
+        yield* Deferred.succeed(firstResult, { threadId, turnId: asTurnId("first") });
+        yield* Fiber.join(first);
+        const sanitized = createModelSelection(codexInstanceId, "daybreak-model", [
+          { id: "cyberAccessProgram", value: "standard" },
+        ]);
+        assert.deepEqual(
+          McpProviderSession.readMcpProviderSession(threadId)?.requestedModelSelection,
+          sanitized,
+        );
+        yield* daybreakRouting.codex.stopSession(threadId);
+        McpProviderSession.clearMcpProviderSession(threadId);
+        yield* provider.sendTurn({ threadId, input: "resume" });
+        assert.deepEqual(
+          McpProviderSession.readMcpProviderSession(threadId)?.requestedModelSelection,
+          sanitized,
+        );
+      }),
   );
 });
 
