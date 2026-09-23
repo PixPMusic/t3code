@@ -166,6 +166,28 @@ describe("buildTraitsTriggerDisplay", () => {
     }
   });
 
+  it("labels Daybreak when it is the only trait", () => {
+    const daybreak = selectDescriptor(
+      "cyberAccessProgram",
+      [
+        { id: "standard", label: "Off", isDefault: true },
+        { id: "daybreakBlue", label: "On" },
+      ],
+      "standard",
+    );
+    expect(display([daybreak])).toEqual({ label: "Daybreak Off", showFastModeIcon: false });
+    expect(
+      buildTraitsTriggerAccessibleLabel(
+        display([daybreak]),
+        getDaybreakTriggerSelection(CODEX, [daybreak]),
+      ),
+    ).toBe("Daybreak Off");
+    expect(display([{ ...daybreak, currentValue: "daybreakBlue" }])).toEqual({
+      label: "Daybreak On",
+      showFastModeIcon: false,
+    });
+  });
+
   it("omits the Daybreak announcement when the model has no Daybreak descriptor", () => {
     const trigger = display([EFFORT, serviceTierDescriptor("priority")]);
     expect(

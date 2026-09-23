@@ -477,6 +477,7 @@ export function buildTraitsTriggerDisplay(input: {
   ultrathinkPromptControlled: boolean;
 }): { label: string; showFastModeIcon: boolean } {
   let fastModeFallbackLabel: string | null = null;
+  let daybreakFallbackLabel: string | null = null;
   let fastModeEnabled = false;
   const labels: Array<string> = [];
   for (const descriptor of input.descriptors) {
@@ -485,6 +486,7 @@ export function buildTraitsTriggerDisplay(input: {
       descriptor.id === "cyberAccessProgram" &&
       descriptor.type === "select"
     ) {
+      daybreakFallbackLabel = `Daybreak ${getProviderOptionCurrentLabel(descriptor) ?? "Off"}`;
       continue;
     }
     if (descriptor.id === "fastMode" && descriptor.type === "boolean") {
@@ -524,6 +526,9 @@ export function buildTraitsTriggerDisplay(input: {
   if (labels.length === 0 && fastModeFallbackLabel !== null) {
     return { label: fastModeFallbackLabel, showFastModeIcon: false };
   }
+  if (labels.length === 0 && daybreakFallbackLabel !== null) {
+    return { label: daybreakFallbackLabel, showFastModeIcon: fastModeEnabled };
+  }
   return { label: labels.join(" · "), showFastModeIcon: fastModeEnabled };
 }
 
@@ -562,7 +567,9 @@ export function buildTraitsTriggerAccessibleLabel(
 ): string {
   const parts = [display.label];
   if (display.showFastModeIcon) parts.push("Fast mode on");
-  if (daybreakSelection !== null) parts.push(`Daybreak ${daybreakSelection.label}`);
+  if (daybreakSelection !== null && display.label !== `Daybreak ${daybreakSelection.label}`) {
+    parts.push(`Daybreak ${daybreakSelection.label}`);
+  }
   return parts.filter(Boolean).join(", ");
 }
 
