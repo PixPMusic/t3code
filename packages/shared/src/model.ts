@@ -178,9 +178,6 @@ export function carryCodexCyberAccessProgram(input: {
   if (program !== "standard" && program !== "daybreakBlue" && program !== "daybreakRed") {
     return { selection: next, didReset: false };
   }
-  if (input.next.instanceId !== input.current?.instanceId) {
-    return { selection: next, didReset: program !== "standard" };
-  }
   const selectedProgram = supportsProgram(program)
     ? program
     : supportsProgram("standard")

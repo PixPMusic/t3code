@@ -72,6 +72,22 @@ describe("Daybreak model switching", () => {
     });
   });
 
+  it("carries a supported program to another Codex instance without warning", () => {
+    const workInstanceId = ProviderInstanceId.make("codex_work");
+    expect(
+      carryCodexCyberAccessProgram({
+        current: selected,
+        next: createModelSelection(workInstanceId, "gpt-6-sol"),
+        nextCapabilities: daybreakCaps,
+      }),
+    ).toEqual({
+      selection: createModelSelection(workInstanceId, "gpt-6-sol", [
+        { id: "cyberAccessProgram", value: "daybreakBlue" },
+      ]),
+      didReset: false,
+    });
+  });
+
   it("warns and clears Daybreak when the next model has no advertised standard program", () => {
     const switched = carryCodexCyberAccessProgram({
       current: selected,
