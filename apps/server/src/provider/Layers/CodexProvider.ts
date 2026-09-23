@@ -89,11 +89,13 @@ const REASONING_EFFORT_LABELS: Readonly<Record<string, string>> = {
 };
 
 const DEFAULT_SERVICE_TIER_ID = "default";
+const isCodexAccessPrograms = Schema.is(
+  Schema.Struct({ cyber: Schema.optionalKey(Schema.Array(Schema.String)) }),
+);
 const CodexModelWithAccessPrograms = CodexSchema.V2ModelListResponse__Model.pipe(
   Schema.fieldsAssign({
-    availableAccessPrograms: Schema.optionalKey(
-      Schema.NullOr(Schema.Struct({ cyber: Schema.optionalKey(Schema.Array(Schema.String)) })),
-    ),
+    // This unpinned field must not prevent the rest of the model catalog from loading.
+    availableAccessPrograms: Schema.optionalKey(Schema.Unknown),
   }),
 );
 export const CodexModelListWithAccessPrograms = CodexSchema.V2ModelListResponse.pipe(
@@ -218,7 +220,9 @@ export function mapCodexModelCapabilities(model: CodexModelWithAccessPrograms): 
     });
   }
 
-  const accessPrograms = model.availableAccessPrograms?.cyber ?? [];
+  const accessPrograms = isCodexAccessPrograms(model.availableAccessPrograms)
+    ? (model.availableAccessPrograms.cyber ?? [])
+    : [];
   const daybreakPrograms = ["daybreakRed", "daybreakBlue"].filter((program) =>
     accessPrograms.includes(program),
   );

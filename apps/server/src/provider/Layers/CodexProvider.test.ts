@@ -46,6 +46,42 @@ it("keeps caller-specific access programs from model discovery", () => {
   });
 });
 
+it.each([
+  { name: "null", value: null },
+  { name: "a primitive", value: "daybreakBlue" },
+  { name: "an array", value: ["standard", "daybreakBlue"] },
+  { name: "a non-array cyber field", value: { cyber: "daybreakBlue" } },
+  { name: "object cyber entries", value: { cyber: [{ id: "daybreakBlue" }] } },
+  { name: "mixed cyber entries", value: { cyber: ["standard", "daybreakBlue", null] } },
+])("preserves model discovery when access programs contain $name", ({ value }) => {
+  const response = decodeCodexModelListWithAccessPrograms({
+    data: [
+      { ...modelForAccessTest, availableAccessPrograms: value },
+      {
+        ...modelForAccessTest,
+        id: "gpt-daybreak",
+        model: "gpt-daybreak",
+        availableAccessPrograms: { cyber: ["standard", "daybreakBlue"] },
+      },
+    ],
+    nextCursor: null,
+  });
+  assert.deepStrictEqual(
+    response.data.map((model) => model.model),
+    ["gpt-test", "gpt-daybreak"],
+  );
+  assert.deepStrictEqual(
+    mapCodexModelCapabilities(response.data[0]!),
+    mapCodexModelCapabilities(modelForAccessTest),
+  );
+  assert.equal(
+    mapCodexModelCapabilities(response.data[1]!).optionDescriptors?.some(
+      (descriptor) => descriptor.id === "cyberAccessProgram",
+    ),
+    true,
+  );
+});
+
 it("uses On and Off when the account has one Daybreak program", () => {
   for (const program of ["daybreakBlue", "daybreakRed"]) {
     const daybreak = mapCodexModelCapabilities({
