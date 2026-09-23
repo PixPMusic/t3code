@@ -685,7 +685,7 @@ export const TraitsPicker = memo(function TraitsPicker({
                   <ComposerControlIcon icon={BrainIcon} size={size} />
                 </span>
               )}
-              {daybreakSelection !== null && (
+              {daybreakSelection !== null && daybreakSelection.program !== "standard" && (
                 <ComposerControlIcon
                   icon={DaybreakIcon}
                   size={size}
