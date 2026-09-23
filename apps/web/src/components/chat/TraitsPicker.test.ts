@@ -127,6 +127,7 @@ describe("buildTraitsTriggerDisplay", () => {
       const descriptors = [EFFORT, { ...daybreak, currentValue: program }];
       const trigger = display(descriptors);
       expect(trigger.label).toBe("High");
+      expect(getDaybreakTriggerSelection(CODEX, descriptors)?.hasBothPrograms).toBe(true);
       expect(
         buildTraitsTriggerAccessibleLabel(trigger, getDaybreakTriggerSelection(CODEX, descriptors)),
       ).toBe(`High, ${announcement}`);
@@ -156,6 +157,7 @@ describe("buildTraitsTriggerDisplay", () => {
     ];
     const trigger = display(descriptors);
     expect(trigger).toEqual({ label: "High", showFastModeIcon: true });
+    expect(getDaybreakTriggerSelection(CODEX, descriptors)?.hasBothPrograms).toBe(false);
     expect(
       buildTraitsTriggerAccessibleLabel(trigger, getDaybreakTriggerSelection(CODEX, descriptors)),
     ).toBe("High, Fast mode on, Daybreak On");
@@ -174,7 +176,7 @@ describe("buildTraitsTriggerDisplay", () => {
       ),
     ];
     const selection = getDaybreakTriggerSelection(CODEX, descriptors);
-    expect(selection).toEqual({ program: "daybreakRed", label: "On" });
+    expect(selection).toEqual({ program: "daybreakRed", label: "On", hasBothPrograms: false });
     expect(buildTraitsTriggerAccessibleLabel(display(descriptors), selection)).toBe(
       "High, Daybreak On",
     );

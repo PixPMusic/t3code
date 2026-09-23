@@ -545,7 +545,11 @@ export function buildTraitsTriggerDisplay(input: {
 }
 
 type DaybreakTriggerProgram = "standard" | "daybreakBlue" | "daybreakRed";
-type DaybreakTriggerSelection = { program: DaybreakTriggerProgram; label: string };
+type DaybreakTriggerSelection = {
+  program: DaybreakTriggerProgram;
+  label: string;
+  hasBothPrograms: boolean;
+};
 
 export function getDaybreakTriggerSelection(
   provider: ProviderDriverKind,
@@ -560,6 +564,9 @@ export function getDaybreakTriggerSelection(
   if (value !== "standard" && value !== "daybreakBlue" && value !== "daybreakRed") return null;
   return {
     program: value,
+    hasBothPrograms:
+      descriptor.options.some((option) => option.id === "daybreakBlue") &&
+      descriptor.options.some((option) => option.id === "daybreakRed"),
     label:
       getProviderOptionCurrentLabel(descriptor) ??
       (value === "standard" ? "Off" : value === "daybreakBlue" ? "Blue" : "Red"),
@@ -700,7 +707,7 @@ export const TraitsPicker = memo(function TraitsPicker({
                   icon={DaybreakIcon}
                   size={size}
                   className={
-                    daybreakSelection.program === "standard"
+                    !daybreakSelection.hasBothPrograms || daybreakSelection.program === "standard"
                       ? "text-white"
                       : daybreakSelection.program === "daybreakBlue"
                         ? "text-blue-400"
