@@ -19,7 +19,7 @@ import packageJson from "../../package.json" with { type: "json" };
 import * as ServerConfig from "../config.ts";
 import * as DeviceService from "../device/DeviceService.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
-import { withMcpRequestedModelSelection } from "./McpProviderSession.ts";
+import * as McpProviderSession from "./McpProviderSession.ts";
 import * as McpSessionRegistry from "./McpSessionRegistry.ts";
 import * as PreviewAutomationBroker from "./PreviewAutomationBroker.ts";
 import {
@@ -107,7 +107,7 @@ const makeMcpAuthMiddleware = McpSessionRegistry.McpSessionRegistry.pipe(
       return yield* httpEffect.pipe(
         Effect.provideService(
           McpInvocationContext.McpInvocationContext,
-          withMcpRequestedModelSelection(invocation),
+          McpProviderSession.withMcpRequestedModelSelection(invocation),
         ),
         Effect.map(normalizeMcpHttpResponse),
       );
