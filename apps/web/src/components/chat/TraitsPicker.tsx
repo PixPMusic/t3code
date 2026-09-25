@@ -486,7 +486,12 @@ export function buildTraitsTriggerDisplay(input: {
       descriptor.id === "cyberAccessProgram" &&
       descriptor.type === "select"
     ) {
-      daybreakFallbackLabel = `Daybreak ${getProviderOptionCurrentLabel(descriptor) ?? "Off"}`;
+      const daybreakLabel =
+        getProviderOptionCurrentLabel(descriptor) ??
+        getDaybreakTriggerSelection(input.provider, [descriptor])?.label ??
+        getDescriptorStringValue(descriptor) ??
+        "Off";
+      daybreakFallbackLabel = `Daybreak ${daybreakLabel}`;
       continue;
     }
     if (descriptor.id === "fastMode" && descriptor.type === "boolean") {

@@ -188,6 +188,20 @@ describe("buildTraitsTriggerDisplay", () => {
     });
   });
 
+  it.each([
+    ["standard", "Daybreak Off"],
+    ["daybreakBlue", "Daybreak Blue"],
+    ["daybreakRed", "Daybreak Red"],
+    ["futureProgram", "Daybreak futureProgram"],
+  ])("preserves the label for a saved %s selection missing from the model", (value, label) => {
+    const descriptors = [selectDescriptor("cyberAccessProgram", [], value)];
+    const trigger = display(descriptors);
+    expect(trigger).toEqual({ label, showFastModeIcon: false });
+    expect(
+      buildTraitsTriggerAccessibleLabel(trigger, getDaybreakTriggerSelection(CODEX, descriptors)),
+    ).toBe(label);
+  });
+
   it("omits the Daybreak announcement when the model has no Daybreak descriptor", () => {
     const trigger = display([EFFORT, serviceTierDescriptor("priority")]);
     expect(
