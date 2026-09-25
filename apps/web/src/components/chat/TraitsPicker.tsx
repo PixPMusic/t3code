@@ -525,14 +525,14 @@ export function buildTraitsTriggerDisplay(input: {
     }
   }
 
+  if (labels.length === 0 && daybreakFallbackLabel !== null) {
+    return { label: daybreakFallbackLabel, showFastModeIcon: fastModeEnabled };
+  }
   // Only fall back to text when fast mode is genuinely the sole trait. Keying
   // off an empty label list alone would also catch descriptors that resolved to
   // no label at all, printing a bogus "Normal" for a model without fast mode.
   if (labels.length === 0 && fastModeFallbackLabel !== null) {
     return { label: fastModeFallbackLabel, showFastModeIcon: false };
-  }
-  if (labels.length === 0 && daybreakFallbackLabel !== null) {
-    return { label: daybreakFallbackLabel, showFastModeIcon: fastModeEnabled };
   }
   return { label: labels.join(" · "), showFastModeIcon: fastModeEnabled };
 }
