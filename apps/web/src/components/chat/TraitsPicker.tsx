@@ -539,7 +539,7 @@ export function buildTraitsTriggerDisplay(input: {
 
 type DaybreakTriggerProgram = "standard" | "daybreakBlue" | "daybreakRed";
 type DaybreakTriggerSelection = {
-  program: DaybreakTriggerProgram;
+  program: DaybreakTriggerProgram | null;
   label: string;
   hasBothPrograms: boolean;
 };
@@ -554,15 +554,22 @@ export function getDaybreakTriggerSelection(
   );
   if (descriptor?.type !== "select") return null;
   const value = getProviderOptionCurrentValue(descriptor);
-  if (value !== "standard" && value !== "daybreakBlue" && value !== "daybreakRed") return null;
+  if (typeof value !== "string") return null;
   return {
-    program: value,
+    program:
+      value === "standard" || value === "daybreakBlue" || value === "daybreakRed" ? value : null,
     hasBothPrograms:
       descriptor.options.some((option) => option.id === "daybreakBlue") &&
       descriptor.options.some((option) => option.id === "daybreakRed"),
     label:
       getProviderOptionCurrentLabel(descriptor) ??
-      (value === "standard" ? "Off" : value === "daybreakBlue" ? "Blue" : "Red"),
+      (value === "standard"
+        ? "Off"
+        : value === "daybreakBlue"
+          ? "Blue"
+          : value === "daybreakRed"
+            ? "Red"
+            : value),
   };
 }
 
@@ -697,7 +704,8 @@ export const TraitsPicker = memo(function TraitsPicker({
                   <ComposerControlIcon icon={BrainIcon} size={size} />
                 </span>
               )}
-              {daybreakSelection !== null && daybreakSelection.program !== "standard" && (
+              {(daybreakSelection?.program === "daybreakBlue" ||
+                daybreakSelection?.program === "daybreakRed") && (
                 <ComposerControlIcon
                   icon={DaybreakIcon}
                   size={size}

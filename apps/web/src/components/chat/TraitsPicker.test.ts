@@ -200,6 +200,15 @@ describe("buildTraitsTriggerDisplay", () => {
     expect(
       buildTraitsTriggerAccessibleLabel(trigger, getDaybreakTriggerSelection(CODEX, descriptors)),
     ).toBe(label);
+
+    const combinedDescriptors = [EFFORT, serviceTierDescriptor("priority"), ...descriptors];
+    const combinedTrigger = display(combinedDescriptors);
+    expect(combinedTrigger).toEqual({ label: "High", showFastModeIcon: true });
+    const selection = getDaybreakTriggerSelection(CODEX, combinedDescriptors);
+    expect(selection?.program).toBe(value === "futureProgram" ? null : value);
+    expect(buildTraitsTriggerAccessibleLabel(combinedTrigger, selection)).toBe(
+      `High, Fast mode on, ${label}`,
+    );
   });
 
   it.each(["default", "priority"] as const)(
