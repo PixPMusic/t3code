@@ -597,6 +597,7 @@ function AdaptiveWorkspaceLayoutContent(
         params,
       });
       if (overlayState !== null) {
+        selectedThreadKeyRef.current = nextThreadKey;
         setFileInspectorPreferredVisible(false);
         navigation.dispatch(CommonActions.reset(overlayState));
         return;
