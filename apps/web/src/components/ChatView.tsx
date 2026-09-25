@@ -9420,7 +9420,7 @@ export default function ChatView(props: ChatViewProps) {
         nextModelSelection,
         { explicit: true, replaceOptions: true },
       );
-      setStickyComposerModelSelection(nextModelSelection);
+      setStickyComposerModelSelection(nextModelSelection, { replaceOptions: true });
       if (options?.focusComposer !== false) scheduleComposerFocus();
     },
     [
@@ -10568,7 +10568,9 @@ export default function ChatView(props: ChatViewProps) {
                   pendingDaybreakModelSwitch.selection,
                   { explicit: true, replaceOptions: true },
                 );
-                setStickyComposerModelSelection(pendingDaybreakModelSwitch.selection);
+                setStickyComposerModelSelection(pendingDaybreakModelSwitch.selection, {
+                  replaceOptions: true,
+                });
                 if (pendingDaybreakModelSwitch.focusComposer) scheduleComposerFocus();
                 setPendingDaybreakModelSwitch(null);
               }}
