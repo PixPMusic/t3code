@@ -700,8 +700,8 @@ export const TraitsPicker = memo(function TraitsPicker({
                     !daybreakSelection.hasBothPrograms
                       ? "text-foreground"
                       : daybreakSelection.program === "daybreakBlue"
-                        ? "text-blue-400"
-                        : "text-red-400"
+                        ? "text-daybreak-blue"
+                        : "text-daybreak-red"
                   }
                 />
               )}
