@@ -389,11 +389,11 @@ index 1c844846a5c66e31cfa530ca462774d2fb6bbea1..a60b96b44e85d3f4b29dc0d190b95ab6
 +  // replaces the fallback UISearchTextField with a fresh empty one, dropping
 +  // the user's in-progress search text and first responder on every unrelated
 +  // header update. Keyed on the config instance (the button/search blocks
-+  // capture its event emitter), the toolbar config values, and the host width
-+  // (the width constraint constant is resolved from it at build time).
++  // capture its event emitter) and the toolbar config values. Width changes
++  // relayout the existing toolbar through its safe-area constraints.
 +  static char RNSAppliedMailSearchToolbarConfigKey;
 +  NSArray *mailSearchToolbarKey = mailSearchToolbarConfig != nil
-+      ? @[ @((uintptr_t)config), mailSearchToolbarConfig, @(chromeHostView.bounds.size.width) ]
++      ? @[ @((uintptr_t)config), mailSearchToolbarConfig ]
 +      : nil;
 +  BOOL reuseMailSearchToolbar = existingMailSearchToolbar != nil && mailSearchToolbarKey != nil &&
 +      [objc_getAssociatedObject(existingMailSearchToolbar, &RNSAppliedMailSearchToolbarConfigKey)
