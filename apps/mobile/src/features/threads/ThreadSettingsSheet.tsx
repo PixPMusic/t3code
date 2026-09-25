@@ -1362,10 +1362,10 @@ export function ExistingThreadSettingsRouteScreen() {
     return <View className="flex-1 bg-sheet" />;
   }
 
-  const { ownerId: _ownerId, ...settings } = session;
+  const { ownerId, ...settings } = session;
 
   return (
-    <ThreadSettingsSessionProvider {...settings}>
+    <ThreadSettingsSessionProvider key={ownerId} {...settings}>
       <ThreadSettingsPickerNavigator onClose={() => navigation.goBack()} />
     </ThreadSettingsSessionProvider>
   );
