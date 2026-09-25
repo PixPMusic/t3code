@@ -1,5 +1,6 @@
 import {
   type EnvironmentId,
+  type ModelSelection,
   McpCapabilityUnavailableError,
   PreviewAutomationUnavailableError,
   type ProviderInstanceId,
@@ -15,6 +16,8 @@ export interface McpInvocationScope {
   readonly threadId: ThreadId;
   readonly providerSessionId: string;
   readonly providerInstanceId: ProviderInstanceId;
+  /** Latest adapter request captured at the authenticated HTTP boundary. */
+  readonly requestedModelSelection?: ModelSelection | null;
   readonly capabilities: ReadonlySet<McpCapability>;
   readonly issuedAt: number;
 }

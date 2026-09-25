@@ -17,8 +17,7 @@ import * as OrchestrationEngine from "../../../orchestration/Services/Orchestrat
 import * as ProjectionSnapshotQuery from "../../../orchestration/Services/ProjectionSnapshotQuery.ts";
 import * as ProviderRegistry from "../../../provider/Services/ProviderRegistry.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
-import { readMcpProviderSession } from "../../McpProviderSession.ts";
-import { ThreadToolkit } from "./tools.ts";
+import * as ThreadTools from "./tools.ts";
 
 const optionValue = (selection: ModelSelection | null, ...ids: ReadonlyArray<string>) =>
   ids.flatMap((id) => selection?.options?.filter((option) => option.id === id) ?? [])[0]?.value ??
@@ -50,19 +49,12 @@ const make = Effect.gen(function* () {
     return { scope, thread: thread.value };
   });
 
-  return ThreadToolkit.of({
+  return ThreadTools.ThreadToolkit.of({
     get_thread_metadata: Effect.fn("ThreadToolkit.getThreadMetadata")(function* (input) {
       const { scope, thread } = yield* requireThread("read");
       const wants = (field: ThreadMetadataField) =>
         input.fields === undefined || input.fields.includes(field);
-      const session = readMcpProviderSession(scope.threadId);
-      const requested =
-        session?.providerSessionId === scope.providerSessionId &&
-        session.providerInstanceId === scope.providerInstanceId &&
-        session.environmentId === scope.environmentId &&
-        session.requestedModelSelection?.instanceId === scope.providerInstanceId
-          ? session.requestedModelSelection
-          : null;
+      const requested = scope.requestedModelSelection ?? null;
       const saved = thread.modelSelection;
       const selectedOption = (...ids: ReadonlyArray<string>) => ({
         saved: optionValue(saved, ...ids),
@@ -199,4 +191,4 @@ const make = Effect.gen(function* () {
   });
 });
 
-export const ThreadToolkitHandlersLive = ThreadToolkit.toLayer(make);
+export const ThreadToolkitHandlersLive = ThreadTools.ThreadToolkit.toLayer(make);

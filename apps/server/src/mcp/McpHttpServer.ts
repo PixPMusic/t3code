@@ -19,6 +19,7 @@ import packageJson from "../../package.json" with { type: "json" };
 import * as ServerConfig from "../config.ts";
 import * as DeviceService from "../device/DeviceService.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
+import { withMcpRequestedModelSelection } from "./McpProviderSession.ts";
 import * as McpSessionRegistry from "./McpSessionRegistry.ts";
 import * as PreviewAutomationBroker from "./PreviewAutomationBroker.ts";
 import {
@@ -32,8 +33,8 @@ import {
 } from "./toolkits/preview/tools.ts";
 import { PullRequestsToolkitHandlersLive } from "./toolkits/pullRequests/handlers.ts";
 import { PullRequestsToolkit } from "./toolkits/pullRequests/tools.ts";
-import { ThreadToolkitHandlersLive } from "./toolkits/thread/handlers.ts";
-import { ThreadToolkit } from "./toolkits/thread/tools.ts";
+import * as ThreadHandlers from "./toolkits/thread/handlers.ts";
+import * as ThreadTools from "./toolkits/thread/tools.ts";
 import {
   DeviceScreenshotToolkitHandlersLive,
   DeviceStandardToolkitHandlersLive,
@@ -104,7 +105,10 @@ const makeMcpAuthMiddleware = McpSessionRegistry.McpSessionRegistry.pipe(
         return unauthorized;
       }
       return yield* httpEffect.pipe(
-        Effect.provideService(McpInvocationContext.McpInvocationContext, invocation),
+        Effect.provideService(
+          McpInvocationContext.McpInvocationContext,
+          withMcpRequestedModelSelection(invocation),
+        ),
         Effect.map(normalizeMcpHttpResponse),
       );
     }),
@@ -649,8 +653,8 @@ export const PullRequestsToolkitRegistrationLive = McpServer.toolkit(PullRequest
   Layer.provide(PullRequestsToolkitHandlersLive),
 );
 
-export const ThreadToolkitRegistrationLive = McpServer.toolkit(ThreadToolkit).pipe(
-  Layer.provide(ThreadToolkitHandlersLive),
+export const ThreadToolkitRegistrationLive = McpServer.toolkit(ThreadTools.ThreadToolkit).pipe(
+  Layer.provide(ThreadHandlers.ThreadToolkitHandlersLive),
 );
 
 const DeviceStandardToolkitRegistrationLive = McpServer.toolkit(DeviceStandardToolkit).pipe(

@@ -32,6 +32,7 @@ import { McpInvocationContext, type McpInvocationScope } from "../../McpInvocati
 import {
   clearAllMcpProviderSessions,
   setMcpProviderSession,
+  withMcpRequestedModelSelection,
   type McpProviderSessionConfig,
 } from "../../McpProviderSession.ts";
 import { ThreadToolkitHandlersLive } from "./handlers.ts";
@@ -205,7 +206,7 @@ const makeHarness = Effect.fn("makeThreadToolkitHarness")(function* (
       Effect.map(
         (results) => results.at(-1)!.result as Tool.Success<(typeof ThreadToolkit.tools)[Name]>,
       ),
-      Effect.provideService(McpInvocationContext, invocation),
+      Effect.provideService(McpInvocationContext, withMcpRequestedModelSelection(invocation)),
     );
   return {
     call,

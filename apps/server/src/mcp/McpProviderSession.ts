@@ -4,6 +4,7 @@ import type {
   ProviderInstanceId,
   ThreadId,
 } from "@t3tools/contracts";
+import type { McpInvocationScope } from "./McpInvocationContext.ts";
 
 export interface McpProviderSessionConfig {
   readonly environmentId: EnvironmentId;
@@ -74,6 +75,19 @@ export function readMcpProviderSession(
     }
   }
   return config;
+}
+
+/** Capture provider metadata for one authenticated MCP request. */
+export function withMcpRequestedModelSelection(scope: McpInvocationScope): McpInvocationScope {
+  const session = readMcpProviderSession(scope.threadId);
+  const requestedModelSelection =
+    session?.providerSessionId === scope.providerSessionId &&
+    session.providerInstanceId === scope.providerInstanceId &&
+    session.environmentId === scope.environmentId &&
+    session.requestedModelSelection?.instanceId === scope.providerInstanceId
+      ? session.requestedModelSelection
+      : null;
+  return { ...scope, requestedModelSelection };
 }
 
 /**
