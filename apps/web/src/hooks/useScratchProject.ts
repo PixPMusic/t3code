@@ -5,6 +5,7 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import type { EnvironmentId } from "@t3tools/contracts";
+import { useRouter } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
@@ -13,6 +14,10 @@ import { useEnvironments } from "~/state/environments";
 import { projectEnvironment } from "~/state/projects";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useNewThreadHandler } from "./useHandleNewThread";
+
+// The palette unmounts as soon as a command runs. Keep creation requests
+// coordinated across hook instances, including a reopened palette.
+let scratchThreadRequestGeneration = 0;
 
 function reportScratchFailure(error: unknown) {
   toastManager.add(
@@ -31,6 +36,7 @@ function reportScratchFailure(error: unknown) {
  * non-git path, and each thread gets its own subfolder.
  */
 export function useScratchProject() {
+  const router = useRouter();
   const { environments } = useEnvironments();
   const ensureScratch = useAtomCommand(projectEnvironment.ensureScratch, { reportFailure: false });
   const handleNewThread = useNewThreadHandler();
@@ -98,14 +104,20 @@ export function useScratchProject() {
 
   const startScratchThread = useCallback(
     async (environmentId: EnvironmentId) => {
+      const generation = ++scratchThreadRequestGeneration;
+      const requestingRouteHref = router.state.location.href;
       const project = await openScratchProject(environmentId);
-      if (project) {
+      if (
+        project &&
+        generation === scratchThreadRequestGeneration &&
+        router.state.location.href === requestingRouteHref
+      ) {
         await handleNewThread(scopeProjectRef(project.environmentId, project.id)).catch(
           reportScratchFailure,
         );
       }
     },
-    [handleNewThread, openScratchProject],
+    [handleNewThread, openScratchProject, router],
   );
 
   return {

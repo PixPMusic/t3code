@@ -29,6 +29,9 @@ vi.mock("~/state/environments", () => ({
   useEnvironments: () => ({ environments: mocks.environments }),
   usePrimaryEnvironmentId: () => mocks.environments[0]?.environmentId ?? null,
 }));
+vi.mock("@tanstack/react-router", () => ({
+  useRouter: () => ({ state: { location: { href: "/" } } }),
+}));
 vi.mock("~/state/entities", () => ({
   useProjects: () => mocks.projects,
   useThreadShells: () => [],
