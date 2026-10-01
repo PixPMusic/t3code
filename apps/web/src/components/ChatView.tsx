@@ -2339,8 +2339,27 @@ export default function ChatView(props: ChatViewProps) {
   // drive the environment picker in BranchToolbar.
   const allProjects = useProjects();
   const ensureScratch = useAtomCommand(projectEnvironment.ensureScratch, { reportFailure: false });
-  const pendingScratchEnvironments = useRef(new Set<EnvironmentId>());
+  const pendingScratchEnvironments = useRef(new Map<EnvironmentId, symbol>());
+  const failedScratchEnvironments = useRef(new Set<EnvironmentId>());
   useEffect(() => {
+    const connectedEnvironmentIds = new Set(
+      environments
+        .filter((environment) => environment.connection.phase === "connected")
+        .map((environment) => environment.environmentId),
+    );
+    const scratchEnvironmentIds = new Set(
+      allProjects.filter((project) => project.isScratch).map((project) => project.environmentId),
+    );
+    // Reconnects and real project arrivals reset attempts even while another project is active.
+    for (const environmentId of new Set([
+      ...pendingScratchEnvironments.current.keys(),
+      ...failedScratchEnvironments.current,
+    ])) {
+      if (!connectedEnvironmentIds.has(environmentId) || scratchEnvironmentIds.has(environmentId)) {
+        pendingScratchEnvironments.current.delete(environmentId);
+        failedScratchEnvironments.current.delete(environmentId);
+      }
+    }
     if (!activeProject?.isScratch) return;
     for (const environment of environments) {
       if (
@@ -2349,22 +2368,36 @@ export default function ChatView(props: ChatViewProps) {
       )
         continue;
       const environmentId = environment.environmentId;
+      if (scratchEnvironmentIds.has(environmentId)) continue;
       if (
-        allProjects.some((project) => project.environmentId === environmentId && project.isScratch)
-      ) {
+        pendingScratchEnvironments.current.has(environmentId) ||
+        failedScratchEnvironments.current.has(environmentId)
+      )
         continue;
-      }
-      if (pendingScratchEnvironments.current.has(environmentId)) continue;
-      pendingScratchEnvironments.current.add(environmentId);
+      const request = Symbol();
+      pendingScratchEnvironments.current.set(environmentId, request);
+      // A disconnected request must not fail or clear its replacement after reconnect.
+      const markFailed = () => {
+        if (pendingScratchEnvironments.current.get(environmentId) === request) {
+          failedScratchEnvironments.current.add(environmentId);
+        }
+      };
       // Keep a successful request pending until its real project reaches the store.
       void ensureScratch({ environmentId, input: {} })
         .then(async (result) => {
+          if (pendingScratchEnvironments.current.get(environmentId) !== request) return;
           if (result._tag === "Success") {
             await waitForProject({ environmentId, projectId: result.value.projectId });
+          } else {
+            markFailed();
           }
         })
-        .catch(() => undefined)
-        .finally(() => pendingScratchEnvironments.current.delete(environmentId));
+        .catch(markFailed)
+        .finally(() => {
+          if (pendingScratchEnvironments.current.get(environmentId) === request) {
+            pendingScratchEnvironments.current.delete(environmentId);
+          }
+        });
     }
   }, [activeProject?.isScratch, allProjects, environments, ensureScratch]);
   const primaryEnvironmentId = primaryEnvironment?.environmentId ?? null;
