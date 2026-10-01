@@ -3,7 +3,6 @@ import { buildProjectThreadStartTurnInput } from "../../lib/projectThreadStartTu
 import { useWorktreeSetup } from "./use-worktree-setup";
 import { worktreeSetupAgentStarted } from "@t3tools/client-runtime/worktree-setup";
 import { ScreenHeader } from "../../components/ScreenHeader";
-import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { ScreenHeaderButton } from "../../components/ScreenHeaderButton";
 import type { ScreenHeaderAction } from "../../components/ScreenHeader.types";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
@@ -216,19 +215,11 @@ function ThreadPane(props: { readonly children: ReactNode }) {
   );
 }
 
-function OpeningThreadLoadingScreen() {
+function ThreadRouteFallbackLayout(props: { readonly children: ReactNode }) {
   const navigation = useNavigation();
   const { layout } = useAdaptiveWorkspaceLayout();
   const { themeVariables } = useAppearancePreferences();
-  const content = (
-    <LoadingScreen
-      message="Opening thread…"
-      messagePlacement="above-spinner"
-      embedded={Platform.OS === "android"}
-    />
-  );
-
-  if (Platform.OS !== "android") return content;
+  if (Platform.OS !== "android") return props.children;
 
   return (
     <>
@@ -245,8 +236,20 @@ function OpeningThreadLoadingScreen() {
         }
         hideBottomBorder
       />
-      <ThreadPane>{content}</ThreadPane>
+      <ThreadPane>{props.children}</ThreadPane>
     </>
+  );
+}
+
+function OpeningThreadLoadingScreen() {
+  return (
+    <ThreadRouteFallbackLayout>
+      <LoadingScreen
+        message="Opening thread…"
+        messagePlacement="above-spinner"
+        embedded={Platform.OS === "android"}
+      />
+    </ThreadRouteFallbackLayout>
   );
 }
 
@@ -266,12 +269,7 @@ function ThreadUnavailableScreen(props: {
   readonly onAction: () => void;
 }) {
   return (
-    <>
-      {Platform.OS === "android" ? (
-        <NativeStackScreenOptions
-          options={{ headerShown: true, title: undefined, contentStyle: undefined }}
-        />
-      ) : null}
+    <ThreadRouteFallbackLayout>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
@@ -280,7 +278,7 @@ function ThreadUnavailableScreen(props: {
           paddingHorizontal: 24,
           paddingVertical: 32,
         }}
-        className="bg-screen flex-1"
+        className="bg-screen flex-1 android:bg-transparent"
       >
         <EmptyState
           title="Thread unavailable"
@@ -289,7 +287,7 @@ function ThreadUnavailableScreen(props: {
           onAction={props.onAction}
         />
       </ScrollView>
-    </>
+    </ThreadRouteFallbackLayout>
   );
 }
 
