@@ -5,7 +5,7 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { waitForProject } from "~/state/entities";
@@ -34,6 +34,21 @@ export function useScratchProject() {
   const { environments } = useEnvironments();
   const ensureScratch = useAtomCommand(projectEnvironment.ensureScratch, { reportFailure: false });
   const handleNewThread = useNewThreadHandler();
+  const scratchEnvironments = useMemo(() => {
+    const eligible = environments.filter(
+      (environment) =>
+        environment.connection.phase === "connected" &&
+        environment.serverConfig?.scratchWorkspaceRoot != null,
+    );
+    return eligible.map((environment) =>
+      eligible.filter((entry) => entry.label === environment.label).length > 1
+        ? {
+            ...environment,
+            label: `${environment.label} (${environment.displayUrl ?? environment.environmentId})`,
+          }
+        : environment,
+    );
+  }, [environments]);
 
   /** The scratch folder of a connected environment, or null when it offers none. */
   const scratchWorkspaceRootFor = useCallback(
@@ -52,12 +67,11 @@ export function useScratchProject() {
   const scratchEnvironmentId = useCallback(
     (current: EnvironmentId | null): EnvironmentId | null => {
       if (current !== null) return scratchWorkspaceRootFor(current) !== null ? current : null;
-      const offering = environments.filter(
-        (entry) => scratchWorkspaceRootFor(entry.environmentId) !== null,
-      );
-      return offering.length === 1 ? (offering[0]?.environmentId ?? null) : null;
+      return scratchEnvironments.length === 1
+        ? (scratchEnvironments[0]?.environmentId ?? null)
+        : null;
     },
-    [environments, scratchWorkspaceRootFor],
+    [scratchEnvironments, scratchWorkspaceRootFor],
   );
 
   /** Resolves to the scratch project once it is in this client's store. */
@@ -94,5 +108,11 @@ export function useScratchProject() {
     [handleNewThread, openScratchProject],
   );
 
-  return { scratchWorkspaceRootFor, scratchEnvironmentId, openScratchProject, startScratchThread };
+  return {
+    scratchEnvironments,
+    scratchWorkspaceRootFor,
+    scratchEnvironmentId,
+    openScratchProject,
+    startScratchThread,
+  };
 }

@@ -123,7 +123,7 @@ import {
   isUnsupportedWindowsProjectPath,
   resolveProjectPathForDispatch,
 } from "../lib/projectPaths";
-import { onOpenCommandPalette } from "../commandPaletteBus";
+import { onOpenCommandPalette, openCommandPalette } from "../commandPaletteBus";
 import { isPreviewFocused } from "../lib/previewFocus";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
@@ -722,7 +722,8 @@ function OpenCommandPaletteDialog(props: {
   const createProject = useAtomCommand(projectEnvironment.create, {
     reportFailure: false,
   });
-  const { scratchEnvironmentId, scratchWorkspaceRootFor, startScratchThread } = useScratchProject();
+  const { scratchEnvironments, scratchEnvironmentId, scratchWorkspaceRootFor, startScratchThread } =
+    useScratchProject();
   const lookupRepository = useAtomQueryRunner(sourceControlEnvironment.repository, {
     reportFailure: false,
   });
@@ -1138,11 +1139,9 @@ function OpenCommandPaletteDialog(props: {
   const currentProjectEnvironmentId =
     activeThread?.environmentId ?? activeDraftThread?.environmentId ?? null;
   const currentProjectId = activeThread?.projectId ?? activeDraftThread?.projectId ?? null;
-  // Where "without a project" threads start: the current environment when it
-  // offers them, otherwise the first connected one that does.
-  const scratchTargetEnvironmentId = scratchEnvironmentId(
-    currentProjectEnvironmentId ?? primaryEnvironmentId,
-  );
+  // Contextual creation stays on its host; without context, only a sole
+  // eligible host can be selected without opening the chooser.
+  const scratchTargetEnvironmentId = scratchEnvironmentId(currentProjectEnvironmentId);
   const currentProjectCwd = currentProjectId
     ? (projectCwdById.get(currentProjectId) ?? null)
     : null;
@@ -1315,7 +1314,7 @@ function OpenCommandPaletteDialog(props: {
     () =>
       enumerateCommandPaletteItems([
         ...buildProjectActionItems({
-          // The no-project home shows once, as the "No project" item below.
+          // Scratch folders appear as host-specific "No project" choices below.
           projects: pickerProjects.filter(
             (project) => !isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)),
           ),
@@ -1369,19 +1368,18 @@ function OpenCommandPaletteDialog(props: {
             );
           },
         }),
-        ...(scratchTargetEnvironmentId === null
-          ? []
-          : [
-              {
-                kind: "action" as const,
-                value: "new-thread-in:no-project",
-                searchTerms: ["no project", "without project", "none"],
-                title: "No project",
-                icon: <MessageSquareDashedIcon className={ITEM_ICON_CLASS} />,
-                shortcutCommand: "chat.newWithoutProject" as const,
-                run: () => startScratchThread(scratchTargetEnvironmentId),
-              },
-            ]),
+        ...scratchEnvironments.map((environment) => ({
+          kind: "action" as const,
+          value: `new-thread-in:no-project:${environment.environmentId}`,
+          searchTerms: ["no project", "without project", "none", environment.label],
+          title: "No project",
+          description: scratchEnvironments.length > 1 ? environment.label : undefined,
+          icon: <MessageSquareDashedIcon className={ITEM_ICON_CLASS} />,
+          ...(environment.environmentId === scratchTargetEnvironmentId
+            ? { shortcutCommand: "chat.newWithoutProject" as const }
+            : {}),
+          run: () => startScratchThread(environment.environmentId),
+        })),
       ]),
     [
       contextualProjectRef,
@@ -1389,6 +1387,7 @@ function OpenCommandPaletteDialog(props: {
       pickerProjects,
       projectEnvironmentLocationById,
       projectGroupByTargetKey,
+      scratchEnvironments,
       scratchTargetEnvironmentId,
       scratchWorkspaceRootFor,
       startScratchThread,
@@ -1917,7 +1916,7 @@ function OpenCommandPaletteDialog(props: {
     });
   }
 
-  if (scratchTargetEnvironmentId !== null) {
+  if (scratchEnvironments.length > 0) {
     actionItems.push({
       kind: "action",
       value: "action:new-thread-without-project",
@@ -1925,7 +1924,13 @@ function OpenCommandPaletteDialog(props: {
       title: "New thread without a project",
       icon: <MessageSquareDashedIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "chat.newWithoutProject",
-      run: () => startScratchThread(scratchTargetEnvironmentId),
+      run: async () => {
+        if (scratchTargetEnvironmentId !== null) {
+          await startScratchThread(scratchTargetEnvironmentId);
+        } else {
+          openCommandPalette({ open: "new-thread-in" });
+        }
+      },
     });
   }
 
