@@ -1,13 +1,39 @@
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import type { EnvironmentId } from "@t3tools/contracts";
 
 import { scopedProjectKey } from "../../lib/scopedEntities";
+import type { QueuedThreadMessage } from "../../state/thread-outbox-model";
 import type { HomeProjectScope } from "../home/homeThreadList";
 
 type DraftProjectSelectionResolution =
   | { readonly kind: "preserve" }
   | { readonly kind: "select"; readonly project: EnvironmentProject }
   | { readonly kind: "pick" };
+
+/** Stand-in for an edited queued task while its environment's project shell is unavailable. */
+export function resolvePendingTaskProject(
+  message: QueuedThreadMessage | null,
+  scratchWorkspaceRoot: string | null | undefined,
+): EnvironmentProject | null {
+  const creation = message?.creation;
+  if (!message || !creation) return null;
+  // An empty cwd keeps branch/worktree consumers from using a fabricated path.
+  // Missing display metadata is not a scratch-project signal.
+  const workspaceRoot = creation.projectCwd ?? "";
+  return {
+    environmentId: message.environmentId,
+    id: creation.projectId,
+    title: creation.projectTitle ?? "Unknown project",
+    workspaceRoot,
+    ...(isScratchProject({ workspaceRoot }, scratchWorkspaceRoot) ? { isScratch: true } : {}),
+    repositoryIdentity: null,
+    defaultModelSelection: message.modelSelection ?? null,
+    scripts: [],
+    createdAt: message.createdAt,
+    updatedAt: message.createdAt,
+  };
+}
 
 export function getProjectScopeSelectionTarget(
   scope: HomeProjectScope,

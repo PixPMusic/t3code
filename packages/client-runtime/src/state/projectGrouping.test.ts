@@ -1,4 +1,5 @@
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import { normalizeGitRemoteUrl } from "@t3tools/shared/git";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { EnvironmentProject } from "./models.ts";
@@ -118,6 +119,41 @@ function settings(
 }
 
 describe("buildProjectGroups", () => {
+  it.each(["repository", "repository_path"] as const)(
+    "keeps scratch homes separate from colliding or malformed repository identities (%s)",
+    (mode) => {
+      const scratch = makeProject("scratch", "/home/.t3/scratch", {
+        repositoryIdentity: null,
+        isScratch: true,
+      });
+      const grouping = settings(mode);
+      const scratchKey = deriveLogicalProjectKeyFromSettings(scratch, grouping);
+      const repository = makeProject("repository", "/work/repository", {
+        repositoryIdentity: {
+          ...repositoryIdentity,
+          canonicalKey: normalizeGitRemoteUrl("t3code:no-project"),
+        },
+      });
+      const malformed = makeProject("malformed", "/work/malformed", {
+        repositoryIdentity: { ...repositoryIdentity, canonicalKey: scratchKey },
+      });
+      const groups = buildProjectGroups({
+        projects: [scratch, repository, malformed],
+        settings: grouping,
+      });
+
+      expect(groups.map((group) => group.members.map((member) => member.project))).toEqual([
+        [scratch],
+        [repository],
+        [malformed],
+      ]);
+      expect(deriveLogicalProjectKeyFromSettings(repository, grouping)).toBe("t3code:no-project");
+      expect(deriveLogicalProjectKeyFromSettings(malformed, grouping)).toBe(
+        derivePhysicalProjectKey(malformed),
+      );
+    },
+  );
+
   it.each(["repository", "repository_path", "separate"] as const)(
     "groups scratch homes across hosts without matching ordinary projects (%s)",
     (mode) => {

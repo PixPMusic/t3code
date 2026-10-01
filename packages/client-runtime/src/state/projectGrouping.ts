@@ -101,7 +101,8 @@ function deriveRepositoryScopedKey(
   groupingMode: SidebarProjectGroupingMode,
 ): string | null {
   const canonicalKey = project.repositoryIdentity?.canonicalKey;
-  if (!canonicalKey) {
+  // Git remote identities cannot contain NUL, which reserves the scratch key namespace.
+  if (!canonicalKey || canonicalKey.includes("\0")) {
     return null;
   }
 
@@ -129,7 +130,7 @@ export function deriveLogicalProjectKey(
   },
 ): string {
   // Scratch homes remain one project even when ordinary repositories are ungrouped.
-  if (project.isScratch) return "t3code:no-project";
+  if (project.isScratch) return "\0no-project";
   const groupingMode = options?.groupingMode ?? "repository";
   if (groupingMode === "separate") {
     return derivePhysicalProjectKey(project);

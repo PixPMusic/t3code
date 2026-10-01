@@ -104,7 +104,10 @@ import {
   resolveNewTaskBranchWorktreePath,
   resolveNewTaskLocalWorkspaceSelection,
 } from "./new-task-context-presentation";
-import { resolveEnvironmentProjectMatch } from "./new-task-project-selection";
+import {
+  resolveEnvironmentProjectMatch,
+  resolvePendingTaskProject,
+} from "./new-task-project-selection";
 import { resolveProjectThreadCreationBranch } from "./projectThreadCreationValidation";
 
 type WorkspaceMode = "local" | "worktree";
@@ -314,26 +317,14 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
   // Stand-in for the edited task's project while its shell is not loaded
   // (environment offline / still synchronizing), built from the metadata
   // snapshotted at enqueue time.
-  const editingPendingProject = useMemo<EnvironmentProject | null>(() => {
-    const creation = editingPendingTask?.creation;
-    if (!editingPendingTask || !creation) {
-      return null;
-    }
-    return {
-      environmentId: editingPendingTask.environmentId,
-      id: creation.projectId,
-      title: creation.projectTitle ?? "Unknown project",
-      // Deliberately empty when the snapshot has no cwd — downstream consumers
-      // (branch queries, worktree bootstrap) must skip it, not receive a
-      // fabricated path.
-      workspaceRoot: creation.projectCwd ?? "",
-      repositoryIdentity: null,
-      defaultModelSelection: editingPendingTask.modelSelection ?? null,
-      scripts: [],
-      createdAt: editingPendingTask.createdAt,
-      updatedAt: editingPendingTask.createdAt,
-    };
-  }, [editingPendingTask]);
+  const editingEnvironmentServerConfig = useEnvironmentServerConfig(
+    editingPendingTask?.environmentId ?? null,
+  );
+  const editingScratchWorkspaceRoot = editingEnvironmentServerConfig?.scratchWorkspaceRoot;
+  const editingPendingProject = useMemo(
+    () => resolvePendingTaskProject(editingPendingTask, editingScratchWorkspaceRoot),
+    [editingPendingTask, editingScratchWorkspaceRoot],
+  );
 
   const selectedProject =
     projectsForEnvironment.find(

@@ -1,14 +1,27 @@
-import { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import {
+  CommandId,
+  EnvironmentId,
+  MessageId,
+  ProjectId,
+  ProviderInstanceId,
+  ThreadId,
+} from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import type { HomeProjectScope } from "../home/homeThreadList";
 import { buildHomeProjectScopes } from "../home/homeThreadList";
 import {
+  decodeQueuedThreadMessage,
+  encodeQueuedThreadMessage,
+  type QueuedThreadMessage,
+} from "../../state/thread-outbox-model";
+import {
   filterProjectScopes,
   getProjectScopeSelectionTarget,
   resolveDraftProjectSelection,
   resolveEnvironmentProjectMatch,
+  resolvePendingTaskProject,
 } from "./new-task-project-selection";
 
 function makeProject(
@@ -56,6 +69,64 @@ function makeScope(projects: ReadonlyArray<EnvironmentProject>): HomeProjectScop
     })),
   };
 }
+
+const queuedTask: QueuedThreadMessage = {
+  environmentId: EnvironmentId.make("mac"),
+  threadId: ThreadId.make("queued-thread"),
+  messageId: MessageId.make("queued-message"),
+  commandId: CommandId.make("queued-command"),
+  text: "Help me plan the task",
+  attachments: [],
+  modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-5.6-sol" },
+  creation: {
+    projectId: ProjectId.make("scratch-mac"),
+    projectTitle: "No project",
+    projectCwd: "/Users/alex/.t3/scratch/",
+    workspaceMode: "local",
+    branch: null,
+    worktreePath: null,
+  },
+  createdAt: "2026-07-01T00:00:00.000Z",
+};
+
+describe("resolvePendingTaskProject", () => {
+  const scratchRoot = "/Users/alex/.t3/scratch";
+  const remoteScratch = makeProject("scratch-server", "server", {
+    isScratch: true,
+    title: "Tasks",
+    workspaceRoot: "/var/lib/t3/tasks",
+  });
+  const ordinary = makeProject("ordinary", "server", {
+    title: "No project",
+    workspaceRoot: "/work/scratch",
+  });
+
+  it("keeps a queued scratch task on its counterpart before the original shell loads", () => {
+    const restored = decodeQueuedThreadMessage(encodeQueuedThreadMessage(queuedTask));
+    const pending = resolvePendingTaskProject(restored, scratchRoot);
+
+    expect(resolveEnvironmentProjectMatch([ordinary, remoteScratch], pending)).toBe(remoteScratch);
+    expect(resolveEnvironmentProjectMatch([ordinary], pending)).toBeNull();
+    expect(pending?.defaultModelSelection).toEqual(queuedTask.modelSelection);
+    expect(pending?.environmentId).toBe(queuedTask.environmentId);
+  });
+
+  it.each([
+    { cwd: undefined, root: scratchRoot },
+    { cwd: "", root: scratchRoot },
+    { cwd: "/work/scratch", root: scratchRoot },
+    { cwd: queuedTask.creation!.projectCwd, root: undefined },
+    { cwd: queuedTask.creation!.projectCwd, root: "/other-host/scratch" },
+  ])("requires a known cwd matching the queued host's advertised root (%j)", ({ cwd, root }) => {
+    const pending = resolvePendingTaskProject(
+      { ...queuedTask, creation: { ...queuedTask.creation!, projectCwd: cwd } },
+      root,
+    );
+
+    expect(resolveEnvironmentProjectMatch([remoteScratch, ordinary], pending)).toBe(ordinary);
+    expect(pending?.isScratch).toBeUndefined();
+  });
+});
 
 describe("getProjectScopeSelectionTarget", () => {
   it("keeps the current environment when it hosts the selected logical project", () => {
