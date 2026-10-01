@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { openCommandPalette } from "../commandPaletteBus";
 import { isElectron } from "../env";
 import { useScratchProject } from "../hooks/useScratchProject";
+import { usePrimaryEnvironmentId } from "../state/environments";
 import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import { SidebarInset } from "./ui/sidebar";
@@ -11,9 +12,9 @@ import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 export function NoProjectsHero() {
   const openAddProject = useCallback(() => openCommandPalette({ open: "add-project" }), []);
-  const { scratchEnvironments, scratchEnvironmentId, startScratchThread } = useScratchProject();
-  const scratchTargetEnvironmentId = scratchEnvironmentId(null);
-  const canStartWithoutProject = scratchEnvironments.length > 0;
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const { scratchEnvironmentId, startScratchThread } = useScratchProject();
+  const scratchTargetEnvironmentId = scratchEnvironmentId(primaryEnvironmentId);
 
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
@@ -25,7 +26,7 @@ export function NoProjectsHero() {
             <EmptyHeader className="max-w-none">
               <EmptyTitle>What should we work on?</EmptyTitle>
               <EmptyDescription>
-                {!canStartWithoutProject
+                {scratchTargetEnvironmentId === null
                   ? "Add a project to start your first thread."
                   : "Add a project, or start without one."}
               </EmptyDescription>
@@ -34,17 +35,11 @@ export function NoProjectsHero() {
                   <PlusIcon className="size-4" />
                   Add project
                 </Button>
-                {!canStartWithoutProject ? null : (
+                {scratchTargetEnvironmentId === null ? null : (
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      if (scratchTargetEnvironmentId !== null) {
-                        void startScratchThread(scratchTargetEnvironmentId);
-                      } else {
-                        openCommandPalette({ open: "new-thread-in" });
-                      }
-                    }}
+                    onClick={() => void startScratchThread(scratchTargetEnvironmentId)}
                   >
                     <MessageSquareDashedIcon className="size-4" />
                     Start without a project

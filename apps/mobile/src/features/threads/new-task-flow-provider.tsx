@@ -24,7 +24,12 @@ import { parseT3ProjectFile } from "@t3tools/shared/t3ProjectFile";
 import * as Arr from "effect/Array";
 import { pipe } from "effect/Function";
 
-import { useEnvironmentServerConfig, useProjects, useThreadShells } from "../../state/entities";
+import {
+  useEnvironmentServerConfig,
+  useProjects,
+  useThreadShells,
+  waitForProject,
+} from "../../state/entities";
 import type { TurnCommandMetadata } from "../../lib/commandMetadata";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
 import type { ModelOption, ProviderGroup } from "../../lib/modelOptions";
@@ -79,7 +84,8 @@ import {
   setPendingConnectionError,
   useSavedRemoteConnections,
 } from "../../state/use-remote-environment-registry";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import { useEnvironments } from "../../state/environments";
+import { useAtomCommand } from "../../state/use-atom-command";
 import { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { type VcsRef } from "@t3tools/client-runtime/state/vcs";
 import {
@@ -232,6 +238,9 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
   const projects = useProjects();
   const threads = useThreadShells();
   const { savedConnectionsById } = useSavedRemoteConnections();
+  const { environments: connectedEnvironments } = useEnvironments();
+  const ensureScratch = useAtomCommand(projectEnvironment.ensureScratch, { reportFailure: false });
+  const pendingScratchEnvironments = useRef(new Set<EnvironmentId>());
   const groupingSettings = useMobileProjectGroupingSettings();
   const { enabled: legacyPlanModeEnabled, loaded: planModePreferenceLoaded } =
     useLegacyPlanModeState();
@@ -339,6 +348,34 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
       ? editingPendingProject
       : (projectsForEnvironment[0] ?? null));
 
+  useEffect(() => {
+    if (!selectedProject?.isScratch) return;
+    for (const environment of connectedEnvironments) {
+      if (
+        environment.connection.phase !== "connected" ||
+        environment.serverConfig?.scratchWorkspaceRoot == null
+      )
+        continue;
+      const environmentId = environment.environmentId;
+      if (
+        projects.some((project) => project.environmentId === environmentId && project.isScratch)
+      ) {
+        continue;
+      }
+      if (pendingScratchEnvironments.current.has(environmentId)) continue;
+      pendingScratchEnvironments.current.add(environmentId);
+      // Keep a successful request pending until its real project reaches the store.
+      void ensureScratch({ environmentId, input: {} })
+        .then(async (result) => {
+          if (result._tag === "Success") {
+            await waitForProject({ environmentId, projectId: result.value.projectId });
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => pendingScratchEnvironments.current.delete(environmentId));
+    }
+  }, [selectedProject?.isScratch, connectedEnvironments, projects, ensureScratch]);
+
   // Only offer machines that actually host the currently selected repository, so
   // switching computers moves the same repo across machines instead of jumping to
   // whatever unrelated project happens to be first on the other machine. Repository
@@ -356,6 +393,8 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
       readonly environmentLabel: string;
     }> = [];
     const hostsSelectedRepository = (project: EnvironmentProject) => {
+      if (selectedProject?.isScratch) return project.isScratch === true;
+      if (project.isScratch) return false;
       if (selectedRepositoryKey === null && selectedWorkspaceBasename === null) {
         return true;
       }
@@ -392,6 +431,7 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
     selectedRepositoryKey,
     selectedWorkspaceBasename,
     selectedProjectTitle,
+    selectedProject?.isScratch,
   ]);
 
   const selectedEnvironmentServerConfig = useEnvironmentServerConfig(
@@ -457,10 +497,7 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
   );
   // A thread without a project runs in a plain folder, so worktree mode
   // would leave it unsendable: it is always local and offers no choice.
-  const canChooseWorkspace = !(
-    selectedProject !== null &&
-    isScratchProject(selectedProject, selectedEnvironmentServerConfig?.scratchWorkspaceRoot)
-  );
+  const canChooseWorkspace = !selectedProject?.isScratch;
   const defaultWorkspaceMode: WorkspaceMode = canChooseWorkspace
     ? projectSettings.settings.defaultThreadEnvMode
     : "local";

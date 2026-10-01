@@ -6,6 +6,7 @@ import { chooseLoadBalancedEnvironment } from "../load-balancing.ts";
 import {
   buildProjectGroups,
   derivePhysicalProjectKey,
+  deriveLogicalProjectKeyFromSettings,
   type ProjectGroupingSettings,
 } from "./projectGrouping.ts";
 
@@ -117,6 +118,43 @@ function settings(
 }
 
 describe("buildProjectGroups", () => {
+  it.each(["repository", "repository_path", "separate"] as const)(
+    "groups scratch homes across hosts without matching ordinary projects (%s)",
+    (mode) => {
+      const local = makeProject("scratch-local", "/Users/alex/.t3/scratch", {
+        title: "No project",
+        repositoryIdentity: null,
+        isScratch: true,
+      });
+      const remote = makeProject("scratch-remote", "/var/lib/t3/scratch", {
+        environmentId: EnvironmentId.make("remote"),
+        title: "No project",
+        repositoryIdentity: null,
+        isScratch: true,
+      });
+      const ordinary = makeProject("ordinary", "/work/scratch", {
+        title: "No project",
+        repositoryIdentity: null,
+      });
+      const grouping = settings(mode, { [derivePhysicalProjectKey(local)]: "separate" });
+      const groups = buildProjectGroups({
+        projects: [local, ordinary, remote],
+        settings: grouping,
+        preferredEnvironmentId: remote.environmentId,
+      });
+      expect(groups).toHaveLength(2);
+      const scratch = groups.find((group) => group.representative.isScratch);
+      expect(scratch?.representative).toBe(remote);
+      expect(scratch?.members.map((member) => member.project)).toEqual([local, remote]);
+      expect(scratch?.memberProjectRefs).toEqual([
+        { environmentId: local.environmentId, projectId: local.id },
+        { environmentId: remote.environmentId, projectId: remote.id },
+      ]);
+      expect(deriveLogicalProjectKeyFromSettings(local, grouping)).toBe(scratch?.key);
+      expect(deriveLogicalProjectKeyFromSettings(remote, grouping)).toBe(scratch?.key);
+      expect(deriveLogicalProjectKeyFromSettings(ordinary, grouping)).not.toBe(scratch?.key);
+    },
+  );
   it("preserves every physical clone as a selectable member in repository modes", () => {
     const projects = [
       makeProject("t3code", "/work/t3code"),

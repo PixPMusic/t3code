@@ -5,6 +5,7 @@ import {
   ThreadId,
   type OrchestrationShellSnapshot,
   type OrchestrationThread,
+  type ServerConfig,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
@@ -180,9 +181,13 @@ function makeHarness(
     ),
   });
   const snapshotAtom = createEnvironmentSnapshotAtom(shellStateAtoms);
+  const serverConfigValueAtom = Atom.family((_environmentId: EnvironmentId) =>
+    Atom.make<Pick<ServerConfig, "scratchWorkspaceRoot" | "providers"> | null>(null),
+  );
   const projects = createEnvironmentProjectAtoms({
     catalogValueAtom,
     snapshotAtom,
+    serverConfigValueAtom,
   });
   const threadShells = createEnvironmentThreadShellAtoms({
     catalogValueAtom,
@@ -195,6 +200,7 @@ function makeHarness(
   return {
     registry: AtomRegistry.make(),
     catalogValueAtom,
+    serverConfigValueAtom,
     shellStateAtom: shellStateAtoms(ENVIRONMENT_ID),
     shellStateAtomForEnvironment: shellStateAtoms,
     threadStateAtom: (threadId: ThreadId) => threadStateAtoms(`${ENVIRONMENT_ID}\u0000${threadId}`),
@@ -282,6 +288,69 @@ describe("environment entity projections", () => {
     expect(harness.registry.get(projectsAtom)).toBe(projects);
     expect(harness.registry.get(projectAtom)).toBe(project);
     expect(harness.registry.get(threadAtom)).toBe(thread);
+  });
+
+  it("derives scratch identity from its environment config without changing wire projects", () => {
+    const harness = makeHarness([ENVIRONMENT_ID, EnvironmentId.make("other-environment")]);
+    const ref = { environmentId: ENVIRONMENT_ID, projectId: PROJECT_ID };
+    const projectAtom = harness.projects.projectAtom(ref);
+    expect(harness.registry.get(projectAtom)?.isScratch).toBeUndefined();
+    harness.registry.set(harness.serverConfigValueAtom(ENVIRONMENT_ID), {
+      scratchWorkspaceRoot: "/repo/",
+      providers: [],
+    });
+    expect(harness.registry.get(projectAtom)?.isScratch).toBe(true);
+    expect(
+      harness.registry.get(
+        harness.projects.projectAtom({
+          environmentId: EnvironmentId.make("other-environment"),
+          projectId: PROJECT_ID,
+        }),
+      )?.isScratch,
+    ).toBeUndefined();
+    expect(SNAPSHOT.projects[0]).not.toHaveProperty("isScratch");
+
+    harness.registry.set(harness.serverConfigValueAtom(ENVIRONMENT_ID), {
+      scratchWorkspaceRoot: "/other-repo",
+      providers: [],
+    });
+    expect(harness.registry.get(projectAtom)?.isScratch).toBeUndefined();
+    expect(
+      harness.registry.get(
+        harness.projects.projectAtom({
+          environmentId: ENVIRONMENT_ID,
+          projectId: OTHER_PROJECT_ID,
+        }),
+      )?.isScratch,
+    ).toBe(true);
+  });
+
+  it("preserves project objects and lists when config updates do not change scratch identity", () => {
+    const harness = makeHarness();
+    const projectAtom = harness.projects.projectAtom({
+      environmentId: ENVIRONMENT_ID,
+      projectId: PROJECT_ID,
+    });
+    harness.registry.set(harness.serverConfigValueAtom(ENVIRONMENT_ID), {
+      scratchWorkspaceRoot: "/repo/",
+      providers: [],
+    });
+    const scratch = harness.registry.get(projectAtom);
+    const projects = harness.registry.get(harness.projects.projectsAtom);
+    const refs = harness.registry.get(harness.projects.projectRefsAtom);
+
+    harness.registry.set(harness.serverConfigValueAtom(ENVIRONMENT_ID), {
+      scratchWorkspaceRoot: "/repo",
+      providers: [],
+    });
+    expect(harness.registry.get(projectAtom)).toBe(scratch);
+    expect(harness.registry.get(harness.projects.projectsAtom)).toBe(projects);
+    expect(harness.registry.get(harness.projects.projectRefsAtom)).toBe(refs);
+
+    harness.registry.set(harness.serverConfigValueAtom(ENVIRONMENT_ID), null);
+    expect(harness.registry.get(projectAtom)?.isScratch).toBeUndefined();
+    expect(harness.registry.get(harness.projects.projectsAtom)).not.toBe(projects);
+    expect(harness.registry.get(harness.projects.projectRefsAtom)).toBe(refs);
   });
 
   it("preserves project-scoped thread collections across unrelated project updates", () => {

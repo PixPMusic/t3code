@@ -1867,7 +1867,7 @@ describe("mobile composer drafts", () => {
     expect(getComposerDraftSnapshot(second).text).toBe("second idea");
   });
 
-  it("retargets a new-task draft to another project without losing its text", () => {
+  it("retargets a new-task draft to another project and back without losing text or model", () => {
     const from = {
       environmentId: EnvironmentId.make("environment-1"),
       projectId: ProjectId.make("project-1"),
@@ -1877,12 +1877,18 @@ describe("mobile composer drafts", () => {
       projectId: ProjectId.make("project-2"),
     };
     const key = createNewTaskDraft(from);
+    const modelSelection = {
+      instanceId: ProviderInstanceId.make("codex"),
+      model: "gpt-5.4",
+      options: [{ id: "reasoningEffort", value: "xhigh" }],
+    };
     setComposerDraftText(key, "moving house");
     appAtomRegistry.set(composerDraftsAtom, {
       ...appAtomRegistry.get(composerDraftsAtom),
       [key]: {
         ...getComposerDraftSnapshot(key),
         runtimeMode: "approval-required",
+        modelSelection,
         workspaceSelection: { mode: "worktree", branch: "feature/a", worktreePath: null },
       },
     });
@@ -1893,11 +1899,20 @@ describe("mobile composer drafts", () => {
     const moved = getComposerDraftSnapshot(key);
     expect(moved.text).toBe("moving house");
     expect(moved.runtimeMode).toBe("approval-required");
+    expect(moved.modelSelection).toEqual(modelSelection);
     // Branch and worktree belong to the old repo.
     expect(moved.workspaceSelection).toBeUndefined();
     expect(moved.project).toEqual({ ...to, createdAt });
     expect(findNewTaskDraftKeys(appAtomRegistry.get(composerDraftsAtom), from)).toEqual([]);
     expect(findNewTaskDraftKeys(appAtomRegistry.get(composerDraftsAtom), to)).toEqual([key]);
+    retargetNewTaskDraft(key, from);
+    expect(getComposerDraftSnapshot(key)).toMatchObject({
+      text: "moving house",
+      modelSelection,
+      project: { ...from, createdAt },
+    });
+    expect(findNewTaskDraftKeys(appAtomRegistry.get(composerDraftsAtom), from)).toEqual([key]);
+    expect(findNewTaskDraftKeys(appAtomRegistry.get(composerDraftsAtom), to)).toEqual([]);
   });
 
   it("hydrates the global sticky model selection", () => {

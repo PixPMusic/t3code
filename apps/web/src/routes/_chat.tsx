@@ -38,7 +38,7 @@ function ChatRouteGlobalShortcuts() {
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const projects = useProjects();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const { scratchEnvironments, scratchEnvironmentId, startScratchThread } = useScratchProject();
+  const { scratchEnvironmentId, startScratchThread } = useScratchProject();
   const projectGroupCount = useMemo(
     () =>
       buildSidebarProjectSnapshots({
@@ -109,16 +109,12 @@ function ChatRouteGlobalShortcuts() {
 
       if (command === "chat.newWithoutProject") {
         const environmentId = scratchEnvironmentId(
-          activeThread?.environmentId ?? activeDraftThread?.environmentId ?? null,
+          activeThread?.environmentId ?? activeDraftThread?.environmentId ?? primaryEnvironmentId,
         );
-        if (environmentId === null && scratchEnvironments.length === 0) return;
+        if (environmentId === null) return;
         event.preventDefault();
         event.stopPropagation();
-        if (environmentId !== null) {
-          void startScratchThread(environmentId);
-        } else {
-          openCommandPalette({ open: "new-thread-in" });
-        }
+        void startScratchThread(environmentId);
         return;
       }
 
@@ -197,9 +193,9 @@ function ChatRouteGlobalShortcuts() {
     keybindings,
     defaultProjectRef,
     previewOpen,
+    primaryEnvironmentId,
     projectGroupCount,
     routeThreadRef,
-    scratchEnvironments.length,
     scratchEnvironmentId,
     selectedThreadKeysSize,
     startScratchThread,

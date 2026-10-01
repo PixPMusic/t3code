@@ -88,6 +88,7 @@ import {
   type TerminalContextDraft,
 } from "./lib/terminalContext";
 import { createDeferredStorage } from "./lib/storage";
+import { deriveLogicalProjectKeyFromSettings } from "./logicalProject";
 
 function makeImage(input: {
   id: string;
@@ -1858,6 +1859,57 @@ describe("composerDraftStore project draft thread mapping", () => {
       loadBalancedEnvironmentId: null,
     });
     expect(store.getComposerDraft(draftId)?.prompt).toBe("keep this prompt");
+  });
+
+  it("moves a scratch draft between real hosts and back under one logical key", () => {
+    const grouping = {
+      sidebarProjectGroupingMode: "separate" as const,
+      sidebarProjectGroupingOverrides: {},
+    };
+    const local = {
+      environmentId: TEST_ENVIRONMENT_ID,
+      id: projectId,
+      workspaceRoot: "/Users/alex/.t3/scratch",
+      repositoryIdentity: null,
+      isScratch: true as const,
+    };
+    const remote = {
+      environmentId: OTHER_TEST_ENVIRONMENT_ID,
+      id: otherProjectId,
+      workspaceRoot: "/var/lib/t3/scratch",
+      repositoryIdentity: null,
+      isScratch: true as const,
+    };
+    const key = deriveLogicalProjectKeyFromSettings(local, grouping);
+    expect(deriveLogicalProjectKeyFromSettings(remote, grouping)).toBe(key);
+    const store = useComposerDraftStore.getState();
+    store.setLogicalProjectDraftThreadId(
+      key,
+      scopeProjectRef(local.environmentId, local.id),
+      draftId,
+    );
+    store.setPrompt(draftId, "keep this scratch task");
+    const selection = modelSelection(CODEX_DRIVER, "gpt-5.4", { reasoningEffort: "xhigh" });
+    store.setModelSelection(draftId, selection, { explicit: true });
+    for (const project of [remote, local]) {
+      store.setDraftThreadContext(draftId, {
+        projectRef: scopeProjectRef(project.environmentId, project.id),
+        environmentSelection: "manual",
+        loadBalancedEnvironmentId: null,
+      });
+      expect(store.getDraftSessionByLogicalProjectKey(key)).toMatchObject({
+        draftId,
+        environmentId: project.environmentId,
+        projectId: project.id,
+        logicalProjectKey: key,
+        environmentSelection: "manual",
+      });
+      expect(store.getComposerDraft(draftId)).toMatchObject({
+        prompt: "keep this scratch task",
+        modelSelectionExplicit: true,
+        modelSelectionByProvider: { codex: selection },
+      });
+    }
   });
 
   it("clears branch and worktree but keeps env mode when changing a draft thread project ref", () => {

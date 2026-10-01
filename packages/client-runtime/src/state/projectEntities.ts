@@ -4,6 +4,7 @@ import type {
   OrchestrationShellSnapshot,
   ProjectId,
   ScopedProjectRef,
+  ServerConfig,
 } from "@t3tools/contracts";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -11,6 +12,7 @@ import type { EnvironmentProject } from "./models.ts";
 import { scopeProject } from "./models.ts";
 import { type EnvironmentCatalogState, enabledEnvironmentIds } from "./connections.ts";
 import { arrayElementsEqual, parseProjectKey, projectKey, projectRefsEqual } from "./entities.ts";
+import { isScratchProject } from "./projects.ts";
 
 const EMPTY_PROJECTS: ReadonlyArray<OrchestrationProjectShell> = Object.freeze([]);
 const EMPTY_PROJECT_INDEX: ReadonlyMap<ProjectId, OrchestrationProjectShell> = new Map();
@@ -20,6 +22,9 @@ export function createEnvironmentProjectAtoms(input: {
   readonly snapshotAtom: (
     environmentId: EnvironmentId,
   ) => Atom.Atom<OrchestrationShellSnapshot | null>;
+  readonly serverConfigValueAtom: (
+    environmentId: EnvironmentId,
+  ) => Atom.Atom<Pick<ServerConfig, "scratchWorkspaceRoot"> | null>;
 }) {
   const environmentProjectsAtom = Atom.family((environmentId: EnvironmentId) =>
     Atom.make(
@@ -56,14 +61,28 @@ export function createEnvironmentProjectAtoms(input: {
   const projectAtomFamily = Atom.family((key: string) => {
     const ref = parseProjectKey(key);
     let previousSource: OrchestrationProjectShell | null = null;
+    let previousIsScratch = false;
     let previousValue: EnvironmentProject | null = null;
     return Atom.make((get) => {
       const source = get(environmentProjectIndexAtom(ref.environmentId)).get(ref.projectId) ?? null;
-      if (source === previousSource) {
+      const scratch =
+        source !== null &&
+        isScratchProject(
+          source,
+          get(input.serverConfigValueAtom(ref.environmentId))?.scratchWorkspaceRoot,
+        );
+      if (source === previousSource && scratch === previousIsScratch) {
         return previousValue;
       }
       previousSource = source;
-      previousValue = source === null ? null : scopeProject(ref.environmentId, source);
+      previousIsScratch = scratch;
+      previousValue =
+        source === null
+          ? null
+          : {
+              ...scopeProject(ref.environmentId, source),
+              ...(scratch ? { isScratch: true as const } : {}),
+            };
       return previousValue;
     }).pipe(Atom.withLabel(`environment-project:${key}`));
   });

@@ -363,6 +363,7 @@ import {
   useThread,
   useThreadRefs,
   useThreadShell,
+  waitForProject,
 } from "../state/entities";
 import { environmentShell } from "../state/shell";
 import { ChatComposer, type ChatComposerHandle } from "./chat/ChatComposer";
@@ -498,6 +499,7 @@ import { fileAttachmentCapabilityBlockReason } from "./chat/composerAttachmentFi
 import { assetEnvironment } from "../state/assets";
 import { readPreparedConnection } from "../state/session";
 import { useAtomCommand } from "../state/use-atom-command";
+import { projectEnvironment } from "../state/projects";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
 import { Button } from "./ui/button";
 import {
@@ -2336,6 +2338,35 @@ export default function ChatView(props: ChatViewProps) {
   // Compute the list of environments this logical project spans, used to
   // drive the environment picker in BranchToolbar.
   const allProjects = useProjects();
+  const ensureScratch = useAtomCommand(projectEnvironment.ensureScratch, { reportFailure: false });
+  const pendingScratchEnvironments = useRef(new Set<EnvironmentId>());
+  useEffect(() => {
+    if (!activeProject?.isScratch) return;
+    for (const environment of environments) {
+      if (
+        environment.connection.phase !== "connected" ||
+        environment.serverConfig?.scratchWorkspaceRoot == null
+      )
+        continue;
+      const environmentId = environment.environmentId;
+      if (
+        allProjects.some((project) => project.environmentId === environmentId && project.isScratch)
+      ) {
+        continue;
+      }
+      if (pendingScratchEnvironments.current.has(environmentId)) continue;
+      pendingScratchEnvironments.current.add(environmentId);
+      // Keep a successful request pending until its real project reaches the store.
+      void ensureScratch({ environmentId, input: {} })
+        .then(async (result) => {
+          if (result._tag === "Success") {
+            await waitForProject({ environmentId, projectId: result.value.projectId });
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => pendingScratchEnvironments.current.delete(environmentId));
+    }
+  }, [activeProject?.isScratch, allProjects, environments, ensureScratch]);
   const primaryEnvironmentId = primaryEnvironment?.environmentId ?? null;
   useEffect(() => {
     if (!activeThreadRef || !activeProjectRef) return;

@@ -8,6 +8,8 @@ import type {
 
 export interface EnvironmentProject extends OrchestrationProjectShell {
   readonly environmentId: EnvironmentId;
+  /** Derived from this environment's configured scratch root; never persisted. */
+  readonly isScratch?: true;
 }
 
 export interface EnvironmentThreadShell extends OrchestrationThreadShell {

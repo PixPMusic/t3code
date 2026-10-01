@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import type { HomeProjectScope } from "../home/homeThreadList";
+import { buildHomeProjectScopes } from "../home/homeThreadList";
 import {
   filterProjectScopes,
   getProjectScopeSelectionTarget,
@@ -17,6 +18,7 @@ function makeProject(
     readonly title?: string;
     readonly workspaceRoot?: string;
     readonly repositoryKey?: string;
+    readonly isScratch?: true;
   } = {},
 ): EnvironmentProject {
   return {
@@ -24,6 +26,7 @@ function makeProject(
     id: ProjectId.make(id),
     title: options.title ?? id,
     workspaceRoot: options.workspaceRoot ?? `/work/${id}`,
+    ...(options.isScratch ? { isScratch: true as const } : {}),
     repositoryIdentity: options.repositoryKey
       ? {
           canonicalKey: options.repositoryKey,
@@ -71,6 +74,39 @@ describe("getProjectScopeSelectionTarget", () => {
 });
 
 describe("resolveEnvironmentProjectMatch", () => {
+  it("matches only scratch counterparts regardless of their path or title", () => {
+    const selected = makeProject("scratch-a", "mac", {
+      isScratch: true,
+      title: "No project",
+      workspaceRoot: "/Users/alex/.t3/scratch",
+    });
+    const misleading = makeProject("ordinary", "server", {
+      title: "No project",
+      workspaceRoot: "/work/scratch",
+    });
+    const counterpart = makeProject("scratch-b", "server", {
+      isScratch: true,
+      title: "Scratch",
+      workspaceRoot: "/var/lib/t3/tasks",
+    });
+    expect(resolveEnvironmentProjectMatch([misleading, counterpart], selected)).toBe(counterpart);
+    expect(resolveEnvironmentProjectMatch([misleading], selected)).toBeNull();
+  });
+
+  it("does not send an ordinary project to a same-named scratch home", () => {
+    const selected = makeProject("ordinary-a", "mac", {
+      title: "No project",
+      workspaceRoot: "/work/scratch",
+    });
+    const scratch = makeProject("scratch", "server", {
+      isScratch: true,
+      title: "No project",
+      workspaceRoot: "/var/lib/scratch",
+    });
+    const ordinary = makeProject("ordinary-b", "server", { title: "No project" });
+    expect(resolveEnvironmentProjectMatch([scratch, ordinary], selected)).toBe(ordinary);
+    expect(resolveEnvironmentProjectMatch([scratch], selected)).toBeNull();
+  });
   it("follows the same repository onto the target machine", () => {
     const selected = makeProject("t3code", "mac", { repositoryKey: "github.com/t3tools/t3code" });
     const target = [
@@ -116,6 +152,25 @@ describe("resolveEnvironmentProjectMatch", () => {
     const target = [makeProject("unrelated", "server"), makeProject("also-unrelated", "server")];
     expect(resolveEnvironmentProjectMatch(target, selected)).toBe(target[0]);
     expect(resolveEnvironmentProjectMatch([], selected)).toBeNull();
+  });
+});
+
+it("offers one No project scope with both real hosts and selects its preferred member", () => {
+  const local = makeProject("scratch-a", "mac", { isScratch: true, title: "No project" });
+  const remote = makeProject("scratch-b", "server", { isScratch: true, title: "No project" });
+  const ordinary = makeProject("ordinary", "mac", { title: "No project" });
+  const scopes = buildHomeProjectScopes({
+    projects: [local, ordinary, remote],
+    environmentId: null,
+    projectGroupingMode: "separate",
+  });
+  expect(scopes).toHaveLength(2);
+  const scratchScope = scopes.find((scope) => scope.representative.isScratch);
+  expect(scratchScope?.projects).toEqual([local, remote]);
+  expect(getProjectScopeSelectionTarget(scratchScope!, remote.environmentId)).toBe(remote);
+  expect(resolveDraftProjectSelection(null, [local, remote], [scratchScope!])).toEqual({
+    kind: "select",
+    project: local,
   });
 });
 

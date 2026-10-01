@@ -56,6 +56,13 @@ export function resolveEnvironmentProjectMatch(
   projectsOnTarget: ReadonlyArray<EnvironmentProject>,
   selectedProject: EnvironmentProject | null,
 ): EnvironmentProject | null {
+  if (selectedProject?.isScratch) {
+    return projectsOnTarget.find((project) => project.isScratch) ?? null;
+  }
+  const candidates =
+    selectedProject === null
+      ? projectsOnTarget
+      : projectsOnTarget.filter((project) => !project.isScratch);
   const repositoryKey = selectedProject?.repositoryIdentity?.canonicalKey ?? null;
   // `|| null` (not `??`): a pending-task placeholder project can have an empty
   // workspaceRoot, and an "" basename would match nothing meaningful.
@@ -69,23 +76,23 @@ export function resolveEnvironmentProjectMatch(
   };
   return (
     (repositoryKey !== null
-      ? projectsOnTarget.find(
+      ? candidates.find(
           (project) => (project.repositoryIdentity?.canonicalKey ?? null) === repositoryKey,
         )
       : undefined) ??
     (workspaceBasename !== null
-      ? projectsOnTarget.find(
+      ? candidates.find(
           (project) =>
             !isKnownMismatch(project) &&
             project.workspaceRoot.split("/").at(-1) === workspaceBasename,
         )
       : undefined) ??
     (selectedProject !== null
-      ? projectsOnTarget.find(
+      ? candidates.find(
           (project) => !isKnownMismatch(project) && project.title === selectedProject.title,
         )
       : undefined) ??
-    projectsOnTarget[0] ??
+    candidates[0] ??
     null
   );
 }

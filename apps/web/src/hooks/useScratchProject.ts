@@ -5,8 +5,7 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import type { EnvironmentId } from "@t3tools/contracts";
-import { useRouter } from "@tanstack/react-router";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { waitForProject } from "~/state/entities";
@@ -14,10 +13,6 @@ import { useEnvironments } from "~/state/environments";
 import { projectEnvironment } from "~/state/projects";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useNewThreadHandler } from "./useHandleNewThread";
-
-// The palette unmounts as soon as a command runs. Keep creation requests
-// coordinated across hook instances, including a reopened palette.
-let scratchThreadRequestGeneration = 0;
 
 function reportScratchFailure(error: unknown) {
   toastManager.add(
@@ -36,25 +31,9 @@ function reportScratchFailure(error: unknown) {
  * non-git path, and each thread gets its own subfolder.
  */
 export function useScratchProject() {
-  const router = useRouter();
   const { environments } = useEnvironments();
   const ensureScratch = useAtomCommand(projectEnvironment.ensureScratch, { reportFailure: false });
   const handleNewThread = useNewThreadHandler();
-  const scratchEnvironments = useMemo(() => {
-    const eligible = environments.filter(
-      (environment) =>
-        environment.connection.phase === "connected" &&
-        environment.serverConfig?.scratchWorkspaceRoot != null,
-    );
-    return eligible.map((environment) =>
-      eligible.filter((entry) => entry.label === environment.label).length > 1
-        ? {
-            ...environment,
-            label: `${environment.label} (${environment.displayUrl ?? environment.environmentId})`,
-          }
-        : environment,
-    );
-  }, [environments]);
 
   /** The scratch folder of a connected environment, or null when it offers none. */
   const scratchWorkspaceRootFor = useCallback(
@@ -67,17 +46,17 @@ export function useScratchProject() {
     [environments],
   );
 
-  // A thread without a project starts on the machine the user is working on,
-  // and only there. With no current machine (the hosted app with nothing
-  // open), it starts on the one machine that offers it, never a silent pick.
+  // Prefer the current machine, then the first supported connected machine,
+  // just like choosing a representative of an ordinary logical project.
   const scratchEnvironmentId = useCallback(
     (current: EnvironmentId | null): EnvironmentId | null => {
-      if (current !== null) return scratchWorkspaceRootFor(current) !== null ? current : null;
-      return scratchEnvironments.length === 1
-        ? (scratchEnvironments[0]?.environmentId ?? null)
-        : null;
+      if (current !== null && scratchWorkspaceRootFor(current) !== null) return current;
+      const offering = environments.find(
+        (entry) => scratchWorkspaceRootFor(entry.environmentId) !== null,
+      );
+      return offering?.environmentId ?? null;
     },
-    [scratchEnvironments, scratchWorkspaceRootFor],
+    [environments, scratchWorkspaceRootFor],
   );
 
   /** Resolves to the scratch project once it is in this client's store. */
@@ -104,27 +83,15 @@ export function useScratchProject() {
 
   const startScratchThread = useCallback(
     async (environmentId: EnvironmentId) => {
-      const generation = ++scratchThreadRequestGeneration;
-      const requestingRouteHref = router.state.location.href;
       const project = await openScratchProject(environmentId);
-      if (
-        project &&
-        generation === scratchThreadRequestGeneration &&
-        router.state.location.href === requestingRouteHref
-      ) {
+      if (project) {
         await handleNewThread(scopeProjectRef(project.environmentId, project.id)).catch(
           reportScratchFailure,
         );
       }
     },
-    [handleNewThread, openScratchProject, router],
+    [handleNewThread, openScratchProject],
   );
 
-  return {
-    scratchEnvironments,
-    scratchWorkspaceRootFor,
-    scratchEnvironmentId,
-    openScratchProject,
-    startScratchThread,
-  };
+  return { scratchWorkspaceRootFor, scratchEnvironmentId, openScratchProject, startScratchThread };
 }

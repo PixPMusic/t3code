@@ -21,13 +21,6 @@ the project menu in that heading or from **New thread in...** in the command
 palette, or press `mod+alt+n`. On mobile, pick **No project** from the project
 list. To move a draft into a project, pick the project in the heading.
 
-On web and desktop, **No project** choices show the connected host where the
-thread will run. Choose a different host in the draft's project menu to keep
-your prompt and model selection. The shortcut starts on the current thread's
-host when that host offers **No project**. If it doesn't and another host does,
-the shortcut opens the chooser. With no thread open, it starts directly on a sole
-available host or opens the chooser when several are available.
-
 Each thread without a project works in its own folder under `~/.t3/scratch` (the
 `scratch` folder of your T3 data directory), named after its date, the first words
 of its first message, and a short id, like

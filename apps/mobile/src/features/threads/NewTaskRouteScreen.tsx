@@ -8,7 +8,6 @@ import {
 } from "@react-navigation/native";
 import { SymbolView } from "../../components/AppSymbol";
 import { canCreateProjectInEnvironment } from "@t3tools/client-runtime/operations/projects";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -170,7 +169,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
   });
   // Threads without a project need a connected environment that offers them.
   // The selected environment wins when it has one; otherwise the first that
-  // does, and the entry names that machine whenever there is a choice.
+  // does. The existing Environment picker can move the draft between hosts.
   const scratchEnvironments = connectedEnvironments.filter(
     (environment) =>
       canCreateProjectInEnvironment(environment.connectionState) &&
@@ -186,20 +185,10 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
     ? (serverConfigs.get(scratchEnvironment.environmentId)?.scratchWorkspaceRoot ?? null)
     : null;
   // Once the Scratch project exists it is an ordinary row in the list.
-  const scratchProjectExists = projects.some(
-    (project) =>
-      project.environmentId === scratchEnvironment?.environmentId &&
-      isScratchProject(project, scratchWorkspaceRoot),
-  );
+  const scratchProjectExists = projects.some((project) => project.isScratch);
   const canStartScratch = scratchWorkspaceRoot !== null && reservedDestinationProject === null;
-  const scratchMachineLabel =
-    connectedEnvironments.length > 1 ? (scratchEnvironment?.environmentLabel ?? null) : null;
-  const startScratchLabel = scratchMachineLabel
-    ? `Start without a project on ${scratchMachineLabel}`
-    : "Start without a project";
-  const scratchRowSubtitle = scratchMachineLabel
-    ? `On ${scratchMachineLabel}`
-    : "Start a task without a project";
+  const startScratchLabel = "Start without a project";
+  const scratchRowSubtitle = "Start a task without a project";
   const scratchStartInFlightRef = useRef(false);
 
   async function selectProject(project: EnvironmentProject): Promise<void> {
