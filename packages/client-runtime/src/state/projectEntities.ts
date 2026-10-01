@@ -7,12 +7,25 @@ import type {
   ServerConfig,
 } from "@t3tools/contracts";
 import { Atom } from "effect/unstable/reactivity";
+import { normalizeProjectPathForComparison } from "@t3tools/shared/path";
 
 import type { EnvironmentProject } from "./models.ts";
 import { scopeProject } from "./models.ts";
 import { type EnvironmentCatalogState, enabledEnvironmentIds } from "./connections.ts";
 import { arrayElementsEqual, parseProjectKey, projectKey, projectRefsEqual } from "./entities.ts";
-import { isScratchProject } from "./projects.ts";
+
+/** Whether a project matches its environment's advertised scratch workspace root. */
+export function isScratchProject(
+  project: { readonly workspaceRoot: string },
+  scratchWorkspaceRoot: string | null | undefined,
+): boolean {
+  if (scratchWorkspaceRoot == null || !project.workspaceRoot) return false;
+  const scratchRoot = normalizeProjectPathForComparison(scratchWorkspaceRoot);
+  return (
+    scratchRoot.length > 0 &&
+    normalizeProjectPathForComparison(project.workspaceRoot) === scratchRoot
+  );
+}
 
 const EMPTY_PROJECTS: ReadonlyArray<OrchestrationProjectShell> = Object.freeze([]);
 const EMPTY_PROJECT_INDEX: ReadonlyMap<ProjectId, OrchestrationProjectShell> = new Map();
