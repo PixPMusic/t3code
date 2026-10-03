@@ -228,33 +228,6 @@ const seedCodexAttempt = (input: {
     }
   });
 
-const seedLegacyCodexTurn = (options: readonly { id: string; value: string | boolean }[]) =>
-  Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient;
-    yield* sql`INSERT INTO projection_turns ${sql.insert({
-      thread_id: "legacy-thread",
-      turn_id: "native-turn",
-      pending_message_id: "legacy-message",
-      state: "completed",
-      requested_at: "2026-08-01T10:00:00Z",
-      checkpoint_files_json: "[]",
-    })}`;
-    yield* sql`INSERT INTO orchestration_events ${sql.insert({
-      event_id: "legacy-request",
-      aggregate_kind: "thread",
-      stream_id: "legacy-thread",
-      stream_version: 0,
-      event_type: "thread.turn-start-requested",
-      occurred_at: "2026-08-01T10:00:00Z",
-      actor_kind: "user",
-      metadata_json: "{}",
-      payload_json: encodeUnknownJsonString({
-        messageId: "legacy-message",
-        modelSelection: { provider: "codex", model: "gpt-6-astra", options },
-      }),
-    })}`;
-  });
-
 describe("Codex usage history", () => {
   const historyLayer = CodexUsageHistory.layer.pipe(
     Layer.provideMerge(Sqlite.SqlitePersistenceMemory),
@@ -301,20 +274,11 @@ describe("Codex usage history", () => {
     }).pipe(Effect.provide(historyLayer)),
   );
 
-  it.effect("uses only an unambiguous legacy turn's explicit request tier", () =>
+  it.effect("keeps usage unresolved without a retained V2 run attempt", () =>
     Effect.gen(function* () {
-      yield* seedLegacyCodexTurn([{ id: "serviceTier", value: "priority" }]);
-      const history = yield* CodexUsageHistory.CodexUsageHistory;
-      const usage = record();
-      assert.strictEqual((yield* history.resolve([usage])).get(usage), "fast");
       yield* seedCodexAttempt({ options: [{ id: "serviceTier", value: "priority" }] });
-      assert.strictEqual((yield* history.resolve([usage])).size, 0);
-    }).pipe(Effect.provide(historyLayer)),
-  );
-
-  it.effect("keeps legacy usage unresolved without an explicit request tier", () =>
-    Effect.gen(function* () {
-      yield* seedLegacyCodexTurn([]);
+      const sql = yield* SqlClient.SqlClient;
+      yield* sql`UPDATE orchestration_v2_projection_provider_turns SET run_attempt_id = NULL`;
       const history = yield* CodexUsageHistory.CodexUsageHistory;
       assert.strictEqual((yield* history.resolve([record()])).size, 0);
     }).pipe(Effect.provide(historyLayer)),

@@ -48,11 +48,9 @@ const make = Effect.gen(function* () {
       native_thread_id: string | null;
       native_turn_id: string;
       selection_json: string | null;
-      legacy: number;
     }>`
       SELECT json_extract(attempt.payload_json, '$.nativeThreadId') AS native_thread_id,
         json_extract(turn.payload_json, '$.nativeTurnRef.nativeId') AS native_turn_id,
-        0 AS legacy,
         (
           SELECT json_extract(event.payload_json, '$.modelSelection')
           FROM orchestration_events AS event
@@ -75,18 +73,6 @@ const make = Effect.gen(function* () {
         AND json_extract(turn.payload_json, '$.nativeTurnRef.nativeId') IN (
           SELECT value FROM json_each(${turnIdsJson})
         )
-      UNION ALL
-      SELECT NULL AS native_thread_id, turn.turn_id AS native_turn_id,
-        1 AS legacy, json_extract(event.payload_json, '$.modelSelection') AS selection_json
-      FROM projection_turns AS turn
-      LEFT JOIN orchestration_events AS event
-        ON event.aggregate_kind = 'thread'
-        AND event.stream_id = turn.thread_id
-        AND event.event_type = 'thread.turn-start-requested'
-        AND json_extract(event.payload_json, '$.messageId') = turn.pending_message_id
-      WHERE turn.turn_id IN (
-          SELECT value FROM json_each(${turnIdsJson})
-        )
     `.pipe(Effect.mapError((cause) => new CodexUsageHistoryReadError({ cause })));
 
     const byTurn = new Map<string, typeof rows>();
@@ -100,14 +86,10 @@ const make = Effect.gen(function* () {
       // Ambiguous mappings must not turn a conservative estimate into a guess.
       if (matches?.length !== 1) continue;
       const match = matches[0]!;
-      if (!match.legacy && match.native_thread_id !== record.sessionId) continue;
+      if (match.native_thread_id !== record.sessionId) continue;
       const selection = decodeSelection(match.selection_json);
       if (Option.isNone(selection) || selection.value.model !== record.model) continue;
       const tier = getCodexServiceTierOptionValue(selection.value);
-      // V1 stored the native Codex turn UUID unchanged, but no immutable
-      // native session ID. Only its unique turn -> message -> explicit request
-      // selection is usable; current thread/session preferences are not.
-      if (match.legacy && tier === undefined) continue;
       if (tier === "fast" || tier === "priority") resolved.set(record, "fast");
       else if (tier === "ultrafast") resolved.set(record, "ultrafast");
       else if (tier === undefined || tier === "default" || tier === "standard") {
