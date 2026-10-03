@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
@@ -78,16 +79,22 @@ const invoke = Effect.fn("PreviewToolkit.invoke")(function* <A>(
     (operation !== "evaluate" && typeof result === "object" && result !== null
       ? (result as { tabId?: PreviewTabId }).tabId
       : undefined) ?? targetTabId;
+  // Best-effort page metadata for the tool icon. Bound only our wait: an
+  // abandoned request leaves the host assigned, while a broker timeout would
+  // evict a healthy host over missing metadata.
   const page = yield* broker
     .invoke<PreviewAutomationStatus>({
       scope,
       operation: "status",
       input: {},
-      timeoutMs: 500,
       updateCurrentTab: false,
       ...(statusTabId === undefined ? {} : { tabId: statusTabId }),
     })
-    .pipe(Effect.orElseSucceed(() => null));
+    .pipe(
+      Effect.timeoutOption(500),
+      Effect.map(Option.getOrNull),
+      Effect.orElseSucceed(() => null),
+    );
   return {
     result,
     ...(page?.url && /^https?:\/\//i.test(page.url) && page.url.length <= 4096

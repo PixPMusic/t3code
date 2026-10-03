@@ -1318,7 +1318,9 @@ it.effect("evicts an unanswered host and lets later calls use a healthy runtime"
           Effect.forkScoped,
         );
       yield* Deferred.await(otherReceived);
-      yield* TestClock.adjust(1_000);
+      yield* TestClock.adjust(
+        1_000 + PreviewAutomationBroker.PREVIEW_AUTOMATION_HOST_RESPONSE_GRACE_MS,
+      );
       expect(yield* Fiber.join(timedOut)).toMatchObject({ _tag: "PreviewAutomationTimeoutError" });
       expect(yield* Deferred.isDone(otherCompleted)).toBe(true);
       expect(yield* Fiber.join(other)).toMatchObject({
@@ -1381,7 +1383,9 @@ it.effect("discards buffered actions before completing an evicted host stream", 
         })
         .pipe(Effect.flip, Effect.forkScoped);
       yield* Deferred.await(actionRouted);
-      yield* TestClock.adjust(1_000);
+      yield* TestClock.adjust(
+        1_000 + PreviewAutomationBroker.PREVIEW_AUTOMATION_HOST_RESPONSE_GRACE_MS,
+      );
       expect(yield* Fiber.join(timedOut)).toMatchObject({ _tag: "PreviewAutomationTimeoutError" });
       expect(yield* Fiber.join(buffered)).toMatchObject({
         _tag: "PreviewAutomationClientDisconnectedError",
@@ -1443,7 +1447,9 @@ it.effect("rejects a routed action when its generation is evicted before deliver
           Effect.forkScoped,
         );
       yield* Deferred.await(actionRouted);
-      yield* TestClock.adjust(1_000);
+      yield* TestClock.adjust(
+        1_000 + PreviewAutomationBroker.PREVIEW_AUTOMATION_HOST_RESPONSE_GRACE_MS,
+      );
       expect(yield* Fiber.join(timedOut)).toMatchObject({ _tag: "PreviewAutomationTimeoutError" });
       expect(Exit.isSuccess(yield* Fiber.await(consumer))).toBe(true);
 
@@ -1482,6 +1488,80 @@ it.effect("keeps a host that responds with an operation timeout", () =>
         yield* broker.invoke<void>({ scope, operation: "waitFor", input: {} }).pipe(Effect.flip),
       ).toMatchObject({ _tag: "PreviewAutomationTimeoutError" });
       expect(yield* broker.invoke({ scope, operation: "status", input: {} })).toBe("responsive");
+    }),
+  ),
+);
+
+it.effect("keeps a pinned host whose timeout answer arrives at the operation deadline", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const broker = yield* makeBroker;
+      const tab = PreviewTabId.make("tab-on-local-host");
+      const localConnected = yield* Deferred.make<void>();
+      const waitForReceived = yield* Deferred.make<RoutedRequest>();
+      const localRequests: RoutedRequest[] = [];
+      yield* Stream.runForEach(
+        requestsFrom(yield* broker.connect(makeHost()), () => {
+          Deferred.doneUnsafe(localConnected, Effect.void);
+        }),
+        (request) => {
+          localRequests.push(request);
+          if (request.operation === "waitFor") return Deferred.succeed(waitForReceived, request);
+          return broker.respond({
+            clientId: "client-1",
+            connectionId: request.connectionId,
+            requestId: request.requestId,
+            ok: true,
+            result: { tabId: tab },
+          });
+        },
+      ).pipe(Effect.forkScoped);
+      yield* Deferred.await(localConnected);
+      yield* broker.invoke({ scope, operation: "open", input: {} });
+
+      // A focused host on another machine that cannot reach the page.
+      const remoteConnected = yield* Deferred.make<string>();
+      yield* Stream.runForEach(yield* broker.connect(makeHost({ clientId: "remote" })), (event) => {
+        if (event.type === "connected")
+          return Deferred.succeed(remoteConnected, event.connectionId);
+        return broker.respond({
+          clientId: "remote",
+          connectionId: event.connectionId,
+          requestId: event.request.requestId,
+          ok: false,
+          error: { _tag: "PreviewAutomationExecutionError", message: "unreachable" },
+        });
+      }).pipe(Effect.forkScoped);
+      yield* broker.focusHost({
+        clientId: "remote",
+        connectionId: yield* Deferred.await(remoteConnected),
+        environmentId: scope.environmentId,
+        focused: true,
+      });
+
+      const waitFor = yield* broker
+        .invoke<void>({ scope, operation: "waitFor", input: {}, timeoutMs: 2_000 })
+        .pipe(Effect.flip, Effect.forkScoped);
+      const request = yield* Deferred.await(waitForReceived);
+      // The host spends the whole budget before reporting that nothing matched.
+      yield* TestClock.adjust(2_000);
+      yield* broker.respond({
+        clientId: "client-1",
+        connectionId: request.connectionId,
+        requestId: request.requestId,
+        ok: false,
+        error: { _tag: "PreviewAutomationTimeoutError", message: "waitFor timed out" },
+      });
+      expect(yield* Fiber.join(waitFor)).toMatchObject({ _tag: "PreviewAutomationTimeoutError" });
+
+      expect(yield* broker.invoke({ scope, operation: "navigate", input: {} })).toEqual({
+        tabId: tab,
+      });
+      expect(localRequests.map(({ operation, tabId }) => ({ operation, tabId }))).toEqual([
+        { operation: "open", tabId: undefined },
+        { operation: "waitFor", tabId: tab },
+        { operation: "navigate", tabId: tab },
+      ]);
     }),
   ),
 );

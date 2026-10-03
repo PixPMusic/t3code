@@ -123,6 +123,13 @@ interface BrokerState {
   readonly focusSequence: number;
 }
 
+/**
+ * Hosts spend the full `timeoutMs` on bounded waits before answering, and they
+ * start counting only after the request crosses the transport. Evicting at the
+ * same deadline would drop a healthy host that is about to report its timeout.
+ */
+export const PREVIEW_AUTOMATION_HOST_RESPONSE_GRACE_MS = 2_500;
+
 const removeConnectionFromState = (
   current: BrokerState,
   clientId: string,
@@ -610,7 +617,9 @@ export const make = Effect.gen(function* PreviewAutomationBrokerMake() {
         }
         return yield* new PreviewAutomationRequestQueueClosedError(requestContext);
       }
-      const result = yield* Deferred.await(deferred).pipe(Effect.timeoutOption(timeoutMs));
+      const result = yield* Deferred.await(deferred).pipe(
+        Effect.timeoutOption(timeoutMs + PREVIEW_AUTOMATION_HOST_RESPONSE_GRACE_MS),
+      );
       return yield* Option.match(result, {
         onNone: () =>
           Effect.gen(function* () {

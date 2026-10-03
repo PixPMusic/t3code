@@ -6,11 +6,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { EnvironmentId, PreviewTabId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
+import * as TestClock from "effect/testing/TestClock";
 import { McpProtocol, McpSchema, McpServer } from "effect/unstable/ai";
 import { HttpBody, HttpClient, HttpRouter, HttpServerResponse } from "effect/unstable/http";
 
@@ -226,6 +228,57 @@ it.effect("tells the agent how to fall back when no desktop app can run the snap
       error: { _tag: "PreviewAutomationNoAvailableHostError" },
     });
   }).pipe(Effect.provide(TestLayer)),
+);
+
+it.effect("keeps the browser host when the page lookup after an action is slow", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const broker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
+      const server = yield* McpServer.McpServer;
+      const connected = yield* Deferred.make<void>();
+      const statusReceived = yield* Deferred.make<void>();
+      const operations: string[] = [];
+      const events = yield* broker.connect({ clientId: "slow-metadata", environmentId });
+      yield* Stream.runForEach(events, (event) => {
+        if (event.type === "connected") return Deferred.succeed(connected, undefined);
+        operations.push(event.request.operation);
+        // Leave the first page lookup unanswered, as a slow relay round trip would.
+        if (event.request.operation === "status" && operations.length === 2) {
+          return Deferred.succeed(statusReceived, undefined);
+        }
+        return broker.respond({
+          clientId: "slow-metadata",
+          connectionId: event.connectionId,
+          requestId: event.request.requestId,
+          ok: true,
+          result: {
+            available: true,
+            visible: true,
+            tabId,
+            url: "http://example.test/",
+            title: "Example",
+            loading: false,
+          },
+        });
+      }).pipe(Effect.forkScoped);
+      yield* Deferred.await(connected);
+      const call = (name: string, args: Record<string, unknown>) =>
+        server
+          .callTool({ name, arguments: args })
+          .pipe(
+            Effect.provideService(McpInvocationContext.McpInvocationContext, invocation),
+            Effect.provideService(McpSchema.McpServerClient, client),
+          );
+
+      const click = yield* call("preview_click", { selector: "#go" }).pipe(Effect.forkScoped);
+      yield* Deferred.await(statusReceived);
+      yield* TestClock.adjust(500);
+      expect((yield* Fiber.join(click)).isError).toBe(false);
+
+      expect((yield* call("preview_status", {})).isError).toBe(false);
+      expect(operations).toEqual(["click", "status", "status"]);
+    }),
+  ).pipe(Effect.provide(TestLayer)),
 );
 
 it.effect.each([
