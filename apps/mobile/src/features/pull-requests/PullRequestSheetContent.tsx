@@ -1,12 +1,12 @@
 import { useNavigation } from "@react-navigation/native";
 import type { ReactNode } from "react";
-import { Platform, ScrollView, View } from "react-native";
+import { Platform, ScrollView, useWindowDimensions, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText as Text } from "../../components/AppText";
 import { AndroidSheetHeader } from "../../components/AndroidScreenHeader";
 import { MaterialIconButton } from "../../components/MaterialIconButton";
-import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
+import { MaterialScreenContent } from "../../components/MaterialScreenContent";
 import { ControlPill } from "../../components/ControlPill";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 
@@ -20,8 +20,9 @@ export function PullRequestSheetContent(props: {
 }) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { layout } = useAdaptiveWorkspaceLayout();
+  const { height: windowHeight } = useWindowDimensions();
   const android = Platform.OS === "android";
+  const fitToContents = android && props.scrollable !== false;
   const footer = props.footer ? (
     <View
       className={
@@ -35,22 +36,20 @@ export function PullRequestSheetContent(props: {
   const content = (
     <>
       {android ? (
-        <View className="overflow-hidden rounded-b-[28px]">
-          <AndroidSheetHeader
-            title={props.title}
-            subtitle={props.subtitle}
-            hideBottomBorder
-            trailing={
-              <MaterialIconButton
-                icon="xmark"
-                accessibilityLabel="Close"
-                disabled={props.busy}
-                tintColorClassName="accent-header-foreground"
-                onPress={() => navigation.goBack()}
-              />
-            }
-          />
-        </View>
+        <AndroidSheetHeader
+          title={props.title}
+          subtitle={props.subtitle}
+          hideBottomBorder
+          leading={
+            <MaterialIconButton
+              icon="arrow.left"
+              accessibilityLabel="Close"
+              disabled={props.busy}
+              tintColorClassName="accent-header-foreground"
+              onPress={() => navigation.goBack()}
+            />
+          }
+        />
       ) : (
         <View className="flex-row items-center gap-2 px-4 pt-5 pb-5">
           <ControlPill
@@ -68,44 +67,47 @@ export function PullRequestSheetContent(props: {
           <View className="w-11" />
         </View>
       )}
-      {props.scrollable === false ? (
-        <View className="flex-1" pointerEvents={props.busy ? "none" : "auto"}>
-          {props.children}
-        </View>
-      ) : (
-        <ScrollView
-          className="flex-1"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: android ? 16 : 0,
-            paddingBottom: 20,
-          }}
-        >
-          <View className="gap-4" pointerEvents={props.busy ? "none" : "auto"}>
+      <MaterialScreenContent fitToContents={fitToContents}>
+        {props.scrollable === false ? (
+          <View className="flex-1" pointerEvents={props.busy ? "none" : "auto"}>
             {props.children}
-            {/* Android partial-height sheets keep submit actions within the scrollable form. */}
-            {android ? footer : null}
           </View>
-        </ScrollView>
-      )}
+        ) : (
+          <ScrollView
+            nestedScrollEnabled
+            className="android:shrink android:grow-0 ios:flex-1"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: android ? 16 : 0,
+              paddingBottom: 20,
+            }}
+          >
+            <View className="gap-4" pointerEvents={props.busy ? "none" : "auto"}>
+              {props.children}
+              {/* Android partial-height sheets keep submit actions within the scrollable form. */}
+              {android ? footer : null}
+            </View>
+          </ScrollView>
+        )}
 
-      {!android || props.scrollable === false ? footer : null}
+        {!android || props.scrollable === false ? footer : null}
+      </MaterialScreenContent>
     </>
   );
   return (
     <KeyboardAvoidingView
       automaticOffset
       behavior="padding"
-      className={
-        android ? "flex-1 overflow-hidden rounded-t-[28px] bg-sheet-solid" : "flex-1 bg-sheet"
-      }
-      style={android ? { marginHorizontal: layout.usesSplitView ? 4 : 0 } : undefined}
+      collapsable={false}
+      className={props.scrollable === false ? "flex-1 bg-sheet" : "bg-sheet ios:flex-1"}
+      style={fitToContents ? { maxHeight: windowHeight * 0.92 } : undefined}
     >
       <NativeStackScreenOptions
         options={{
           gestureEnabled: !props.busy,
           ...(android ? { sheetCornerRadius: 28 } : {}),
+          ...(fitToContents ? { sheetAllowedDetents: "fitToContents" } : {}),
         }}
       />
       {content}
