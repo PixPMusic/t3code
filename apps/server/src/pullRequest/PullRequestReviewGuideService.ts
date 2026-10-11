@@ -180,35 +180,40 @@ const make = Effect.gen(function* () {
   ) {
     const own = projectRepositoryKey(key, identity);
     const ownRepository =
-      identity != null && own !== null && own.host === key.host && own.repository === key.repository;
+      identity != null &&
+      own !== null &&
+      own.host === key.host &&
+      own.repository === key.repository;
     let repositoryRoot = workspaceRoot;
     let path: string | undefined;
     let remote: string;
     if (ownRepository) {
       // Identity names can be stale; match effective fetch URLs, including insteadOf rewrites.
       const names = yield* execute({
-          operation: "PullRequestReviewGuideService.listRemotes",
-          cwd: workspaceRoot,
-          args: ["remote"],
-        })
-        .pipe(Effect.map((result) => result.stdout.split("\n").filter((name) => name.length > 0)));
+        operation: "PullRequestReviewGuideService.listRemotes",
+        cwd: workspaceRoot,
+        args: ["remote"],
+      }).pipe(Effect.map((result) => result.stdout.split("\n").filter((name) => name.length > 0)));
       const matchedRemote = yield* Effect.findFirst(
-        [identity.locator.remoteName, ...names.filter((name) => name !== identity.locator.remoteName)],
+        [
+          identity.locator.remoteName,
+          ...names.filter((name) => name !== identity.locator.remoteName),
+        ],
         (name) =>
           execute({
-              operation: "PullRequestReviewGuideService.remoteUrl",
-              cwd: workspaceRoot,
-              args: ["remote", "get-url", "--", name],
-            })
-            .pipe(
-              Effect.map((result) => result.stdout.trim() === identity.locator.remoteUrl),
-              Effect.orElseSucceed(() => false),
-            ),
+            operation: "PullRequestReviewGuideService.remoteUrl",
+            cwd: workspaceRoot,
+            args: ["remote", "get-url", "--", name],
+          }).pipe(
+            Effect.map((result) => result.stdout.trim() === identity.locator.remoteUrl),
+            Effect.orElseSucceed(() => false),
+          ),
       ).pipe(Effect.map(Option.getOrUndefined));
       if (matchedRemote === undefined) {
         return yield* new PullRequestOperationError({
           operation: "generateReviewGuide",
-          detail: "This project's checkout no longer has a remote for the pull request's repository.",
+          detail:
+            "This project's checkout no longer has a remote for the pull request's repository.",
         });
       }
       remote = matchedRemote;
@@ -368,9 +373,19 @@ const make = Effect.gen(function* () {
       });
       const worktreePath = path;
       yield* Effect.addFinalizer(() =>
-        git
-          .removeWorktree({ cwd: workspaceRoot, path: worktreePath, force: true })
-          .pipe(Effect.ignore({ log: true })),
+        execute({
+          operation: "PullRequestReviewGuideService.removeWorktree",
+          cwd: workspaceRoot,
+          args: [
+            "-c",
+            "status.showUntrackedFiles=normal",
+            "worktree",
+            "remove",
+            "--force",
+            worktreePath,
+          ],
+          timeoutMs: 5 * 60_000,
+        }).pipe(Effect.ignore({ log: true })),
       );
     } else {
       yield* execute({
@@ -394,22 +409,21 @@ const make = Effect.gen(function* () {
   ) {
     const diff = (args: ReadonlyArray<string>) =>
       execute({
-          operation: "PullRequestReviewGuideService.readChange",
-          cwd,
-          // Fixed prefixes: a user's diff.noPrefix or custom prefixes would hide the headers the
-          // parser reads.
-          args: [
-            "-c",
-            "core.quotePath=false",
-            "diff",
-            ...PATCH_RENDER_PREFIX_ARGS,
-            ...args,
-            `${baseCommit}...HEAD`,
-          ],
-          timeoutMs: 60_000,
-          maxOutputBytes: 64 * 1024 * 1024,
-        })
-        .pipe(Effect.map((result) => result.stdout));
+        operation: "PullRequestReviewGuideService.readChange",
+        cwd,
+        // Fixed prefixes: a user's diff.noPrefix or custom prefixes would hide the headers the
+        // parser reads.
+        args: [
+          "-c",
+          "core.quotePath=false",
+          "diff",
+          ...PATCH_RENDER_PREFIX_ARGS,
+          ...args,
+          `${baseCommit}...HEAD`,
+        ],
+        timeoutMs: 60_000,
+        maxOutputBytes: 64 * 1024 * 1024,
+      }).pipe(Effect.map((result) => result.stdout));
     const [nameOnly, patch] = yield* Effect.all(
       [diff(["--name-only", "-z"]), diff(["--unified=0", "--no-color", "--no-ext-diff"])],
       { concurrency: "unbounded" },
