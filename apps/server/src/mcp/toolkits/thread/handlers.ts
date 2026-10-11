@@ -196,7 +196,22 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
           createdBy: "agent",
           creationSource: "mcp",
         })
-        .pipe(Effect.mapError(unavailable));
+        .pipe(
+          Effect.mapError((error) => {
+            switch (error._tag) {
+              case "ThreadManagementNoSteerableRunError":
+                return new OrchestratorMcpFailure({
+                  code: "thread_not_sendable",
+                  message: error.message,
+                });
+              case "OrchestratorDispatchError":
+              case "OrchestratorCommandRejectedError":
+                return dispatchFailure(error);
+              default:
+                return unavailable();
+            }
+          }),
+        );
       return { sequence: result.sequence };
     }),
   ),
