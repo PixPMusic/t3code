@@ -21,10 +21,12 @@ export function HomeHeader(props: HomeHeaderProps) {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const usesNativeMailSearchToolbar = useNativeMailSearchToolbar();
-  const primaryColumn = use(NativePrimaryColumnContext);
   const isPad = Platform.OS === "ios" && Platform.isPad;
+  const primaryColumn = use(NativePrimaryColumnContext);
   const sidebarHeader =
-    Platform.OS === "ios" && primaryColumn !== null && (isPad || !usesNativeMailSearchToolbar);
+    Platform.OS === "ios" &&
+    primaryColumn !== null &&
+    (Platform.isPad || !usesNativeMailSearchToolbar);
   const searchBarRef = useRef<SearchBarCommands>(null);
   const focusAfterReveal = useRef(false);
   useEffect(
