@@ -22,10 +22,9 @@ export function HomeHeader(props: HomeHeaderProps) {
   const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const usesNativeMailSearchToolbar = useNativeMailSearchToolbar();
   const primaryColumn = use(NativePrimaryColumnContext);
+  const isPad = Platform.OS === "ios" && Platform.isPad;
   const sidebarHeader =
-    Platform.OS === "ios" &&
-    primaryColumn !== null &&
-    (Platform.isPad || !usesNativeMailSearchToolbar);
+    Platform.OS === "ios" && primaryColumn !== null && (isPad || !usesNativeMailSearchToolbar);
   const searchBarRef = useRef<SearchBarCommands>(null);
   const focusAfterReveal = useRef(false);
   useEffect(
@@ -92,9 +91,11 @@ export function HomeHeader(props: HomeHeaderProps) {
                   autoCapitalize: "none" as const,
                   hideNavigationBar: false,
                   hideWhenScrolling: false,
-                  obscureBackground: false,
-                  placement: "stacked" as const,
-                  allowToolbarIntegration: false,
+                  ...(isPad ? { obscureBackground: false } : {}),
+                  // Duo keeps the integrated search presentation while UIKit
+                  // moves the header between horizontal and vertical bars.
+                  placement: isPad ? ("stacked" as const) : ("integrated" as const),
+                  allowToolbarIntegration: !isPad,
                   placeholder: "Search",
                   onCancelButtonPress: () => props.onSearchQueryChange(""),
                   onChangeText: (event) => props.onSearchQueryChange(event.nativeEvent.text),
