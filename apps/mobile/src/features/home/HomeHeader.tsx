@@ -1,5 +1,5 @@
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
-import { use, useCallback, useEffect, useRef } from "react";
+import { use, useCallback, useEffect, useEffectEvent, useRef } from "react";
 import { useNavigation, type ParamListBase } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Platform } from "react-native";
@@ -21,7 +21,6 @@ export function HomeHeader(props: HomeHeaderProps) {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const usesNativeMailSearchToolbar = useNativeMailSearchToolbar();
-  const isPad = Platform.OS === "ios" && Platform.isPad;
   const primaryColumn = use(NativePrimaryColumnContext);
   const sidebarHeader =
     Platform.OS === "ios" &&
@@ -29,6 +28,16 @@ export function HomeHeader(props: HomeHeaderProps) {
     (Platform.isPad || !usesNativeMailSearchToolbar);
   const searchBarRef = useRef<SearchBarCommands>(null);
   const focusAfterReveal = useRef(false);
+  const usesDuoWorkspace = Platform.OS === "ios" && !Platform.isPad && primaryColumn !== null;
+  const restoreSearchText = useEffectEvent(() => {
+    searchBarRef.current?.setText(props.searchQuery);
+  });
+  // UIKit swaps search fields when the Duo header changes modes. Restore the
+  // current filter without reapplying text on each keystroke.
+  useEffect(() => {
+    if (usesDuoWorkspace) restoreSearchText();
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Header mode changes replace the native search field.
+  }, [sidebarHeader, usesDuoWorkspace]);
   useEffect(
     () =>
       navigation.addListener("transitionEnd", (event) => {
@@ -93,11 +102,9 @@ export function HomeHeader(props: HomeHeaderProps) {
                   autoCapitalize: "none" as const,
                   hideNavigationBar: false,
                   hideWhenScrolling: false,
-                  ...(isPad ? { obscureBackground: false } : {}),
-                  // Duo keeps the integrated search presentation while UIKit
-                  // moves the header between horizontal and vertical bars.
-                  placement: isPad ? ("stacked" as const) : ("integrated" as const),
-                  allowToolbarIntegration: !isPad,
+                  obscureBackground: false,
+                  placement: "stacked" as const,
+                  allowToolbarIntegration: false,
                   placeholder: "Search",
                   onCancelButtonPress: () => props.onSearchQueryChange(""),
                   onChangeText: (event) => props.onSearchQueryChange(event.nativeEvent.text),
