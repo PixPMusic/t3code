@@ -497,166 +497,185 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
       ),
   );
 
-  it.effect("isolates a linked pull request checkout from inherited git repository variables", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const repositories = yield* makeRepositories;
-        const fs = yield* FileSystem.FileSystem;
-        const unrelated = `${repositories.root}/inherited-repository`;
-        const workspace = `${repositories.root}/scratch-project`;
-        yield* fs.makeDirectory(unrelated);
-        yield* fs.makeDirectory(workspace);
-        yield* git(unrelated, ["init", "--quiet", "--initial-branch=main"]);
-        yield* git(unrelated, ["config", "user.email", "test@example.com"]);
-        yield* git(unrelated, ["config", "user.name", "Test"]);
-        yield* fs.writeFileString(`${unrelated}/wrong.txt`, "unrelated history\n");
-        yield* git(unrelated, ["add", "wrong.txt"]);
-        yield* git(unrelated, ["commit", "--quiet", "-m", "unrelated history"]);
-        yield* fs.writeFileString(`${unrelated}/wrong.txt`, "staged work\n");
-        yield* git(unrelated, ["add", "wrong.txt"]);
-        yield* fs.writeFileString(`${unrelated}/wrong.txt`, "uncommitted work\n");
-        yield* fs.writeFileString(`${unrelated}/.git/FETCH_HEAD`, "unrelated fetch\n");
-        const readObjects = Effect.gen(function* () {
-          const directory = `${unrelated}/.git/objects`;
-          const paths = yield* fs.readDirectory(directory, { recursive: true });
-          return yield* Effect.forEach(paths.toSorted(), (path) =>
-            Effect.gen(function* () {
-              const info = yield* fs.stat(`${directory}/${path}`);
-              return {
-                path,
-                contents: info.type === "File" ? yield* fs.readFile(`${directory}/${path}`) : null,
-              };
+  it.effect.each(["private repository", "matching worktree"] as const)(
+    "isolates the %s from inherited git repository variables",
+    (scenario) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const repositories = yield* makeRepositories;
+          const fs = yield* FileSystem.FileSystem;
+          const unrelated = `${repositories.root}/inherited-repository`;
+          const matching = scenario === "matching worktree";
+          const workspace = matching
+            ? repositories.workspace
+            : `${repositories.root}/scratch-project`;
+          yield* fs.makeDirectory(unrelated);
+          if (!matching) yield* fs.makeDirectory(workspace);
+          yield* git(unrelated, ["init", "--quiet", "--initial-branch=main"]);
+          yield* git(unrelated, ["config", "user.email", "test@example.com"]);
+          yield* git(unrelated, ["config", "user.name", "Test"]);
+          yield* git(unrelated, [
+            "remote",
+            "add",
+            "unrelated",
+            `${repositories.root}/wrong-remote`,
+          ]);
+          yield* fs.writeFileString(`${unrelated}/wrong.txt`, "unrelated history\n");
+          yield* git(unrelated, ["add", "wrong.txt"]);
+          yield* git(unrelated, ["commit", "--quiet", "-m", "unrelated history"]);
+          yield* fs.writeFileString(`${unrelated}/wrong.txt`, "staged work\n");
+          yield* git(unrelated, ["add", "wrong.txt"]);
+          yield* fs.writeFileString(`${unrelated}/wrong.txt`, "uncommitted work\n");
+          yield* fs.writeFileString(`${unrelated}/.git/FETCH_HEAD`, "unrelated fetch\n");
+          const readObjects = Effect.gen(function* () {
+            const directory = `${unrelated}/.git/objects`;
+            const paths = yield* fs.readDirectory(directory, { recursive: true });
+            return yield* Effect.forEach(paths.toSorted(), (path) =>
+              Effect.gen(function* () {
+                const info = yield* fs.stat(`${directory}/${path}`);
+                return {
+                  path,
+                  contents:
+                    info.type === "File" ? yield* fs.readFile(`${directory}/${path}`) : null,
+                };
+              }),
+            );
+          });
+          const before = {
+            refs: yield* git(unrelated, ["show-ref"]),
+            head: yield* git(unrelated, ["rev-parse", "HEAD"]),
+            status: yield* git(unrelated, ["status", "--porcelain"]),
+            index: yield* fs.readFile(`${unrelated}/.git/index`),
+            fetchHead: yield* fs.readFileString(`${unrelated}/.git/FETCH_HEAD`),
+            objects: yield* readObjects,
+            worktrees: yield* git(repositories.workspace, ["worktree", "list", "--porcelain"]),
+          };
+          const stored = yield* Deferred.make<void>();
+          const seen = yield* Deferred.make<{
+            readonly input: ReviewGuideGenerationInput;
+            readonly head: string;
+            readonly changed: string;
+            readonly upper: string;
+          }>();
+          const driver = yield* GitVcsDriver.GitVcsDriver;
+          const cleanEnv = {
+            GIT_DIR: undefined,
+            GIT_WORK_TREE: undefined,
+            GIT_COMMON_DIR: undefined,
+            GIT_INDEX_FILE: undefined,
+            GIT_OBJECT_DIRECTORY: undefined,
+            GIT_ALTERNATE_OBJECT_DIRECTORIES: undefined,
+          };
+          const readCheckout = (cwd: string, args: ReadonlyArray<string>) =>
+            driver.execute({ operation: "test.readCheckout", cwd, args, env: cleanEnv }).pipe(
+              Effect.map((result) => result.stdout.trim()),
+              Effect.orDie,
+            );
+          const context = yield* Layer.build(
+            makeLayer({
+              ...repositories,
+              workspace,
+              identity: matching ? ACME_APP : null,
+              stored,
+              lookup: () =>
+                matching
+                  ? Effect.die("A matching worktree must not need a clone lookup.")
+                  : Effect.succeed({
+                      provider: SourceControlProviderKind.make("github"),
+                      nameWithOwner: "acme/app",
+                      url: repositories.remote,
+                      sshUrl: repositories.remote,
+                    }),
+              generate: (input) =>
+                Effect.gen(function* () {
+                  const head = yield* readCheckout(input.cwd, ["rev-parse", "HEAD"]);
+                  const changed = yield* readCheckout(input.cwd, [
+                    "diff",
+                    "--name-only",
+                    `${input.baseCommit}...HEAD`,
+                  ]);
+                  const upper = yield* readCheckout(input.cwd, [
+                    "show",
+                    `${repositories.upperSha}:upper.txt`,
+                  ]);
+                  yield* Deferred.succeed(seen, { input, head, changed, upper });
+                  return { stops: [] };
+                }),
             }),
           );
-        });
-        const before = {
-          refs: yield* git(unrelated, ["show-ref"]),
-          head: yield* git(unrelated, ["rev-parse", "HEAD"]),
-          status: yield* git(unrelated, ["status", "--porcelain"]),
-          index: yield* fs.readFile(`${unrelated}/.git/index`),
-          fetchHead: yield* fs.readFileString(`${unrelated}/.git/FETCH_HEAD`),
-          objects: yield* readObjects,
-        };
-        const stored = yield* Deferred.make<void>();
-        const seen = yield* Deferred.make<{
-          readonly input: ReviewGuideGenerationInput;
-          readonly head: string;
-          readonly changed: string;
-          readonly upper: string;
-        }>();
-        const driver = yield* GitVcsDriver.GitVcsDriver;
-        const cleanEnv = {
-          GIT_DIR: undefined,
-          GIT_WORK_TREE: undefined,
-          GIT_COMMON_DIR: undefined,
-          GIT_INDEX_FILE: undefined,
-          GIT_OBJECT_DIRECTORY: undefined,
-          GIT_ALTERNATE_OBJECT_DIRECTORIES: undefined,
-        };
-        const readCheckout = (cwd: string, args: ReadonlyArray<string>) =>
-          driver.execute({ operation: "test.readCheckout", cwd, args, env: cleanEnv }).pipe(
-            Effect.map((result) => result.stdout.trim()),
-            Effect.orDie,
+          const service = Context.get(
+            context,
+            PullRequestReviewGuideService.PullRequestReviewGuideService,
           );
-        const context = yield* Layer.build(
-          makeLayer({
-            ...repositories,
-            workspace,
-            identity: null,
-            stored,
-            lookup: () =>
-              Effect.succeed({
-                provider: SourceControlProviderKind.make("github"),
-                nameWithOwner: "acme/app",
-                url: repositories.remote,
-                sshUrl: repositories.remote,
-              }),
-            generate: (input) =>
-              Effect.gen(function* () {
-                const head = yield* readCheckout(input.cwd, ["rev-parse", "HEAD"]);
-                const changed = yield* readCheckout(input.cwd, [
-                  "diff",
-                  "--name-only",
-                  `${input.baseCommit}...HEAD`,
-                ]);
-                const upper = yield* readCheckout(input.cwd, [
-                  "show",
-                  `${repositories.upperSha}:upper.txt`,
-                ]);
-                yield* Deferred.succeed(seen, { input, head, changed, upper });
-                return { stops: [] };
-              }),
-          }),
-        );
-        const service = Context.get(
-          context,
-          PullRequestReviewGuideService.PullRequestReviewGuideService,
-        );
-        const logger = Logger.make(({ message }) => {
-          if (String(message).includes("Review guide generation failed")) {
-            Deferred.doneUnsafe(
-              stored,
-              Effect.die("The isolated review guide failed before it was stored."),
-            );
-          }
-        });
-        yield* Effect.scoped(
-          Effect.gen(function* () {
-            const inherited = Object.keys(cleanEnv).map(
-              (name) => [name, process.env[name]] as const,
-            );
-            yield* Effect.addFinalizer(() =>
-              Effect.sync(() => {
-                for (const [name, value] of inherited) {
-                  if (value === undefined) delete process.env[name];
-                  else process.env[name] = value;
-                }
-              }),
-            );
-            process.env.GIT_DIR = `${unrelated}/.git`;
-            process.env.GIT_WORK_TREE = unrelated;
-            process.env.GIT_COMMON_DIR = `${unrelated}/.git`;
-            process.env.GIT_INDEX_FILE = `${unrelated}/.git/index`;
-            process.env.GIT_OBJECT_DIRECTORY = `${unrelated}/.git/objects`;
-            process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES = `${repositories.remote}/.git/objects`;
-            yield* service
-              .generate(reference)
-              .pipe(Effect.provide(Logger.layer([logger], { mergeWithExisting: false })));
-            yield* Deferred.await(stored);
-          }),
-        );
-        const observed = yield* Deferred.await(seen);
-        assert.strictEqual(observed.head, repositories.headSha);
-        assert.strictEqual(observed.changed, "feature.txt");
-        assert.strictEqual(observed.input.baseCommit, repositories.lowerSha);
-        assert.strictEqual(observed.upper, "upper layer");
-        assert.deepStrictEqual(
-          observed.input.stack?.map((layer) => layer.headSha),
-          [repositories.lowerSha, repositories.headSha, repositories.upperSha, null],
-        );
-        assert.deepStrictEqual(
-          (yield* service.get(reference)).guide?.stops.flatMap((stop) =>
-            stop.files.map((file) => file.path),
-          ),
-          ["feature.txt"],
-        );
-        assert.strictEqual(yield* git(unrelated, ["show-ref"]), before.refs);
-        assert.strictEqual(yield* git(unrelated, ["rev-parse", "HEAD"]), before.head);
-        assert.strictEqual(yield* git(unrelated, ["status", "--porcelain"]), before.status);
-        assert.deepStrictEqual(yield* fs.readFile(`${unrelated}/.git/index`), before.index);
-        assert.deepStrictEqual(yield* readObjects, before.objects);
-        assert.strictEqual(
-          yield* fs.readFileString(`${unrelated}/.git/FETCH_HEAD`),
-          before.fetchHead,
-        );
-        assert.strictEqual(
-          yield* fs.readFileString(`${unrelated}/wrong.txt`),
-          "uncommitted work\n",
-        );
-        assert.isFalse(yield* fs.exists(observed.input.cwd));
-        assert.deepStrictEqual(yield* fs.readDirectory(workspace), []);
-      }),
-    ),
+          const logger = Logger.make(({ message }) => {
+            if (String(message).includes("Review guide generation failed")) {
+              Deferred.doneUnsafe(
+                stored,
+                Effect.die("The isolated review guide failed before it was stored."),
+              );
+            }
+          });
+          yield* Effect.scoped(
+            Effect.gen(function* () {
+              const inherited = Object.keys(cleanEnv).map(
+                (name) => [name, process.env[name]] as const,
+              );
+              yield* Effect.addFinalizer(() =>
+                Effect.sync(() => {
+                  for (const [name, value] of inherited) {
+                    if (value === undefined) delete process.env[name];
+                    else process.env[name] = value;
+                  }
+                }),
+              );
+              process.env.GIT_DIR = `${unrelated}/.git`;
+              process.env.GIT_WORK_TREE = unrelated;
+              process.env.GIT_COMMON_DIR = `${unrelated}/.git`;
+              process.env.GIT_INDEX_FILE = `${unrelated}/.git/index`;
+              process.env.GIT_OBJECT_DIRECTORY = `${unrelated}/.git/objects`;
+              process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES = `${repositories.remote}/.git/objects`;
+              yield* service
+                .generate(reference)
+                .pipe(Effect.provide(Logger.layer([logger], { mergeWithExisting: false })));
+              yield* Deferred.await(stored);
+            }),
+          );
+          const observed = yield* Deferred.await(seen);
+          assert.strictEqual(observed.head, repositories.headSha);
+          assert.strictEqual(observed.changed, "feature.txt");
+          assert.strictEqual(observed.input.baseCommit, repositories.lowerSha);
+          assert.strictEqual(observed.upper, "upper layer");
+          assert.deepStrictEqual(
+            observed.input.stack?.map((layer) => layer.headSha),
+            [repositories.lowerSha, repositories.headSha, repositories.upperSha, null],
+          );
+          assert.deepStrictEqual(
+            (yield* service.get(reference)).guide?.stops.flatMap((stop) =>
+              stop.files.map((file) => file.path),
+            ),
+            ["feature.txt"],
+          );
+          assert.strictEqual(yield* git(unrelated, ["show-ref"]), before.refs);
+          assert.strictEqual(yield* git(unrelated, ["rev-parse", "HEAD"]), before.head);
+          assert.strictEqual(yield* git(unrelated, ["status", "--porcelain"]), before.status);
+          assert.deepStrictEqual(yield* fs.readFile(`${unrelated}/.git/index`), before.index);
+          assert.deepStrictEqual(yield* readObjects, before.objects);
+          assert.strictEqual(
+            yield* fs.readFileString(`${unrelated}/.git/FETCH_HEAD`),
+            before.fetchHead,
+          );
+          assert.strictEqual(
+            yield* fs.readFileString(`${unrelated}/wrong.txt`),
+            "uncommitted work\n",
+          );
+          assert.isFalse(yield* fs.exists(observed.input.cwd));
+          assert.strictEqual(
+            yield* git(repositories.workspace, ["worktree", "list", "--porcelain"]),
+            before.worktrees,
+          );
+          if (!matching) assert.deepStrictEqual(yield* fs.readDirectory(workspace), []);
+        }),
+      ),
   );
 
   it.effect.each(["gitlab", "github"] as const)(

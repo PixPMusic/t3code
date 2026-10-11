@@ -24,6 +24,7 @@ import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
 import {
+  GitCommandError,
   PullRequestOperationError,
   type PullRequestDetail,
   type PullRequestRef,
@@ -40,6 +41,7 @@ import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { isSshRemoteUrl, sourceControlRepositorySelector } from "@t3tools/shared/sourceControl";
 
 import * as ServerConfig from "../config.ts";
+import { parseRemoteNamesInGitOrder } from "../git/remoteRefs.ts";
 import * as PullRequestReviewGuides from "../persistence/PullRequestReviewGuides.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
@@ -113,6 +115,31 @@ const make = Effect.gen(function* () {
       cwd,
       args: ["rev-parse", "--verify", `${revision}^{commit}`],
     }).pipe(Effect.map((result) => result.stdout.trim()));
+  const resolvePrimaryRemoteName = Effect.fn(
+    "PullRequestReviewGuideService.resolvePrimaryRemoteName",
+  )(function* (cwd: string) {
+    const origin = yield* execute({
+      operation: "PullRequestReviewGuideService.originRemoteExists",
+      cwd,
+      args: ["remote", "get-url", "--", "origin"],
+      allowNonZeroExit: true,
+    });
+    if (origin.exitCode === 0) return "origin";
+    const remotes = yield* execute({
+      operation: "PullRequestReviewGuideService.listRemoteNames",
+      cwd,
+      args: ["remote"],
+    });
+    const [firstRemote] = parseRemoteNamesInGitOrder(remotes.stdout);
+    if (firstRemote) return firstRemote;
+    return yield* new GitCommandError({
+      operation: "GitVcsDriver.resolvePrimaryRemoteName",
+      command: "git",
+      cwd,
+      argumentCount: 1,
+      detail: "No git remote is configured for this repository.",
+    });
+  });
   // Runs outlive the request that started them and end with the server.
   const serviceScope = yield* Effect.scope;
   // In memory on purpose: a restart drops a run in progress, and a reader presses Generate again.
@@ -203,7 +230,7 @@ const make = Effect.gen(function* () {
     let path: string | undefined;
     let remote: string;
     if (ownRepository) {
-      remote = yield* git.resolvePrimaryRemoteName(workspaceRoot);
+      remote = yield* resolvePrimaryRemoteName(workspaceRoot);
     } else {
       // A linked pull request can belong to any repository. Resolve its clone URL through its
       // host, then fetch into a private repo without touching an unrelated project checkout.
@@ -316,9 +343,19 @@ const make = Effect.gen(function* () {
       });
       const worktreePath = path;
       yield* Effect.addFinalizer(() =>
-        git
-          .removeWorktree({ cwd: workspaceRoot, path: worktreePath, force: true })
-          .pipe(Effect.ignore({ log: true })),
+        execute({
+          operation: "PullRequestReviewGuideService.removeWorktree",
+          cwd: workspaceRoot,
+          args: [
+            "-c",
+            "status.showUntrackedFiles=normal",
+            "worktree",
+            "remove",
+            "--force",
+            worktreePath,
+          ],
+          timeoutMs: 5 * 60_000,
+        }).pipe(Effect.ignore({ log: true })),
       );
     } else {
       yield* execute({
