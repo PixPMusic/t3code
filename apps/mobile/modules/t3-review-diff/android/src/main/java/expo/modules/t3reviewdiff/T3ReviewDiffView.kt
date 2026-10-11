@@ -143,6 +143,10 @@ class T3ReviewDiffView(context: Context, appContext: AppContext) : ExpoView(cont
     canvasView.contentWidthPx = max(width, dp(value).toInt())
   }
 
+  fun setContentInsetBottom(value: Float) {
+    canvasView.contentInsetBottomPx = dp(value).toInt()
+  }
+
   fun setInitialRowIndex(value: Double) {
     initialRowIndex = value.toInt().coerceAtLeast(0)
     pendingInitialScroll = true
@@ -767,6 +771,12 @@ private class DiffCanvasView(context: Context) : View(context) {
       clampHeaderPathOffsets()
       invalidate()
     }
+  var contentInsetBottomPx = 0
+    set(value) {
+      field = max(0, value)
+      setVerticalOffset(verticalOffset)
+      invalidate()
+    }
   var onRowTap: ((DiffRow, String, RowTapTarget) -> Unit)? = null
   var onVisibleRowsChanged: ((Int, Int) -> Unit)? = null
   var onContentHeightChanged: ((Int) -> Unit)? = null
@@ -818,7 +828,7 @@ private class DiffCanvasView(context: Context) : View(context) {
   fun rowTop(index: Int): Int = rowOffsets[index.coerceIn(0, max(0, rowOffsets.size - 2))]
 
   fun setVerticalOffset(value: Int) {
-    val maxOffset = max(0, (rowOffsets.lastOrNull() ?: 0) - height)
+    val maxOffset = maxVerticalOffset()
     val nextOffset = value.coerceIn(0, maxOffset)
     if (verticalOffset == nextOffset) return
     verticalOffset = nextOffset
@@ -832,7 +842,8 @@ private class DiffCanvasView(context: Context) : View(context) {
 
   fun verticalOffset(): Int = verticalOffset
 
-  fun maxVerticalOffset(): Int = max(0, (rowOffsets.lastOrNull() ?: 0) - height)
+  fun maxVerticalOffset(): Int =
+    max(0, (rowOffsets.lastOrNull() ?: 0) + contentInsetBottomPx - height)
 
   fun setHorizontalOffset(value: Int) {
     val nextOffset = value.coerceIn(0, maxHorizontalOffset())
@@ -932,7 +943,9 @@ private class DiffCanvasView(context: Context) : View(context) {
         return rows.getOrNull(sticky.index)?.let { RowHit(it, sticky.top, sticky.bottom) }
       }
     }
-    val index = rowIndexAt(verticalOffset + y.toInt())
+    val contentY = verticalOffset + y.toInt()
+    if (contentY < 0 || contentY >= rowOffsets.last()) return null
+    val index = rowIndexAt(contentY)
     return rows.getOrNull(index)?.let {
       RowHit(
         row = it,

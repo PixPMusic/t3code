@@ -57,6 +57,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
+import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { EmptyState } from "../../components/EmptyState";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { SymbolView } from "../../components/AppSymbol";
@@ -270,6 +271,7 @@ function PullRequestOverview(props: {
 }
 
 export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestParams>) {
+  const [toolbarHeight, setToolbarHeight] = useState(0);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const params = route.params;
@@ -499,7 +501,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                   contentContainerStyle={{
                     paddingHorizontal: 16,
                     paddingTop: 8,
-                    paddingBottom: 24,
+                    paddingBottom: 24 + (Platform.OS === "android" ? toolbarHeight : 0),
                     // Short tabs must still be tall enough to preserve the collapsed header.
                     minHeight: Math.max(
                       0,
@@ -643,7 +645,12 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
               </View>
             ))}
         </View>
-        <PullRequestActionToolbar pr={pr} params={params} onOpenFiles={openFiles} />
+        <PullRequestActionToolbar
+          pr={pr}
+          params={params}
+          onOpenFiles={openFiles}
+          onHeightChange={setToolbarHeight}
+        />
       </View>
     </PullRequestMarkdownRepository>
   );
@@ -685,8 +692,10 @@ export function PullRequestFileRouteScreen({
     readonly focus?: GuideDiffFocus;
   }
 >) {
+  const { layout } = useAdaptiveWorkspaceLayout();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const [toolbarHeight, setToolbarHeight] = useState(0);
   const commit = route.params.commit;
   const result = usePullRequestDiff(route.params);
   const filter = usePullRequestFileFilter(
@@ -875,7 +884,7 @@ export function PullRequestFileRouteScreen({
   const seekingFile = !targetFile && result.nextCursor !== null;
   const loadingDiff = (result.isPending && !data.rows.length) || (seekingFile && !result.error);
   return (
-    <View className="flex-1 bg-screen">
+    <View className={Platform.OS === "android" ? "flex-1 bg-header" : "flex-1 bg-screen"}>
       <NativeStackScreenOptions
         options={{
           title,
@@ -1022,7 +1031,15 @@ export function PullRequestFileRouteScreen({
           />
         </View>
       ) : null}
-      <View className="flex-1" collapsable={false}>
+      <View
+        className={
+          Platform.OS === "android"
+            ? "flex-1 overflow-hidden rounded-t-[28px] bg-sheet-solid"
+            : "flex-1"
+        }
+        collapsable={false}
+        style={{ marginHorizontal: Platform.OS === "android" && layout.usesSplitView ? 4 : 0 }}
+      >
         {loadingDiff || result.error ? (
           <View style={{ paddingTop: Platform.OS === "ios" && !staleDiff ? insets.top : 0 }}>
             <PullRequestReadStatus pending={loadingDiff} error={result.error} />
@@ -1097,7 +1114,7 @@ export function PullRequestFileRouteScreen({
               rowHeight={nativeReviewDiffStyle.rowHeight}
               contentWidth={NATIVE_REVIEW_DIFF_CONTENT_WIDTH}
               contentInsetTop={Platform.OS === "ios" ? (staleDiff ? 0 : insets.top) : undefined}
-              contentInsetBottom={Platform.OS === "ios" ? insets.bottom : undefined}
+              contentInsetBottom={Platform.OS === "android" ? toolbarHeight : insets.bottom}
               contentResetKey={`pull-request:${route.params.environmentId}:${route.params.repository}:${route.params.number}:${commit ?? "all"}`}
             />
           </View>
@@ -1147,6 +1164,7 @@ export function PullRequestFileRouteScreen({
         params={route.params}
         filePath={visibleFile?.path}
         onOpenFiles={() => navigation.navigate("PullRequestFiles", route.params)}
+        onHeightChange={setToolbarHeight}
       />
     </View>
   );
