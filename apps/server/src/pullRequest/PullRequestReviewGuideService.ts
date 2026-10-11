@@ -92,6 +92,25 @@ const make = Effect.gen(function* () {
   const git = yield* GitVcsDriver.GitVcsDriver;
   const fileSystem = yield* FileSystem.FileSystem;
   const config = yield* ServerConfig.ServerConfig;
+  // A server launched by a git hook may inherit a different repository or index. Guide checkout
+  // commands must discover their repository from cwd, including reads and cleanup of private refs.
+  const execute = (input: GitVcsDriver.ExecuteGitInput) =>
+    git.execute({
+      ...input,
+      env: {
+        ...input.env,
+        GIT_DIR: undefined,
+        GIT_WORK_TREE: undefined,
+        GIT_COMMON_DIR: undefined,
+        GIT_INDEX_FILE: undefined,
+      },
+    });
+  const resolveCommit = (cwd: string, revision: string) =>
+    execute({
+      operation: "PullRequestReviewGuideService.resolveCommit",
+      cwd,
+      args: ["rev-parse", "--verify", `${revision}^{commit}`],
+    }).pipe(Effect.map((result) => result.stdout.trim()));
   // Runs outlive the request that started them and end with the server.
   const serviceScope = yield* Effect.scope;
   // In memory on purpose: a restart drops a run in progress, and a reader presses Generate again.
@@ -209,14 +228,14 @@ const make = Effect.gen(function* () {
       path = `${directory}/checkout`;
       yield* fileSystem.makeDirectory(path);
       repositoryRoot = path;
-      yield* git.execute({
+      yield* execute({
         operation: "PullRequestReviewGuideService.initRepository",
         cwd: repositoryRoot,
         args: ["init", "--quiet"],
       });
     }
     const fetch = (args: ReadonlyArray<string>) =>
-      git.execute({
+      execute({
         operation: "PullRequestReviewGuideService.fetch",
         cwd: repositoryRoot,
         args: ["fetch", "--quiet", "--no-tags", remote, ...args],
@@ -227,36 +246,32 @@ const make = Effect.gen(function* () {
     // Forgejo name the same way.
     // The host names the base branch. A name git rejects, or one that would change the refspec
     // (a leading `+`, a `:`), is refused before it reaches `git fetch`.
-    yield* git
-      .execute({
-        operation: "PullRequestReviewGuideService.checkBaseBranch",
-        cwd: repositoryRoot,
-        args: ["check-ref-format", "--branch", detail.baseBranch],
-      })
-      .pipe(
-        Effect.filterOrFail(
-          () => !detail.baseBranch.startsWith("+") && !detail.baseBranch.includes(":"),
-          () =>
-            new PullRequestOperationError({
-              operation: "generateReviewGuide",
-              detail: "The pull request's base branch name is not one git can fetch.",
-            }),
-        ),
-      );
+    yield* execute({
+      operation: "PullRequestReviewGuideService.checkBaseBranch",
+      cwd: repositoryRoot,
+      args: ["check-ref-format", "--branch", detail.baseBranch],
+    }).pipe(
+      Effect.filterOrFail(
+        () => !detail.baseBranch.startsWith("+") && !detail.baseBranch.includes(":"),
+        () =>
+          new PullRequestOperationError({
+            operation: "generateReviewGuide",
+            detail: "The pull request's base branch name is not one git can fetch.",
+          }),
+      ),
+    );
     // Fetched into a ref of this run's own: FETCH_HEAD is shared by every fetch in the
     // workspace, so a concurrent run could otherwise measure this change from its base.
     const baseRef = `refs/t3/review-guide/${runId}/base`;
     yield* fetch([`+refs/heads/${detail.baseBranch}:${baseRef}`]);
     yield* Effect.addFinalizer(() =>
-      git
-        .execute({
-          operation: "PullRequestReviewGuideService.dropBaseRef",
-          cwd: repositoryRoot,
-          args: ["update-ref", "-d", baseRef],
-        })
-        .pipe(Effect.ignore({ log: true })),
+      execute({
+        operation: "PullRequestReviewGuideService.dropBaseRef",
+        cwd: repositoryRoot,
+        args: ["update-ref", "-d", baseRef],
+      }).pipe(Effect.ignore({ log: true })),
     );
-    const baseTip = yield* git.resolveCommit({ cwd: repositoryRoot, revision: baseRef });
+    const baseTip = yield* resolveCommit(repositoryRoot, baseRef);
     const fetchHead = (number: number, sha: string) =>
       fetch([sha]).pipe(Effect.catch(() => fetch([`refs/pull/${number}/head`])));
     yield* fetchHead(detail.number, headSha);
@@ -270,7 +285,7 @@ const make = Effect.gen(function* () {
         const sha = layer.headSha;
         if (sha === undefined) return Effect.succeed({ ...described, headSha: null });
         return fetchHead(layer.number, sha).pipe(
-          Effect.andThen(git.resolveCommit({ cwd: repositoryRoot, revision: sha })),
+          Effect.andThen(resolveCommit(repositoryRoot, sha)),
           Effect.as({ ...described, headSha: sha }),
           Effect.orElseSucceed(() => ({ ...described, headSha: null })),
         );
@@ -283,7 +298,7 @@ const make = Effect.gen(function* () {
         prefix: "review-guide-",
       });
       path = `${directory}/checkout`;
-      yield* git.execute({
+      yield* execute({
         operation: "PullRequestReviewGuideService.addWorktree",
         cwd: workspaceRoot,
         args: ["worktree", "add", "--detach", "--quiet", path, headSha],
@@ -296,7 +311,7 @@ const make = Effect.gen(function* () {
           .pipe(Effect.ignore({ log: true })),
       );
     } else {
-      yield* git.execute({
+      yield* execute({
         operation: "PullRequestReviewGuideService.checkoutHead",
         cwd: path,
         args: ["checkout", "--detach", "--quiet", headSha],
@@ -305,10 +320,10 @@ const make = Effect.gen(function* () {
     }
     // Measured from where the head left the base, so a stacked change is briefed alone rather
     // than with everything below it that the base has not taken yet.
-    const mergeBase = yield* git.execute({
+    const mergeBase = yield* execute({
       operation: "PullRequestReviewGuideService.mergeBase",
       cwd: path,
-      args: ["merge-base", baseTip.commitSha, "HEAD"],
+      args: ["merge-base", baseTip, "HEAD"],
     });
     return { path, baseCommit: mergeBase.stdout.trim(), stack: layers };
   });
@@ -319,25 +334,23 @@ const make = Effect.gen(function* () {
     baseCommit: string,
   ) {
     const diff = (args: ReadonlyArray<string>) =>
-      git
-        .execute({
-          operation: "PullRequestReviewGuideService.readChange",
-          cwd,
-          // Fixed prefixes: a user's diff.noPrefix or custom prefixes would hide the headers the
-          // parser reads.
-          args: [
-            "-c",
-            "core.quotePath=false",
-            "diff",
-            ...PATCH_RENDER_PREFIX_ARGS,
-            ...args,
-            `${baseCommit}...HEAD`,
-          ],
-          timeoutMs: 60_000,
-          // Hunk headers only, but a large change still has many of them.
-          maxOutputBytes: 64 * 1024 * 1024,
-        })
-        .pipe(Effect.map((result) => result.stdout));
+      execute({
+        operation: "PullRequestReviewGuideService.readChange",
+        cwd,
+        // Fixed prefixes: a user's diff.noPrefix or custom prefixes would hide the headers the
+        // parser reads.
+        args: [
+          "-c",
+          "core.quotePath=false",
+          "diff",
+          ...PATCH_RENDER_PREFIX_ARGS,
+          ...args,
+          `${baseCommit}...HEAD`,
+        ],
+        timeoutMs: 60_000,
+        // Hunk headers only, but a large change still has many of them.
+        maxOutputBytes: 64 * 1024 * 1024,
+      }).pipe(Effect.map((result) => result.stdout));
     const [nameOnly, patch] = yield* Effect.all(
       [diff(["--name-only", "-z"]), diff(["--unified=0", "--no-color", "--no-ext-diff"])],
       { concurrency: "unbounded" },
