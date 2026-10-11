@@ -25,20 +25,22 @@ export function PullRequestSheetContent(props: {
   const content = (
     <>
       {android ? (
-        <AndroidSheetHeader
-          title={props.title}
-          subtitle={props.subtitle}
-          hideBottomBorder
-          trailing={
-            <MaterialIconButton
-              icon="xmark"
-              accessibilityLabel="Close"
-              disabled={props.busy}
-              tintColorClassName="accent-header-foreground"
-              onPress={() => navigation.goBack()}
-            />
-          }
-        />
+        <View className="overflow-hidden rounded-b-[28px]">
+          <AndroidSheetHeader
+            title={props.title}
+            subtitle={props.subtitle}
+            hideBottomBorder
+            trailing={
+              <MaterialIconButton
+                icon="xmark"
+                accessibilityLabel="Close"
+                disabled={props.busy}
+                tintColorClassName="accent-header-foreground"
+                onPress={() => navigation.goBack()}
+              />
+            }
+          />
+        </View>
       ) : (
         <View className="flex-row items-center gap-2 px-4 pt-5 pb-5">
           <ControlPill
@@ -64,7 +66,11 @@ export function PullRequestSheetContent(props: {
         <ScrollView
           className="flex-1"
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: android ? 16 : 0,
+            paddingBottom: 20,
+          }}
         >
           <View className="gap-4" pointerEvents={props.busy ? "none" : "auto"}>
             {props.children}
