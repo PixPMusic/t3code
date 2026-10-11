@@ -87,6 +87,8 @@ const make = Effect.gen(function* () {
         GIT_WORK_TREE: undefined,
         GIT_COMMON_DIR: undefined,
         GIT_INDEX_FILE: undefined,
+        GIT_OBJECT_DIRECTORY: undefined,
+        GIT_ALTERNATE_OBJECT_DIRECTORIES: undefined,
       },
     });
   });
