@@ -24,13 +24,14 @@ import {
 } from "@t3tools/contracts";
 import type { ReviewGuideStackLayer } from "@t3tools/provider-core/server/textGeneration";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
-import { sourceControlRepositorySelector } from "@t3tools/shared/sourceControl";
+import { isSshRemoteUrl, sourceControlRepositorySelector } from "@t3tools/shared/sourceControl";
 
 import * as ServerConfig from "../config.ts";
 import * as PullRequestReviewGuides from "../persistence/PullRequestReviewGuides.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as SourceControlRepositoryService from "../sourceControl/SourceControlRepositoryService.ts";
 import * as TextGeneration from "../textGeneration/TextGeneration.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import { PATCH_RENDER_PREFIX_ARGS } from "../vcs/GitVcsDriverCore.ts";
@@ -69,6 +70,7 @@ const make = Effect.gen(function* () {
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
   const textGeneration = yield* TextGeneration.TextGeneration;
+  const repositories = yield* SourceControlRepositoryService.SourceControlRepositoryService;
   const git = yield* GitVcsDriver.GitVcsDriver;
   const fileSystem = yield* FileSystem.FileSystem;
   const config = yield* ServerConfig.ServerConfig;
@@ -95,34 +97,20 @@ const make = Effect.gen(function* () {
     return { key, workspaceRoot: project.workspaceRoot, identity: project.repositoryIdentity };
   });
 
-  const requireOwnRepository = Effect.fn("PullRequestReviewGuideService.requireOwnRepository")(
-    function* (key: ThreadPullRequestKey, identity: RepositoryIdentity | null | undefined) {
-      const own =
-        identity == null
-          ? null
-          : pullRequestSyncKey(
-              {
-                projectId: ProjectId.make("own"),
-                number: key.number,
-                repository: sourceControlRepositorySelector(identity) ?? "",
-              },
-              identity,
-            );
-      if (
-        identity == null ||
-        own === null ||
-        own.host !== key.host ||
-        own.repository !== key.repository
-      ) {
-        return yield* new PullRequestOperationError({
-          operation: "generateReviewGuide",
-          detail:
-            "Guides are written from this project's checkout, and this pull request is in another repository. Write it from a project that is a checkout of that repository.",
-        });
-      }
-      return identity.locator;
-    },
-  );
+  const projectRepositoryKey = (
+    key: ThreadPullRequestKey,
+    identity: RepositoryIdentity | null | undefined,
+  ) =>
+    identity == null
+      ? null
+      : pullRequestSyncKey(
+          {
+            projectId: ProjectId.make("own"),
+            number: key.number,
+            repository: sourceControlRepositorySelector(identity) ?? "",
+          },
+          identity,
+        );
 
   const readStored = (key: ThreadPullRequestKey) =>
     guides.get(key).pipe(
@@ -154,44 +142,84 @@ const make = Effect.gen(function* () {
 
   const checkoutHead = Effect.fn("PullRequestReviewGuideService.checkoutHead")(function* (
     workspaceRoot: string,
-    locator: RepositoryIdentity["locator"],
+    key: ThreadPullRequestKey,
+    identity: RepositoryIdentity | null | undefined,
     detail: PullRequestDetail,
     headSha: string,
     stack: PullRequestStack | null,
     runId: string,
   ) {
-    // Identity names can be stale; match effective fetch URLs, including insteadOf rewrites.
-    const names = yield* git
-      .execute({
-        operation: "PullRequestReviewGuideService.listRemotes",
-        cwd: workspaceRoot,
-        args: ["remote"],
-      })
-      .pipe(Effect.map((result) => result.stdout.split("\n").filter((name) => name.length > 0)));
-    const remote = yield* Effect.findFirst(
-      [locator.remoteName, ...names.filter((name) => name !== locator.remoteName)],
-      (name) =>
-        git
-          .execute({
-            operation: "PullRequestReviewGuideService.remoteUrl",
-            cwd: workspaceRoot,
-            args: ["remote", "get-url", "--", name],
-          })
-          .pipe(
-            Effect.map((result) => result.stdout.trim() === locator.remoteUrl),
-            Effect.orElseSucceed(() => false),
-          ),
-    ).pipe(Effect.map(Option.getOrUndefined));
-    if (remote === undefined) {
-      return yield* new PullRequestOperationError({
-        operation: "generateReviewGuide",
-        detail: "This project's checkout no longer has a remote for the pull request's repository.",
+    const own = projectRepositoryKey(key, identity);
+    const ownRepository =
+      identity != null && own !== null && own.host === key.host && own.repository === key.repository;
+    let repositoryRoot = workspaceRoot;
+    let path: string | undefined;
+    let remote: string;
+    if (ownRepository) {
+      // Identity names can be stale; match effective fetch URLs, including insteadOf rewrites.
+      const names = yield* git
+        .execute({
+          operation: "PullRequestReviewGuideService.listRemotes",
+          cwd: workspaceRoot,
+          args: ["remote"],
+        })
+        .pipe(Effect.map((result) => result.stdout.split("\n").filter((name) => name.length > 0)));
+      const matchedRemote = yield* Effect.findFirst(
+        [identity.locator.remoteName, ...names.filter((name) => name !== identity.locator.remoteName)],
+        (name) =>
+          git
+            .execute({
+              operation: "PullRequestReviewGuideService.remoteUrl",
+              cwd: workspaceRoot,
+              args: ["remote", "get-url", "--", name],
+            })
+            .pipe(
+              Effect.map((result) => result.stdout.trim() === identity.locator.remoteUrl),
+              Effect.orElseSucceed(() => false),
+            ),
+      ).pipe(Effect.map(Option.getOrUndefined));
+      if (matchedRemote === undefined) {
+        return yield* new PullRequestOperationError({
+          operation: "generateReviewGuide",
+          detail: "This project's checkout no longer has a remote for the pull request's repository.",
+        });
+      }
+      remote = matchedRemote;
+    } else {
+      // Resolve linked repositories through their host rather than the unrelated checkout.
+      const repository = yield* repositories.lookupRepository({
+        provider: detail.provider,
+        repository:
+          detail.provider === "github" ||
+          detail.provider === "forgejo" ||
+          detail.provider === "gitcafe"
+            ? `https://${key.host}/${key.repository}`
+            : detail.repository,
+        cwd: detail.workspaceRoot,
+      });
+      remote =
+        own?.host === key.host &&
+        identity?.provider === detail.provider &&
+        isSshRemoteUrl(identity.locator.remoteUrl)
+          ? repository.sshUrl
+          : repository.url;
+      const directory = yield* fileSystem.makeTempDirectoryScoped({
+        directory: config.worktreesDir,
+        prefix: "review-guide-",
+      });
+      path = `${directory}/checkout`;
+      yield* fileSystem.makeDirectory(path);
+      repositoryRoot = path;
+      yield* git.execute({
+        operation: "PullRequestReviewGuideService.initRepository",
+        cwd: repositoryRoot,
+        args: ["init", "--quiet"],
       });
     }
     const fetch = (args: ReadonlyArray<string>) =>
       git.execute({
         operation: "PullRequestReviewGuideService.fetch",
-        cwd: workspaceRoot,
+        cwd: repositoryRoot,
         args: ["fetch", "--quiet", "--no-tags", "--", remote, ...args],
         timeoutMs: 5 * 60_000,
       });
@@ -200,7 +228,7 @@ const make = Effect.gen(function* () {
     yield* git
       .execute({
         operation: "PullRequestReviewGuideService.checkBaseBranch",
-        cwd: workspaceRoot,
+        cwd: repositoryRoot,
         args: ["check-ref-format", "--branch", detail.baseBranch],
       })
       .pipe(
@@ -221,12 +249,12 @@ const make = Effect.gen(function* () {
       git
         .execute({
           operation: "PullRequestReviewGuideService.dropBaseRef",
-          cwd: workspaceRoot,
+          cwd: repositoryRoot,
           args: ["update-ref", "-d", baseRef],
         })
         .pipe(Effect.ignore({ log: true })),
     );
-    const baseTip = yield* git.resolveCommit({ cwd: workspaceRoot, revision: baseRef });
+    const baseTip = yield* git.resolveCommit({ cwd: repositoryRoot, revision: baseRef });
     const fetchHead = Effect.fn("PullRequestReviewGuideService.fetchHead")(function* (
       number: number,
       reportedSha: string,
@@ -240,7 +268,7 @@ const make = Effect.gen(function* () {
         });
       }
       // Not redundant: rev-parse prefers a branch or tag named like a short hash over the commit.
-      const resolveHead = git.resolveCommit({ cwd: workspaceRoot, revision: sha }).pipe(
+      const resolveHead = git.resolveCommit({ cwd: repositoryRoot, revision: sha }).pipe(
         Effect.filterOrFail(
           ({ commitSha }) => commitSha.startsWith(sha),
           ({ commitSha }) =>
@@ -254,7 +282,7 @@ const make = Effect.gen(function* () {
       const branchRef = `refs/heads/${branch}`;
       const checkBranch = git.execute({
         operation: "PullRequestReviewGuideService.checkHeadBranch",
-        cwd: workspaceRoot,
+        cwd: repositoryRoot,
         args: ["check-ref-format", branchRef],
       });
       const sources = [
@@ -303,22 +331,32 @@ const make = Effect.gen(function* () {
       },
       { concurrency: 4 },
     );
-    const directory = yield* fileSystem.makeTempDirectoryScoped({
-      directory: config.worktreesDir,
-      prefix: "review-guide-",
-    });
-    const path = `${directory}/checkout`;
-    yield* git.execute({
-      operation: "PullRequestReviewGuideService.addWorktree",
-      cwd: workspaceRoot,
-      args: ["worktree", "add", "--detach", "--quiet", path, resolvedHead.commitSha],
-      timeoutMs: 5 * 60_000,
-    });
-    yield* Effect.addFinalizer(() =>
-      git
-        .removeWorktree({ cwd: workspaceRoot, path, force: true })
-        .pipe(Effect.ignore({ log: true })),
-    );
+    if (path === undefined) {
+      const directory = yield* fileSystem.makeTempDirectoryScoped({
+        directory: config.worktreesDir,
+        prefix: "review-guide-",
+      });
+      path = `${directory}/checkout`;
+      yield* git.execute({
+        operation: "PullRequestReviewGuideService.addWorktree",
+        cwd: workspaceRoot,
+        args: ["worktree", "add", "--detach", "--quiet", path, resolvedHead.commitSha],
+        timeoutMs: 5 * 60_000,
+      });
+      const worktreePath = path;
+      yield* Effect.addFinalizer(() =>
+        git
+          .removeWorktree({ cwd: workspaceRoot, path: worktreePath, force: true })
+          .pipe(Effect.ignore({ log: true })),
+      );
+    } else {
+      yield* git.execute({
+        operation: "PullRequestReviewGuideService.checkoutHead",
+        cwd: path,
+        args: ["checkout", "--detach", "--quiet", resolvedHead.commitSha],
+        timeoutMs: 5 * 60_000,
+      });
+    }
     const mergeBase = yield* git.execute({
       operation: "PullRequestReviewGuideService.mergeBase",
       cwd: path,
@@ -361,7 +399,7 @@ const make = Effect.gen(function* () {
     input: PullRequestRef,
     key: ThreadPullRequestKey,
     workspaceRoot: string,
-    locator: RepositoryIdentity["locator"],
+    identity: RepositoryIdentity | null | undefined,
     detail: PullRequestDetail,
     headSha: string,
     runId: string,
@@ -384,7 +422,8 @@ const make = Effect.gen(function* () {
     );
     const { generated, change } = yield* checkoutHead(
       workspaceRoot,
-      locator,
+      key,
+      identity,
       detail,
       headSha,
       stack,
@@ -448,7 +487,6 @@ const make = Effect.gen(function* () {
       });
     }
     const { key, workspaceRoot, identity } = yield* keyFor(input);
-    const locator = yield* requireOwnRepository(key, identity);
     const runKey = keyString(key);
     yield* pullRequests.invalidate({ reference: input });
     const [detail, stored] = yield* Effect.all([pullRequests.detail(input), readStored(key)], {
@@ -501,7 +539,7 @@ const make = Effect.gen(function* () {
         return updated;
       });
     const runId = `${runCounter++}`;
-    yield* write(input, key, workspaceRoot, locator, detail, currentHeadSha, runId, owns).pipe(
+    yield* write(input, key, workspaceRoot, identity, detail, currentHeadSha, runId, owns).pipe(
       Effect.andThen(finish(null)),
       Effect.catchCause((cause) =>
         Cause.hasInterruptsOnly(cause)
