@@ -136,20 +136,36 @@ export function V5StackHeader(props: {
   readonly options: Options;
   readonly canGoBack: boolean;
   readonly primary?: boolean;
+  readonly sidebarFilter?: NativeStackHeaderItemMenu;
 }) {
   const { options } = props;
   const theme = useMobileNavigationTheme();
   const nativeMetrics = useNativeLayoutMetrics();
   const searchRef = useRef<SearchBarCommands>(null);
+  const usesDuoToolbarRail =
+    Platform.OS === "ios" &&
+    !Platform.isPad &&
+    nativeMetrics?.hasHinge === true &&
+    nativeMetrics.horizontalSizeClass === "regular" &&
+    nativeMetrics.verticalBarEdge !== "none";
   const itemProps = { tintColor: options.headerTintColor, canGoBack: props.canGoBack };
   const leading = convertItems(options.unstable_headerLeftItems?.(itemProps) ?? [], "leading");
-  const trailing = convertItems(
-    [
-      ...(options.unstable_headerCenterItems?.() ?? []),
-      ...(options.unstable_headerRightItems?.(itemProps) ?? []),
-    ],
-    "trailing",
+  const trailingItems = [
+    ...(options.unstable_headerCenterItems?.() ?? []),
+    ...(options.unstable_headerRightItems?.(itemProps) ?? []),
+  ].filter(
+    (item) =>
+      !usesDuoToolbarRail ||
+      !props.primary ||
+      item.type === "spacing" ||
+      item.identifier !== "home-filter",
   );
+  // The primary column owns filter state; the expanded Duo exposes its menu
+  // alongside Compose in the detail column's vertical toolbar.
+  if (usesDuoToolbarRail && !props.primary && props.sidebarFilter) {
+    trailingItems.push({ ...props.sidebarFilter, axisBehavior: "verticalPreferred" });
+  }
+  const trailing = convertItems(trailingItems, "trailing");
   const toolbar = options.unstable_headerToolbarItems?.() ?? [];
   const mailSearch = toolbar.find(
     (item): item is HeaderBarButtonMailSearchToolbarItem => item.type === "mailSearchToolbar",

@@ -14,6 +14,7 @@ import {
 } from "@react-navigation/native";
 import {
   NativeStackView,
+  type NativeStackHeaderItemMenu,
   type NativeStackNavigationEventMap,
   type NativeStackNavigationOptions,
   type NativeStackNavigatorProps,
@@ -59,6 +60,7 @@ function ColumnScreen(props: {
   readonly descriptor: Descriptor;
   readonly primary?: boolean;
   readonly selectedThreadKey?: string | null;
+  readonly sidebarFilter?: NativeStackHeaderItemMenu;
   readonly onDismiss: (routeKey: string) => void;
   readonly navigation: ViewProps["navigation"];
 }) {
@@ -93,6 +95,7 @@ function ColumnScreen(props: {
             options={descriptor.options}
             canGoBack={!props.primary}
             primary={props.primary}
+            sidebarFilter={props.sidebarFilter}
           />
           <ColumnContent
             primary={props.primary}
@@ -152,6 +155,12 @@ function WorkspaceColumns(
 
   const primary = props.descriptors[props.primary.key];
   if (!primary) return null;
+  const sidebarFilter = primary.options
+    .unstable_headerRightItems?.({ canGoBack: false, tintColor: primary.options.headerTintColor })
+    .find(
+      (item): item is NativeStackHeaderItemMenu =>
+        item.type === "menu" && item.identifier === "home-filter",
+    );
   return (
     <Split.Host
       ref={hostRef}
@@ -236,6 +245,7 @@ function WorkspaceColumns(
                 ],
               }}
               canGoBack={false}
+              sidebarFilter={sidebarFilter}
             />
             <ColumnContent>
               <WorkspaceEmptyDetail
@@ -253,6 +263,7 @@ function WorkspaceColumns(
                 descriptor={descriptor}
                 onDismiss={handleNativeDismiss}
                 navigation={props.navigation}
+                sidebarFilter={sidebarFilter}
               />
             ) : null;
           })}

@@ -45,6 +45,7 @@ export function createSidebarHeaderItems(input: {
   return [
     withNativeGlassHeaderItem({
       type: "menu",
+      identifier: "home-filter",
       axisBehavior: "horizontalOnly",
       label: "",
       accessibilityLabel: "Filter threads",
