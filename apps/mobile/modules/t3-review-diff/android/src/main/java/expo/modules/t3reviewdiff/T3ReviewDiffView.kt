@@ -144,7 +144,9 @@ class T3ReviewDiffView(context: Context, appContext: AppContext) : ExpoView(cont
   }
 
   fun setContentInsetBottom(value: Float) {
-    canvasView.contentInsetBottomPx = dp(value).toInt()
+    canvasView.setPadding(0, 0, 0, max(0, dp(value).toInt()))
+    canvasView.setVerticalOffset(canvasView.verticalOffset())
+    canvasView.invalidate()
   }
 
   fun setInitialRowIndex(value: Double) {
@@ -771,12 +773,6 @@ private class DiffCanvasView(context: Context) : View(context) {
       clampHeaderPathOffsets()
       invalidate()
     }
-  var contentInsetBottomPx = 0
-    set(value) {
-      field = max(0, value)
-      setVerticalOffset(verticalOffset)
-      invalidate()
-    }
   var onRowTap: ((DiffRow, String, RowTapTarget) -> Unit)? = null
   var onVisibleRowsChanged: ((Int, Int) -> Unit)? = null
   var onContentHeightChanged: ((Int) -> Unit)? = null
@@ -843,7 +839,7 @@ private class DiffCanvasView(context: Context) : View(context) {
   fun verticalOffset(): Int = verticalOffset
 
   fun maxVerticalOffset(): Int =
-    max(0, (rowOffsets.lastOrNull() ?: 0) + contentInsetBottomPx - height)
+    max(0, (rowOffsets.lastOrNull() ?: 0) + paddingBottom - height)
 
   fun setHorizontalOffset(value: Int) {
     val nextOffset = value.coerceIn(0, maxHorizontalOffset())
@@ -944,9 +940,8 @@ private class DiffCanvasView(context: Context) : View(context) {
       }
     }
     val contentY = verticalOffset + y.toInt()
-    if (contentY < 0 || contentY >= rowOffsets.last()) return null
     val index = rowIndexAt(contentY)
-    return rows.getOrNull(index)?.let {
+    return rows.getOrNull(index)?.takeIf { contentY in 0 until rowOffsets.last() }?.let {
       RowHit(
         row = it,
         top = rowOffsets[index] - verticalOffset,

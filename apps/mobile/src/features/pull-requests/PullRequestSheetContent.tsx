@@ -22,6 +22,16 @@ export function PullRequestSheetContent(props: {
   const insets = useSafeAreaInsets();
   const { layout } = useAdaptiveWorkspaceLayout();
   const android = Platform.OS === "android";
+  const footer = props.footer ? (
+    <View
+      className={
+        android && props.scrollable !== false ? "bg-sheet-solid pt-3" : "bg-sheet px-4 pt-3"
+      }
+      style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+    >
+      {android ? <View style={{ minHeight: 48 }}>{props.footer}</View> : props.footer}
+    </View>
+  ) : null;
   const content = (
     <>
       {android ? (
@@ -74,24 +84,23 @@ export function PullRequestSheetContent(props: {
         >
           <View className="gap-4" pointerEvents={props.busy ? "none" : "auto"}>
             {props.children}
+            {/* Android partial-height sheets keep submit actions within the scrollable form. */}
+            {android ? footer : null}
           </View>
         </ScrollView>
       )}
-      {props.footer ? (
-        <View
-          className={android ? "bg-sheet-solid px-4 pt-3" : "bg-sheet px-4 pt-3"}
-          style={{ paddingBottom: Math.max(insets.bottom, 16) }}
-        >
-          {props.footer}
-        </View>
-      ) : null}
+
+      {!android || props.scrollable === false ? footer : null}
     </>
   );
   return (
     <KeyboardAvoidingView
       automaticOffset
       behavior="padding"
-      className={android ? "flex-1 bg-header" : "flex-1 bg-sheet"}
+      className={
+        android ? "flex-1 overflow-hidden rounded-t-[28px] bg-sheet-solid" : "flex-1 bg-sheet"
+      }
+      style={android ? { marginHorizontal: layout.usesSplitView ? 4 : 0 } : undefined}
     >
       <NativeStackScreenOptions
         options={{
@@ -99,16 +108,7 @@ export function PullRequestSheetContent(props: {
           ...(android ? { sheetCornerRadius: 28 } : {}),
         }}
       />
-      {android ? (
-        <View
-          className="flex-1 overflow-hidden rounded-t-[28px] bg-sheet-solid"
-          style={{ marginHorizontal: layout.usesSplitView ? 4 : 0 }}
-        >
-          {content}
-        </View>
-      ) : (
-        content
-      )}
+      {content}
     </KeyboardAvoidingView>
   );
 }
