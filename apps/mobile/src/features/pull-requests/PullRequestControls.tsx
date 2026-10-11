@@ -9,7 +9,6 @@ import { AppText as Text } from "../../components/AppText";
 import { SymbolView, type AppSymbolName } from "../../components/AppSymbol";
 import { MaterialButton } from "../../components/MaterialButton";
 import { MaterialIconButton } from "../../components/MaterialIconButton";
-import { MaterialFloatingToolbar } from "./MaterialFloatingToolbar";
 import { ControlPillMenu } from "../../components/ControlPillMenu";
 import { NativeHeaderToolbar } from "../../native/StackHeader";
 import {
@@ -111,7 +110,6 @@ export function PullRequestActionToolbar(props: {
   readonly params: PullRequestParams;
   readonly filePath?: string;
   readonly onOpenFiles?: () => void;
-  readonly onHeightChange?: (height: number) => void;
 }) {
   const navigation = useNavigation();
   const { draft } = usePullRequestReviewDraft(props.params);
@@ -158,57 +156,52 @@ export function PullRequestActionToolbar(props: {
     const primary = (
       <MaterialButton
         label={primaryLabel}
-        tone="primary"
+        tone="contrast"
+        fullWidth
         disabled={primaryDisabled}
         onPress={primaryPress}
       />
     );
     return (
       <View
-        pointerEvents="box-none"
-        className="absolute inset-x-0 bottom-0 z-10 items-center px-4 pt-2"
-        style={{ paddingBottom: insets.bottom + 16 }}
-        onLayout={(event) => props.onHeightChange?.(event.nativeEvent.layout.height)}
+        className="flex-row items-center justify-between gap-3 border-t border-border-subtle bg-screen px-4 pt-2"
+        style={{ paddingBottom: Math.max(insets.bottom, 8) }}
       >
-        <MaterialFloatingToolbar>
-          <View className="flex-row items-center gap-2">
-            {showAgentControls ? (
+        {showAgentControls ? (
+          <ControlPillMenu
+            title="AI helpers"
+            actions={agentActions.map((action) => agent.menuAction(action.task))}
+            onPressAction={({ nativeEvent }) => agent.select(nativeEvent.event)}
+          >
+            <View pointerEvents="none">
+              <MaterialIconButton
+                icon="sparkles"
+                accessibilityLabel="PR agent actions"
+                disabled={agent.disabled}
+              />
+            </View>
+          </ControlPillMenu>
+        ) : null}
+        {showPrimary ? (
+          <View className="min-w-0 flex-1">
+            {!pendingReview && chooseThread ? (
               <ControlPillMenu
-                title="AI helpers"
-                actions={agentActions.map((action) => agent.menuAction(action.task))}
+                title="Open thread"
+                actions={threadMenuItems}
                 onPressAction={({ nativeEvent }) => agent.select(nativeEvent.event)}
               >
-                <View pointerEvents="none">
-                  <MaterialIconButton
-                    icon="sparkles"
-                    accessibilityLabel="PR agent actions"
-                    disabled={agent.disabled}
-                  />
-                </View>
+                <View pointerEvents="none">{primary}</View>
               </ControlPillMenu>
-            ) : null}
-            {showPrimary ? (
-              <View className="min-w-0 shrink">
-                {!pendingReview && chooseThread ? (
-                  <ControlPillMenu
-                    title="Open thread"
-                    actions={threadMenuItems}
-                    onPressAction={({ nativeEvent }) => agent.select(nativeEvent.event)}
-                  >
-                    <View pointerEvents="none">{primary}</View>
-                  </ControlPillMenu>
-                ) : (
-                  primary
-                )}
-              </View>
-            ) : null}
-            <MaterialIconButton
-              icon="doc.on.doc"
-              accessibilityLabel="Changed files"
-              onPress={openFiles}
-            />
+            ) : (
+              primary
+            )}
           </View>
-        </MaterialFloatingToolbar>
+        ) : null}
+        <MaterialIconButton
+          icon="doc.on.doc"
+          accessibilityLabel="Changed files"
+          onPress={openFiles}
+        />
       </View>
     );
   }
