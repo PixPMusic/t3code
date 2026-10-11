@@ -57,6 +57,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
+import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { EmptyState } from "../../components/EmptyState";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { SymbolView } from "../../components/AppSymbol";
@@ -270,6 +271,7 @@ function PullRequestOverview(props: {
 }
 
 export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestParams>) {
+  const { layout } = useAdaptiveWorkspaceLayout();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const params = route.params;
@@ -443,7 +445,10 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
           </NativeHeaderToolbar.Menu>
         </NativeHeaderToolbar>
         <View
-          style={{ flex: 1 }}
+          style={{
+            flex: 1,
+            marginHorizontal: Platform.OS === "android" && layout.usesSplitView ? 4 : 0,
+          }}
           className={
             Platform.OS === "android"
               ? "overflow-hidden rounded-t-[28px] bg-sheet-solid"

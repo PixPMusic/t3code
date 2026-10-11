@@ -16,6 +16,7 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -35,21 +36,34 @@ class T3WorkspaceNavigationModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("T3WorkspaceNavigation")
     View(T3WorkspaceNavigationView::class) {
-      Prop("selectedTab") { view: T3WorkspaceNavigationView, value: String -> view.selectedTab = value }
+      Prop("selectedTab") { view: T3WorkspaceNavigationView, value: String ->
+        view.selectedTab = value
+      }
       Prop("rail") { view: T3WorkspaceNavigationView, value: Boolean -> view.rail = value }
       Prop("dark") { view: T3WorkspaceNavigationView, value: Boolean -> view.dark = value }
       Prop("textScale") { view: T3WorkspaceNavigationView, value: Float -> view.textScale = value }
-      Prop("containerColor") { view: T3WorkspaceNavigationView, value: Int -> view.containerColor = value }
-      Prop("selectedColor") { view: T3WorkspaceNavigationView, value: Int -> view.selectedColor = value }
-      Prop("indicatorColor") { view: T3WorkspaceNavigationView, value: Int -> view.indicatorColor = value }
-      Prop("unselectedColor") { view: T3WorkspaceNavigationView, value: Int -> view.unselectedColor = value }
+      Prop("containerColor") { view: T3WorkspaceNavigationView, value: Int ->
+        view.containerColor = value
+      }
+      Prop("selectedColor") { view: T3WorkspaceNavigationView, value: Int ->
+        view.selectedColor = value
+      }
+      Prop("indicatorColor") { view: T3WorkspaceNavigationView, value: Int ->
+        view.indicatorColor = value
+      }
+      Prop("unselectedColor") { view: T3WorkspaceNavigationView, value: Int ->
+        view.unselectedColor = value
+      }
       Events("onTabSelected")
     }
   }
 }
 
 /** One Material3 selection surface moves from below the list to its leading edge. */
-class T3WorkspaceNavigationView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
+class T3WorkspaceNavigationView(
+  context: Context,
+  appContext: AppContext
+) : ExpoView(context, appContext) {
   // Compose must remeasure native children when Yoga resizes the folded window.
   override val shouldUseAndroidLayout = true
 
@@ -67,7 +81,10 @@ class T3WorkspaceNavigationView(context: Context, appContext: AppContext) : Expo
     // Fabric measures the replacement bar before attaching it on a fold.
     // Compose needs an attached window to obtain its lifecycle recomposer.
     if (!isAttachedToWindow) {
-      setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+      setMeasuredDimension(
+        MeasureSpec.getSize(widthMeasureSpec),
+        MeasureSpec.getSize(heightMeasureSpec)
+      )
       return
     }
     super.onMeasure(widthMeasureSpec, heightMeasureSpec)
@@ -83,68 +100,84 @@ class T3WorkspaceNavigationView(context: Context, appContext: AppContext) : Expo
   }
 
   init {
-    addView(ComposeView(context).apply {
-      setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-      setContent {
-        MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
-          val tabs = listOf("threads", "pullRequests")
-          if (rail) {
-            NavigationRail(
-              modifier = Modifier.fillMaxSize(),
-              containerColor = Color(containerColor),
-              windowInsets = WindowInsets(0),
-            ) {
-              Spacer(Modifier.weight(1f))
-              tabs.forEach { tab ->
-                NavigationRailItem(
-                  selected = selectedTab == tab,
-                  onClick = { onTabSelected(mapOf("tab" to tab)) },
-                  icon = { TabIcon(tab) },
-                  label = { Text(if (tab == "threads") "Chats" else "PRs", fontSize = (12 * textScale).sp) },
-                  colors = NavigationRailItemDefaults.colors(
-                    selectedIconColor = Color(selectedColor),
-                    selectedTextColor = Color(selectedColor),
-                    indicatorColor = Color(indicatorColor),
-                    unselectedIconColor = Color(unselectedColor),
-                    unselectedTextColor = Color(unselectedColor),
-                  ),
-                )
+    addView(
+      ComposeView(context).apply {
+        setViewCompositionStrategy(
+          ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool
+        )
+        setContent {
+          MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
+            val tabs = listOf("threads", "pullRequests")
+            if (rail) {
+              NavigationRail(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = Color(containerColor),
+                windowInsets = WindowInsets(0),
+              ) {
+                Spacer(Modifier.weight(1f))
+                tabs.forEach { tab ->
+                  NavigationRailItem(
+                    selected = selectedTab == tab,
+                    onClick = { onTabSelected(mapOf("tab" to tab)) },
+                    icon = { tabIcon(tab) },
+                    label = {
+                      val title = if (tab == "threads") "Chats" else "PRs"
+                      Text(title, fontSize = (12 * textScale).sp)
+                    },
+                    colors = NavigationRailItemDefaults.colors(
+                      selectedIconColor = Color(selectedColor),
+                      selectedTextColor = Color(selectedColor),
+                      indicatorColor = Color(indicatorColor),
+                      unselectedIconColor = Color(unselectedColor),
+                      unselectedTextColor = Color(unselectedColor),
+                    ),
+                  )
+                }
+                Spacer(Modifier.weight(1f))
               }
-              Spacer(Modifier.weight(1f))
-            }
-          } else {
-            NavigationBar(
-              modifier = Modifier.fillMaxSize(),
-              containerColor = Color(containerColor),
-              tonalElevation = androidx.compose.ui.unit.Dp(0f),
-              windowInsets = WindowInsets(0),
-            ) {
-              tabs.forEach { tab ->
-                NavigationBarItem(
-                  selected = selectedTab == tab,
-                  onClick = { onTabSelected(mapOf("tab" to tab)) },
-                  icon = { TabIcon(tab) },
-                  label = { Text(if (tab == "threads") "Chats" else "Pull requests", fontSize = (12 * textScale).sp) },
-                  colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color(selectedColor),
-                    selectedTextColor = Color(selectedColor),
-                    indicatorColor = Color(indicatorColor),
-                    unselectedIconColor = Color(unselectedColor),
-                    unselectedTextColor = Color(unselectedColor),
-                  ),
-                )
+            } else {
+              NavigationBar(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = Color(containerColor),
+                tonalElevation = androidx.compose.ui.unit.Dp(0f),
+                windowInsets = WindowInsets(0),
+              ) {
+                tabs.forEach { tab ->
+                  NavigationBarItem(
+                    selected = selectedTab == tab,
+                    onClick = { onTabSelected(mapOf("tab" to tab)) },
+                    icon = { tabIcon(tab) },
+                    label = {
+                      val title = if (tab == "threads") "Chats" else "Pull requests"
+                      Text(title, fontSize = (12 * textScale).sp)
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                      selectedIconColor = Color(selectedColor),
+                      selectedTextColor = Color(selectedColor),
+                      indicatorColor = Color(indicatorColor),
+                      unselectedIconColor = Color(unselectedColor),
+                      unselectedTextColor = Color(unselectedColor),
+                    ),
+                  )
+                }
               }
             }
           }
         }
-      }
-    }, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+      },
+      LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+    )
   }
 
-  @androidx.compose.runtime.Composable
-  private fun TabIcon(tab: String) {
+  @Composable
+  private fun tabIcon(tab: String) {
+    val drawable = if (tab == "threads") {
+      R.drawable.t3_chats
+    } else {
+      R.drawable.t3_pull_requests
+    }
     Icon(
-      painter = painterResource(if (tab == "threads") R.drawable.t3_chats else R.drawable.t3_pull_requests),
+      painter = painterResource(drawable),
       contentDescription = if (tab == "threads") "Chats" else "Pull requests",
     )
   }
