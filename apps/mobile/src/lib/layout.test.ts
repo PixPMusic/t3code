@@ -11,6 +11,7 @@ import {
   SPLIT_LAYOUT_MIN_HEIGHT,
   SPLIT_LAYOUT_MIN_WIDTH,
 } from "./layout";
+import type { NativeLayoutMetrics } from "./reserved-regions";
 
 describe("thread work-log text sizing", () => {
   it.each([11, 16, 22])(
@@ -113,6 +114,37 @@ describe("deriveCenteredContentHorizontalPadding", () => {
 });
 
 describe("deriveLayout", () => {
+  const duoMetrics: NativeLayoutMetrics = {
+    width: 669,
+    height: 951,
+    hasHinge: true,
+    horizontalSizeClass: "regular",
+    verticalBarEdge: "none",
+    safeArea: { top: 24, bottom: 34, left: 0, right: 0 },
+    reservedRegions: [],
+  };
+
+  it("keeps an open Duo portrait split after its division and vertical rail disappear", () => {
+    const partiallyOpen = {
+      ...duoMetrics,
+      verticalBarEdge: "right" as const,
+      reservedRegions: [{ kind: "division" as const, x: 320, y: 0, width: 14, height: 951 }],
+    };
+    for (const nativeMetrics of [partiallyOpen, duoMetrics]) {
+      expect(deriveLayout({ width: 669, height: 951, nativeMetrics }).usesSplitView).toBe(true);
+    }
+  });
+
+  it.each([
+    { width: 466, height: 678, horizontalSizeClass: "compact" as const },
+    { width: 599, height: 951, horizontalSizeClass: "regular" as const },
+    { width: 669, height: 399, horizontalSizeClass: "regular" as const },
+  ])("keeps a hinged window compact when its usable space is insufficient: %j", (geometry) => {
+    expect(
+      deriveLayout({ ...geometry, nativeMetrics: { ...duoMetrics, ...geometry } }).usesSplitView,
+    ).toBe(false);
+  });
+
   it.each([
     { name: "small iPhone portrait", width: 375, height: 667 },
     { name: "large iPhone portrait", width: 430, height: 932 },

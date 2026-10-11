@@ -101,7 +101,8 @@ export function deriveLayout(input: {
   // a floor so a narrow multitasking window cannot squeeze both columns.
   const hasDuoGeometry =
     metrics &&
-    (metrics.verticalBarEdge !== "none" ||
+    (metrics.hasHinge === true ||
+      metrics.verticalBarEdge !== "none" ||
       metrics.reservedRegions.some((region) => region.kind === "division"));
   const wideEnoughForSplit = hasDuoGeometry
     ? metrics.horizontalSizeClass === "regular" &&

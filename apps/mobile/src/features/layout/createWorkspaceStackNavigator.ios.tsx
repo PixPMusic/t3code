@@ -19,7 +19,7 @@ import {
   type NativeStackNavigatorProps,
   type NativeStackTypeBag,
 } from "@react-navigation/native-stack";
-import { use, useCallback, useEffect, useMemo, useRef, type ComponentProps } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Platform, View } from "react-native";
 import { Split, type SplitHostCommands } from "react-native-screens";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
@@ -42,6 +42,7 @@ import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
 import { dispatchHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import {
   nativeWorkspacePopAction,
+  nativeStackPopAction,
   projectWorkspaceStack,
   partitionStackPresentations,
 } from "../../native/workspace-stack-projection";
@@ -60,6 +61,8 @@ function ColumnScreen(props: {
   readonly primary?: boolean;
   readonly selectedThreadKey?: string | null;
   readonly onDismiss: (routeKey: string) => void;
+  readonly onWillAppear?: () => void;
+  readonly onDidAppear?: (routeKey: string) => void;
   readonly navigation: ViewProps["navigation"];
 }) {
   const { descriptor } = props;
@@ -74,18 +77,20 @@ function ColumnScreen(props: {
       onDismiss={(event) => {
         if (event.nativeEvent.isNativeDismiss) props.onDismiss(key);
       }}
-      onWillAppear={() =>
-        props.navigation.emit({ type: "transitionStart", target: key, data: { closing: false } })
-      }
-      onDidAppear={() =>
-        props.navigation.emit({ type: "transitionEnd", target: key, data: { closing: false } })
-      }
-      onWillDisappear={() =>
-        props.navigation.emit({ type: "transitionStart", target: key, data: { closing: true } })
-      }
-      onDidDisappear={() =>
-        props.navigation.emit({ type: "transitionEnd", target: key, data: { closing: true } })
-      }
+      onWillAppear={() => {
+        props.onWillAppear?.();
+        props.navigation.emit({ type: "transitionStart", target: key, data: { closing: false } });
+      }}
+      onDidAppear={() => {
+        props.onDidAppear?.(key);
+        props.navigation.emit({ type: "transitionEnd", target: key, data: { closing: false } });
+      }}
+      onWillDisappear={() => {
+        props.navigation.emit({ type: "transitionStart", target: key, data: { closing: true } });
+      }}
+      onDidDisappear={() => {
+        props.navigation.emit({ type: "transitionEnd", target: key, data: { closing: true } });
+      }}
     >
       <NavigationContext value={descriptor.navigation}>
         <NavigationRouteContext value={descriptor.route}>
@@ -118,7 +123,10 @@ function WorkspaceColumns(
   const hostRef = useRef<SplitHostCommands>(null);
   const activeDetailKey = props.detail.at(-1)?.key;
   const compactColumn = activeDetailKey ? "secondary" : "primary";
-  const shownCompactColumn = useRef(compactColumn);
+  const [shownCompactColumn, setShownCompactColumn] = useState(compactColumn);
+  const collapsed = useRef(!layout.usesSplitView);
+  const appearedDetailKey = useRef<string | undefined>(undefined);
+  const returningDetailKey = useRef<string | undefined>(undefined);
   const threadParams = props.detail.findLast((route) => route.name === "Thread")?.params;
   const selectedThreadKey =
     threadParams &&
@@ -139,16 +147,40 @@ function WorkspaceColumns(
     },
     [props.navigation],
   );
+  const handlePrimaryWillAppear = () => {
+    const state = props.navigation.getState();
+    returningDetailKey.current =
+      collapsed.current &&
+      !layout.usesSplitView &&
+      appearedDetailKey.current === activeDetailKey &&
+      state.routes[state.index]?.key === activeDetailKey
+        ? activeDetailKey
+        : undefined;
+  };
+  const handlePrimaryDidAppear = () => {
+    const returningKey = returningDetailKey.current;
+    returningDetailKey.current = undefined;
+    if (!collapsed.current || layout.usesSplitView) return;
+    setShownCompactColumn("primary");
+    if (returningKey === undefined) return;
+    // Compact Back reveals the primary column without removing its detail
+    // screens. Reconcile the completed native return with the router history;
+    // a cancelled swipe and an expanding split must keep the selected thread.
+    const state = props.navigation.getState();
+    const action = nativeStackPopAction(state, returningKey, props.primary.key);
+    if (!action) return;
+    appearedDetailKey.current = undefined;
+    props.navigation.dispatch(action);
+  };
 
   useEffect(() => {
     // In compact size classes UIKit exposes one column. Selecting a thread
     // changes the visible column without rebuilding either navigation stack.
     // The initial column is a native prop, so it is applied before the host
     // attaches. Commands only handle later navigation changes.
-    if (layout.usesSplitView || shownCompactColumn.current === compactColumn) return;
-    shownCompactColumn.current = compactColumn;
+    if (layout.usesSplitView || shownCompactColumn === compactColumn) return;
     hostRef.current?.show(compactColumn);
-  }, [compactColumn, layout.usesSplitView]);
+  }, [compactColumn, layout.usesSplitView, shownCompactColumn]);
 
   const primary = props.descriptors[props.primary.key];
   if (!primary) return null;
@@ -163,6 +195,21 @@ function WorkspaceColumns(
       }
       displayModeButtonVisibility="never"
       presentsWithGesture
+      onDisplayModeWillChange={({ nativeEvent }) => {
+        if (nativeEvent.horizontalSizeClass === "regular") {
+          collapsed.current = false;
+          returningDetailKey.current = undefined;
+        } else if (nativeEvent.horizontalSizeClass === "compact") {
+          collapsed.current = true;
+        }
+      }}
+      onCollapse={() => {
+        collapsed.current = true;
+      }}
+      onExpand={() => {
+        collapsed.current = false;
+        returningDetailKey.current = undefined;
+      }}
       showInspector={inspector.visible}
       onInspectorHide={() => {
         if (inspector.visible) toggleAuxiliaryPane();
@@ -181,6 +228,8 @@ function WorkspaceColumns(
             primary
             selectedThreadKey={selectedThreadKey}
             onDismiss={handleNativeDismiss}
+            onWillAppear={handlePrimaryWillAppear}
+            onDidAppear={handlePrimaryDidAppear}
             navigation={props.navigation}
           />
         </Split.Stack>
@@ -252,6 +301,12 @@ function WorkspaceColumns(
                 key={route.key}
                 descriptor={descriptor}
                 onDismiss={handleNativeDismiss}
+                onDidAppear={(key) => {
+                  appearedDetailKey.current = key;
+                  if (collapsed.current && !layout.usesSplitView) {
+                    setShownCompactColumn("secondary");
+                  }
+                }}
                 navigation={props.navigation}
               />
             ) : null;
