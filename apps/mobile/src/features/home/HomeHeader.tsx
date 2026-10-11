@@ -34,9 +34,11 @@ export function HomeHeader(props: HomeHeaderProps) {
   });
   // UIKit swaps search fields when the Duo header changes modes. Restore the
   // current filter without reapplying text on each keystroke.
+  const previousSidebarHeader = useRef(sidebarHeader);
   useEffect(() => {
-    if (usesDuoWorkspace) restoreSearchText();
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Header mode changes replace the native search field.
+    const headerChanged = previousSidebarHeader.current !== sidebarHeader;
+    previousSidebarHeader.current = sidebarHeader;
+    if (usesDuoWorkspace && headerChanged) restoreSearchText();
   }, [sidebarHeader, usesDuoWorkspace]);
   useEffect(
     () =>
