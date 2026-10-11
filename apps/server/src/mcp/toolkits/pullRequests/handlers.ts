@@ -189,7 +189,7 @@ function projectForPullRequest(
     );
   };
   if (preferred !== undefined && matches(preferred)) return preferred;
-  return projects.find(matches) ?? preferred ?? projects[0];
+  return projects.find(matches) ?? preferred;
 }
 
 const make = Effect.gen(function* () {
