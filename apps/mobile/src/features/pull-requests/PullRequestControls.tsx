@@ -158,7 +158,7 @@ export function PullRequestActionToolbar(props: {
     const primary = (
       <MaterialButton
         label={primaryLabel}
-        tone="text"
+        tone="primary"
         disabled={primaryDisabled}
         onPress={primaryPress}
       />
