@@ -206,6 +206,7 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
                 });
               case "OrchestratorDispatchError":
               case "OrchestratorCommandRejectedError":
+              case "ThreadManagementProviderInstanceDisabledError":
                 return dispatchFailure(error);
               default:
                 return unavailable();
