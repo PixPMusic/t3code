@@ -272,6 +272,7 @@ function PullRequestOverview(props: {
 
 export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestParams>) {
   const { layout } = useAdaptiveWorkspaceLayout();
+  const [toolbarHeight, setToolbarHeight] = useState(0);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const params = route.params;
@@ -510,7 +511,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                   contentContainerStyle={{
                     paddingHorizontal: 16,
                     paddingTop: 8,
-                    paddingBottom: 24,
+                    paddingBottom: 24 + (Platform.OS === "android" ? toolbarHeight : 0),
                     // Short tabs must still be tall enough to preserve the collapsed header.
                     minHeight: Math.max(
                       0,
@@ -654,7 +655,12 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
               </View>
             ))}
         </View>
-        <PullRequestActionToolbar pr={pr} params={params} onOpenFiles={openFiles} />
+        <PullRequestActionToolbar
+          pr={pr}
+          params={params}
+          onOpenFiles={openFiles}
+          onHeightChange={setToolbarHeight}
+        />
       </View>
     </PullRequestMarkdownRepository>
   );
@@ -697,6 +703,7 @@ export function PullRequestFileRouteScreen({
   }
 >) {
   const navigation = useNavigation();
+  const [toolbarHeight, setToolbarHeight] = useState(0);
   const insets = useSafeAreaInsets();
   const commit = route.params.commit;
   const result = usePullRequestDiff(route.params);
@@ -1033,7 +1040,11 @@ export function PullRequestFileRouteScreen({
           />
         </View>
       ) : null}
-      <View className="flex-1" collapsable={false}>
+      <View
+        className="flex-1"
+        collapsable={false}
+        style={{ paddingBottom: Platform.OS === "android" ? toolbarHeight : 0 }}
+      >
         {loadingDiff || result.error ? (
           <View style={{ paddingTop: Platform.OS === "ios" && !staleDiff ? insets.top : 0 }}>
             <PullRequestReadStatus pending={loadingDiff} error={result.error} />
@@ -1158,6 +1169,7 @@ export function PullRequestFileRouteScreen({
         params={route.params}
         filePath={visibleFile?.path}
         onOpenFiles={() => navigation.navigate("PullRequestFiles", route.params)}
+        onHeightChange={setToolbarHeight}
       />
     </View>
   );
