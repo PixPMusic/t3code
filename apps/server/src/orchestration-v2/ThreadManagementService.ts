@@ -743,6 +743,11 @@ const make = Effect.gen(function* () {
     "orchestrationV2.threadManagement.configureModelSelection",
   )(function* (input: Parameters<ThreadManagementServiceShape["configureModelSelection"]>[0]) {
     const target = yield* getProjectThreadRecords(input, ["runs", "providerTurns"]);
+    if (target.thread.archivedAt !== null) {
+      return yield* new ThreadManagementThreadArchivedError({
+        threadId: input.threadId,
+      });
+    }
     const activeRun = latestActiveRun(target);
     if (
       modelSelectionsEqual(

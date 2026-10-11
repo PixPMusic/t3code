@@ -401,6 +401,7 @@ it.live.each([
   "unsupported",
   "preparing",
   "disabled",
+  "archived",
 ] as const)("configures the calling thread without losing work: %s", (scenario) =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -526,8 +527,26 @@ it.live.each([
           });
           yield* worker.drain();
         }
+        if (scenario === "archived") {
+          yield* orchestrator.dispatch({
+            type: "thread.archive",
+            commandId: CommandId.make(`${name}:archive`),
+            threadId,
+          });
+        }
         const before = yield* orchestrator.getThreadProjection(threadId);
         const sequence = yield* orchestrator.getThreadEventSequence(threadId);
+        if (scenario === "archived") {
+          assert.isNotNull(before.thread.archivedAt);
+          const run = before.runs[0]!;
+          assert.equal(run.status, "running");
+          assert.isTrue(
+            before.providerTurns.some(
+              (turn) => turn.runAttemptId === run.activeAttemptId && turn.status === "running",
+            ),
+          );
+          assert.lengthOf(starts, 1);
+        }
         const configure = threads.configureModelSelection({
           projectId,
           threadId,
@@ -536,15 +555,22 @@ it.live.each([
           createdBy: "agent",
           creationSource: "mcp",
         });
-        if (scenario === "unsupported" || scenario === "preparing" || scenario === "disabled") {
+        if (
+          scenario === "unsupported" ||
+          scenario === "preparing" ||
+          scenario === "disabled" ||
+          scenario === "archived"
+        ) {
           const error = yield* Effect.flip(configure);
           assert.equal(
             error._tag,
-            scenario === "disabled"
-              ? "ThreadManagementProviderInstanceDisabledError"
-              : scenario === "preparing"
-                ? "ThreadManagementNoSteerableRunError"
-                : "OrchestratorDispatchError",
+            scenario === "archived"
+              ? "ThreadManagementThreadArchivedError"
+              : scenario === "disabled"
+                ? "ThreadManagementProviderInstanceDisabledError"
+                : scenario === "preparing"
+                  ? "ThreadManagementNoSteerableRunError"
+                  : "OrchestratorDispatchError",
           );
           if (scenario === "disabled") {
             assert.deepEqual(before.runs[0]?.modelSelection, selection);
@@ -617,7 +643,7 @@ it.live.each([
                 CommandReceiptStore.layer.pipe(Layer.provide(layerDatabase)),
                 ProviderReplayHarness.layerWithRegistry({ name }, registry, {
                   databaseLayer: layerDatabase,
-                  runEffectWorker: scenario !== "preparing",
+                  runEffectWorker: scenario !== "preparing" && scenario !== "archived",
                 }),
               ),
             ),

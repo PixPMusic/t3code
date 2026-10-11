@@ -264,6 +264,12 @@ it("bounds public command rejections and redacts internal dispatch causes", () =
 
 it.effect.each([
   {
+    name: "reports an archived thread",
+    error: new ThreadManagement.ThreadManagementThreadArchivedError({ threadId }),
+    code: "thread_not_sendable",
+    message: `Thread ${threadId} is archived and cannot receive messages.`,
+  },
+  {
     name: "reports a disabled provider instance",
     error: new ThreadManagement.ThreadManagementProviderInstanceDisabledError({
       projectId: McpToolAccessTestkit.liveThreadShell(threadId).projectId,

@@ -199,6 +199,7 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
         .pipe(
           Effect.mapError((error) => {
             switch (error._tag) {
+              case "ThreadManagementThreadArchivedError":
               case "ThreadManagementNoSteerableRunError":
                 return new OrchestratorMcpFailure({
                   code: "thread_not_sendable",
