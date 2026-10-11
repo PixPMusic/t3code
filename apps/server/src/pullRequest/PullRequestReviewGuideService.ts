@@ -103,6 +103,8 @@ const make = Effect.gen(function* () {
         GIT_WORK_TREE: undefined,
         GIT_COMMON_DIR: undefined,
         GIT_INDEX_FILE: undefined,
+        GIT_OBJECT_DIRECTORY: undefined,
+        GIT_ALTERNATE_OBJECT_DIRECTORIES: undefined,
       },
     });
   const resolveCommit = (cwd: string, revision: string) =>
@@ -242,8 +244,8 @@ const make = Effect.gen(function* () {
         timeoutMs: 5 * 60_000,
       });
     // The base branch is what the change is measured from; the head commit is the change. Hosts
-    // that do not serve an unadvertised commit still serve their pull refs, which GitHub and
-    // Forgejo name the same way.
+    // that do not serve an unadvertised commit still serve their change request refs: GitLab's
+    // merge-requests refs, or the pull refs shared by GitHub and Forgejo.
     // The host names the base branch. A name git rejects, or one that would change the refspec
     // (a leading `+`, a `:`), is refused before it reaches `git fetch`.
     yield* execute({
@@ -273,7 +275,15 @@ const make = Effect.gen(function* () {
     );
     const baseTip = yield* resolveCommit(repositoryRoot, baseRef);
     const fetchHead = (number: number, sha: string) =>
-      fetch([sha]).pipe(Effect.catch(() => fetch([`refs/pull/${number}/head`])));
+      fetch([sha]).pipe(
+        Effect.catch(() =>
+          fetch([
+            detail.provider === "gitlab"
+              ? `refs/merge-requests/${number}/head`
+              : `refs/pull/${number}/head`,
+          ]),
+        ),
+      );
     yield* fetchHead(detail.number, headSha);
     // The other layers of a stack are context the model may read across a seam. A layer that
     // cannot be fetched is still named in the prompt, without a head to read.

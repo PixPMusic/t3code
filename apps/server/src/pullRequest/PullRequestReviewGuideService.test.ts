@@ -12,6 +12,7 @@ import * as Schedule from "effect/Schedule";
 import * as Scope from "effect/Scope";
 import {
   ProjectId,
+  GitCommandError,
   SourceControlProviderKind,
   TextGenerationError,
   type PullRequestActivity,
@@ -515,12 +516,26 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
         yield* git(unrelated, ["add", "wrong.txt"]);
         yield* fs.writeFileString(`${unrelated}/wrong.txt`, "uncommitted work\n");
         yield* fs.writeFileString(`${unrelated}/.git/FETCH_HEAD`, "unrelated fetch\n");
+        const readObjects = Effect.gen(function* () {
+          const directory = `${unrelated}/.git/objects`;
+          const paths = yield* fs.readDirectory(directory, { recursive: true });
+          return yield* Effect.forEach(paths.toSorted(), (path) =>
+            Effect.gen(function* () {
+              const info = yield* fs.stat(`${directory}/${path}`);
+              return {
+                path,
+                contents: info.type === "File" ? yield* fs.readFile(`${directory}/${path}`) : null,
+              };
+            }),
+          );
+        });
         const before = {
           refs: yield* git(unrelated, ["show-ref"]),
           head: yield* git(unrelated, ["rev-parse", "HEAD"]),
           status: yield* git(unrelated, ["status", "--porcelain"]),
           index: yield* fs.readFile(`${unrelated}/.git/index`),
           fetchHead: yield* fs.readFileString(`${unrelated}/.git/FETCH_HEAD`),
+          objects: yield* readObjects,
         };
         const stored = yield* Deferred.make<void>();
         const seen = yield* Deferred.make<{
@@ -535,6 +550,8 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
           GIT_WORK_TREE: undefined,
           GIT_COMMON_DIR: undefined,
           GIT_INDEX_FILE: undefined,
+          GIT_OBJECT_DIRECTORY: undefined,
+          GIT_ALTERNATE_OBJECT_DIRECTORIES: undefined,
         };
         const readCheckout = (cwd: string, args: ReadonlyArray<string>) =>
           driver.execute({ operation: "test.readCheckout", cwd, args, env: cleanEnv }).pipe(
@@ -600,6 +617,8 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
             process.env.GIT_WORK_TREE = unrelated;
             process.env.GIT_COMMON_DIR = `${unrelated}/.git`;
             process.env.GIT_INDEX_FILE = `${unrelated}/.git/index`;
+            process.env.GIT_OBJECT_DIRECTORY = `${unrelated}/.git/objects`;
+            process.env.GIT_ALTERNATE_OBJECT_DIRECTORIES = `${repositories.remote}/.git/objects`;
             yield* service
               .generate(reference)
               .pipe(Effect.provide(Logger.layer([logger], { mergeWithExisting: false })));
@@ -625,6 +644,7 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
         assert.strictEqual(yield* git(unrelated, ["rev-parse", "HEAD"]), before.head);
         assert.strictEqual(yield* git(unrelated, ["status", "--porcelain"]), before.status);
         assert.deepStrictEqual(yield* fs.readFile(`${unrelated}/.git/index`), before.index);
+        assert.deepStrictEqual(yield* readObjects, before.objects);
         assert.strictEqual(
           yield* fs.readFileString(`${unrelated}/.git/FETCH_HEAD`),
           before.fetchHead,
@@ -637,6 +657,112 @@ it.layer(layerBase, { excludeTestServices: true })("PullRequestReviewGuideServic
         assert.deepStrictEqual(yield* fs.readDirectory(workspace), []);
       }),
     ),
+  );
+
+  it.effect.each(["gitlab", "github"] as const)(
+    "fetches %s change request heads and stack layers when the host rejects commit SHA fetches",
+    (provider) =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const repositories = yield* makeRepositories;
+          const refPrefix = provider === "gitlab" ? "refs/merge-requests" : "refs/pull";
+          for (const [number, sha] of [
+            [6, repositories.lowerSha],
+            [7, repositories.headSha],
+            [8, repositories.upperSha],
+          ] as const) {
+            yield* git(repositories.remote, ["update-ref", `${refPrefix}/${number}/head`, sha]);
+          }
+          yield* git(repositories.remote, ["update-ref", "-d", "refs/heads/feature"]);
+          yield* git(repositories.remote, ["update-ref", "-d", "refs/heads/upper"]);
+          const stored = yield* Deferred.make<void>();
+          const seen = yield* Deferred.make<{
+            readonly input: ReviewGuideGenerationInput;
+            readonly head: string;
+            readonly changed: string;
+            readonly upper: string;
+          }>();
+          const driver = yield* GitVcsDriver.GitVcsDriver;
+          const readCheckout = (cwd: string, args: ReadonlyArray<string>) =>
+            driver.execute({ operation: "test.readCheckout", cwd, args }).pipe(
+              Effect.map((result) => result.stdout.trim()),
+              Effect.orDie,
+            );
+          const rejectShaDriver = GitVcsDriver.GitVcsDriver.of({
+            ...driver,
+            execute: (input) =>
+              input.args[0] === "fetch" && /^[0-9a-f]{40}$/.test(input.args.at(-1) ?? "")
+                ? Effect.fail(
+                    new GitCommandError({
+                      operation: input.operation,
+                      command: "git",
+                      cwd: input.cwd,
+                      detail: "The remote does not accept commit SHA fetches.",
+                    }),
+                  )
+                : driver.execute(input),
+          });
+          const context = yield* Layer.build(
+            makeLayer({
+              ...repositories,
+              identity: null,
+              detail: { provider: SourceControlProviderKind.make(provider) },
+              stored,
+              lookup: () =>
+                Effect.succeed({
+                  provider: SourceControlProviderKind.make(provider),
+                  nameWithOwner: "acme/app",
+                  url: repositories.remote,
+                  sshUrl: repositories.remote,
+                }),
+              generate: (input) =>
+                Effect.gen(function* () {
+                  const head = yield* readCheckout(input.cwd, ["rev-parse", "HEAD"]);
+                  const changed = yield* readCheckout(input.cwd, [
+                    "diff",
+                    "--name-only",
+                    `${input.baseCommit}...HEAD`,
+                  ]);
+                  const upper = yield* readCheckout(input.cwd, [
+                    "show",
+                    `${repositories.upperSha}:upper.txt`,
+                  ]);
+                  yield* Deferred.succeed(seen, { input, head, changed, upper });
+                  return { stops: [] };
+                }),
+            }).pipe(Layer.provide(Layer.succeed(GitVcsDriver.GitVcsDriver, rejectShaDriver))),
+          );
+          const service = Context.get(
+            context,
+            PullRequestReviewGuideService.PullRequestReviewGuideService,
+          );
+          const logger = Logger.make(({ message }) => {
+            if (String(message).includes("Review guide generation failed")) {
+              Deferred.doneUnsafe(stored, Effect.die("The change request ref fallback failed."));
+            }
+          });
+          const input = { ...reference, host: `${provider}.com` };
+          yield* service
+            .generate(input)
+            .pipe(Effect.provide(Logger.layer([logger], { mergeWithExisting: false })));
+          yield* Deferred.await(stored);
+          const observed = yield* Deferred.await(seen);
+          assert.strictEqual(observed.head, repositories.headSha);
+          assert.strictEqual(observed.changed, "feature.txt");
+          assert.strictEqual(observed.input.baseCommit, repositories.lowerSha);
+          assert.strictEqual(observed.upper, "upper layer");
+          assert.deepStrictEqual(
+            observed.input.stack?.map((layer) => layer.headSha),
+            [repositories.lowerSha, repositories.headSha, repositories.upperSha, null],
+          );
+          assert.deepStrictEqual(
+            (yield* service.get(input)).guide?.stops.flatMap((stop) =>
+              stop.files.map((file) => file.path),
+            ),
+            ["feature.txt"],
+          );
+        }),
+      ),
   );
 
   it.effect.each([
