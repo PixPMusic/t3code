@@ -192,7 +192,7 @@ function projectForPullRequest(
     );
   };
   if (preferred !== undefined && matches(preferred)) return preferred;
-  return projects.find(matches) ?? preferred ?? projects[0];
+  return projects.find(matches) ?? preferred;
 }
 
 const make = Effect.gen(function* () {
@@ -309,7 +309,7 @@ const make = Effect.gen(function* () {
 
   /**
    * Resolves each requested pull request and the project it is read through. The caller's own
-   * matching checkout wins; otherwise the caller's project or another project here serves it.
+   * matching checkout wins; otherwise the caller's project serves it.
    */
   const locateAll = Effect.fn("PullRequestsToolkit.locateAll")(function* (
     targets: ReadonlyArray<Omit<PullRequestTargetInput, "threadId">>,

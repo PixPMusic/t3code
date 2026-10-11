@@ -642,16 +642,15 @@ describe("pull request guide tools", () => {
     }),
   );
 
-  it.effect("uses an available project when the invocation has no caller thread", () =>
+  it.effect("requires a matching project when the invocation has no caller thread", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness({ thread: null, project: makeProject(null) });
       const result = yield* harness.call("write_pull_request_guides", {
         pullRequests: [{ url: "https://github.com/acme/web/pull/7" }],
       });
-      expect(result.guides.map((guide) => guide.outcome)).toEqual(["started"]);
-      expect((yield* Ref.get(harness.guideRequests)).map((ref) => ref.projectId)).toEqual([
-        PROJECT_ID,
-      ]);
+      expect(result.guides.map((guide) => guide.outcome)).toEqual(["failed"]);
+      expect(result.guides[0]?.detail).toContain("No matching project");
+      expect(yield* Ref.get(harness.guideRequests)).toEqual([]);
     }),
   );
 
@@ -661,7 +660,7 @@ describe("pull request guide tools", () => {
       const target = { url: "https://github.com/acme/web/pull/7" };
       const written = yield* harness.call("write_pull_request_guides", { pullRequests: [target] });
       expect(written.guides[0]).toMatchObject({ outcome: "failed" });
-      expect(written.guides[0]?.detail).toContain("No project is available");
+      expect(written.guides[0]?.detail).toContain("No matching project");
       const error = yield* harness.call("read_pull_request_guide", target).pipe(Effect.flip);
       expect(error).toMatchObject({ _tag: "PullRequestProjectNotFoundError" });
       expect(yield* Ref.get(harness.guideRequests)).toEqual([]);
