@@ -164,7 +164,7 @@ export function PullRequestActionToolbar(props: {
     );
     return (
       <View
-        className="flex-row items-center justify-between gap-3 border-t border-border-subtle bg-screen px-4 pt-2"
+        className="flex-row items-center justify-between gap-3 border-t border-border-subtle bg-header px-4 pt-2"
         style={{ paddingBottom: Math.max(insets.bottom, 8) }}
       >
         {showAgentControls ? (

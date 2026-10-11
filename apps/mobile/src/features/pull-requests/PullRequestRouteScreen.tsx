@@ -356,7 +356,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
       params={params}
       value={pr?.provider === "github" ? pr.url : null}
     >
-      <View className="flex-1 bg-screen">
+      <View className={Platform.OS === "android" ? "flex-1 bg-header" : "flex-1 bg-screen"}>
         <NativeStackScreenOptions
           options={{
             title: `#${params.number}`,
@@ -369,6 +369,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
         {Platform.OS === "android" ? (
           <AndroidScreenHeader
             title={`#${params.number}${connected ? "" : " · Offline"}`}
+            subtitle={params.repository}
             onBack={() => navigation.goBack()}
             actions={[
               ...(permissions.verdicts.length
@@ -443,6 +444,11 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
         </NativeHeaderToolbar>
         <View
           style={{ flex: 1 }}
+          className={
+            Platform.OS === "android"
+              ? "overflow-hidden rounded-t-[28px] bg-sheet-solid"
+              : undefined
+          }
           onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
         >
           {(["overview", "guide", "activity"] as const)
@@ -621,7 +627,7 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
                         >
                           <PullRequestIdentity pr={identity} params={params} />
                           <SegmentedControl
-                            className="bg-grouped-card"
+                            className={Platform.OS === "android" ? undefined : "bg-grouped-card"}
                             options={[
                               { value: "overview", label: "Overview" },
                               ...(guidesEnabled

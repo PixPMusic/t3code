@@ -55,6 +55,12 @@ import {
   useHardwareKeyboardCommand,
 } from "../keyboard/hardwareKeyboardCommands";
 import { AndroidHomeFabLayout } from "../home/AndroidHomeFab";
+import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
+import {
+  AndroidWorkspaceNavigation,
+  ANDROID_WORKSPACE_RAIL_WIDTH,
+} from "../workspace/AndroidWorkspaceNavigation";
+import { AndroidWorkspaceSidebar } from "../workspace/AndroidWorkspaceSidebar";
 import { HomeListOptionsProvider } from "../home/home-list-options";
 import { ThreadNavigationSidebar } from "../threads/ThreadNavigationSidebar";
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
@@ -243,7 +249,8 @@ function AdaptiveWorkspaceLayoutContent(
   const nativeWorkspace = use(NativeWorkspaceModeContext);
   const windowDimensions = useWindowDimensions();
   const nativeMetrics = useNativeLayoutMetrics();
-  const { width, height } = nativeMetrics ?? windowDimensions;
+  const { width: viewportWidth, height } = nativeMetrics ?? windowDimensions;
+  const { scale: androidControlScale } = useAndroidControlSizing();
   const pathname = props.pathname;
   const navigation = useNavigation();
   const activeRoleOwner = useRef<symbol | null>(null);
@@ -261,10 +268,17 @@ function AdaptiveWorkspaceLayoutContent(
   const [focusedAuxiliaryPaneRole, setFocusedAuxiliaryPaneRole] =
     useState<WorkspaceAuxiliaryPaneRole | null>(null);
   const baseLayout = useMemo(
-    () => deriveLayout({ width, height, nativeMetrics }),
-    [height, width, nativeMetrics],
+    () => deriveLayout({ width: viewportWidth, height, nativeMetrics }),
+    [height, viewportWidth, nativeMetrics],
   );
   const layout = baseLayout;
+  // The rail consumes real space before either pane; inspectors and the detail
+  // navigator must use the remaining viewport rather than clipping behind it.
+  const navigationRailWidth =
+    Platform.OS === "android" && layout.usesSplitView
+      ? ANDROID_WORKSPACE_RAIL_WIDTH * Math.max(1, androidControlScale)
+      : 0;
+  const width = viewportWidth - navigationRailWidth;
   // In split layouts the sidebar IS the thread list — it renders on every
   // route, including Home (which shows an empty-detail pane instead of the
   // compact list).
@@ -607,6 +621,9 @@ function AdaptiveWorkspaceLayoutContent(
     <HomeListOptionsProvider projectGroupingMode={projectGroupingMode}>
       <AdaptiveWorkspaceContext.Provider value={contextValue}>
         <View testID="adaptive-workspace-layout" className="flex-1 flex-row">
+          {navigationRailWidth > 0 ? (
+            <AndroidWorkspaceNavigation rail onSelect={revealPrimarySidebar} />
+          ) : null}
           {shouldRenderPrimarySidebar && layout.listPaneWidth !== null ? (
             <Animated.View
               className="self-stretch overflow-hidden"
@@ -628,21 +645,23 @@ function AdaptiveWorkspaceLayoutContent(
                     />
                   )}
                 >
-                  <AndroidHomeFabLayout sidebar onStartNewTask={handleStartNewTask}>
-                    <ThreadNavigationSidebar
-                      width={layout.listPaneWidth}
-                      visible={panes.primarySidebarVisible}
-                      onRequestVisibility={revealPrimarySidebar}
-                      selectedThreadKey={selectedThreadKey}
-                      onOpenSettings={handleOpenSettings}
-                      onOpenEnvironmentSettings={handleOpenEnvironmentSettings}
-                      onNewThreadInProject={handleNewThreadInProject}
-                      onNewThreadOnBranch={handleNewThreadOnBranch}
-                      onSelectThread={handleSelectThread}
-                      onSearchQueryChange={setPrimarySidebarSearchQuery}
-                      searchQuery={primarySidebarSearchQuery}
-                    />
-                  </AndroidHomeFabLayout>
+                  <AndroidWorkspaceSidebar onRequestVisibility={revealPrimarySidebar}>
+                    <AndroidHomeFabLayout sidebar onStartNewTask={handleStartNewTask}>
+                      <ThreadNavigationSidebar
+                        width={layout.listPaneWidth}
+                        visible={panes.primarySidebarVisible}
+                        onRequestVisibility={revealPrimarySidebar}
+                        selectedThreadKey={selectedThreadKey}
+                        onOpenSettings={handleOpenSettings}
+                        onOpenEnvironmentSettings={handleOpenEnvironmentSettings}
+                        onNewThreadInProject={handleNewThreadInProject}
+                        onNewThreadOnBranch={handleNewThreadOnBranch}
+                        onSelectThread={handleSelectThread}
+                        onSearchQueryChange={setPrimarySidebarSearchQuery}
+                        searchQuery={primarySidebarSearchQuery}
+                      />
+                    </AndroidHomeFabLayout>
+                  </AndroidWorkspaceSidebar>
                 </RenderErrorBoundary>
               </View>
             </Animated.View>
