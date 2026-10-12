@@ -15,9 +15,9 @@ import {
   type IssueTracker,
 } from "./IssueProvider.ts";
 import {
-  JIRA_ISSUE_FIELDS,
   JIRA_LIST_FIELDS,
   JiraIssue,
+  JiraRawIssue,
   JiraResponseError,
   JiraSearchPage,
   decodeApiResponse,
@@ -25,6 +25,7 @@ import {
   decodeJiraCommentsPage,
   decodeJiraProjects,
   decodeJiraViewer,
+  jiraIssueProperties,
   jiraIssueState,
   renderJiraBody,
   toJiraProviderIssue,
@@ -327,8 +328,19 @@ const make = Effect.gen(function* () {
         Effect.mapError(providerError("getIssueSummary")),
       ),
     getIssue: (input) =>
-      readIssue("getIssue", input, JIRA_ISSUE_FIELDS).pipe(
-        Effect.flatMap((issue) => {
+      // Every field, with the site's names for them, so the detail can show what Jira shows.
+      api(
+        "getIssue",
+        input.host,
+        `/rest/api/3/issue/${encodeURIComponent(issueKey(input))}?expand=names`,
+      ).pipe(
+        Effect.flatMap((text) =>
+          Effect.all([
+            decodeApiResponse(JiraIssue, "getIssue", text),
+            decodeApiResponse(JiraRawIssue, "getIssue", text),
+          ]),
+        ),
+        Effect.flatMap(([issue, raw]) => {
           const base = toJiraProviderIssue(issue, input.host);
           return base === null
             ? Effect.fail(new JiraResponseError({ operation: "getIssue" }))
@@ -338,6 +350,7 @@ const make = Effect.gen(function* () {
                   repositoryUrl: `https://${input.host}/browse/${input.repository}`,
                   body,
                   linkedPullRequests: [],
+                  properties: jiraIssueProperties(raw),
                   viewerPermissions: PERMISSIONS,
                 })),
               );

@@ -1215,6 +1215,7 @@ export const make = Effect.gen(function* () {
               ...(viewer === undefined ? {} : { viewer }),
               commentCount: issue.commentCount,
               linkedPullRequests: issue.linkedPullRequests,
+              ...(issue.properties === undefined ? {} : { properties: issue.properties }),
               ...(issue.ancestors === undefined ? {} : { ancestors: issue.ancestors }),
               ...(issue.subIssues === undefined ? {} : { subIssues: issue.subIssues }),
             })),

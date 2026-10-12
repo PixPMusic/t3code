@@ -116,7 +116,7 @@ it.effect("resolves a project's Jira binding and lists its issues", () => {
         number: 412,
         title: "Apple Pay sheet freezes",
         url: "https://acme.atlassian.net/browse/CHK-412",
-        author: { login: "account-2", name: "Sam Okafor", avatarUrl: null },
+        author: { login: "Sam Okafor", name: "Sam Okafor", avatarUrl: null },
         state: "open",
         stateReason: null,
         createdAt: "2026-10-05T14:08:03.000Z",

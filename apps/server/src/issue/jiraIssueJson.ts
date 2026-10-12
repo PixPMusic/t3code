@@ -264,9 +264,24 @@ export const JiraIssue = Schema.Struct({
 });
 export type JiraIssue = typeof JiraIssue.Type;
 
-/** The fields every listing and detail read asks for; Jira returns hundreds otherwise. */
-export const JIRA_ISSUE_FIELDS =
-  "summary,status,reporter,assignee,labels,fixVersions,created,updated,resolutiondate,comment,description";
+/** The same issue with every field as Jira stored it, and the site's names for them. */
+export const JiraRawIssue = Schema.Struct({
+  names: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  fields: Schema.Record(Schema.String, Schema.Json),
+});
+
+/**
+ * Every field but the ones the detail already shows in its own shape. Comments have their own
+ * paginated read, and the description is rendered as the body.
+ */
+export function jiraIssueProperties(issue: typeof JiraRawIssue.Type) {
+  return Object.entries(issue.fields)
+    .filter(([id]) => id !== "comment" && id !== "description" && id.trim() !== "")
+    .slice(0, 2_000)
+    .map(([id, value]) => ({ id, label: issue.names?.[id]?.trim() || id, value }));
+}
+
+/** The fields a listing asks for; Jira returns hundreds otherwise. */
 export const JIRA_LIST_FIELDS =
   "summary,status,reporter,assignee,labels,fixVersions,created,updated,resolutiondate";
 
@@ -293,13 +308,16 @@ export function jiraIssueState(category: string | null | undefined): IssueState 
   return category === "done" ? "closed" : "open";
 }
 
+/**
+ * Jira account IDs are opaque hashes and the issue views show an actor's login, so the display
+ * name stands in for it. The viewer is read the same way, which keeps "assigned to you" working.
+ */
 export function jiraActor(user: JiraUser | null | undefined): IssueActor | null {
-  if (!user?.accountId) return null;
-  return {
-    login: user.accountId,
-    name: user.displayName?.trim() || null,
-    avatarUrl: user.avatarUrls?.["48x48"] ?? null,
-  };
+  if (!user) return null;
+  const name = user.displayName?.trim() || null;
+  const login = name ?? user.accountId;
+  if (!login) return null;
+  return { login, name, avatarUrl: user.avatarUrls?.["48x48"] ?? null };
 }
 
 export function toJiraProviderIssue(issue: JiraIssue, host: string): ProviderIssue | null {
@@ -389,10 +407,15 @@ export const decodeJiraCommentsPage = (text: string, issueUrl: string) =>
 
 export const decodeJiraViewer = (text: string) =>
   decodeJson(
-    Schema.Struct({ data: Schema.Struct({ accountId: Schema.String }) }),
+    Schema.Struct({
+      data: Schema.Struct({
+        accountId: Schema.String,
+        name: Schema.optional(Schema.NullOr(Schema.String)),
+      }),
+    }),
     "getViewer",
     text,
-  ).pipe(Effect.map((whoami) => whoami.data.accountId));
+  ).pipe(Effect.map((whoami) => whoami.data.name?.trim() || whoami.data.accountId));
 
 export const decodeJiraAccount = (text: string) =>
   decodeJson(

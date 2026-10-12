@@ -406,6 +406,17 @@ export const IssueInvalidateInput = Schema.Struct({
 });
 export type IssueInvalidateInput = typeof IssueInvalidateInput.Type;
 
+/**
+ * One of a tracker's own fields, as the host names and stores it. Jira issues carry hundreds of
+ * site-defined fields that no neutral shape covers, so they travel as labelled JSON.
+ */
+export const IssueProperty = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  label: TrimmedNonEmptyString,
+  value: Schema.Json,
+});
+export type IssueProperty = typeof IssueProperty.Type;
+
 export const IssueDetail = Schema.Struct({
   repositoryUrl: Schema.optionalKey(TrimmedNonEmptyString),
   provider: IssueProviderKind,
@@ -438,6 +449,8 @@ export const IssueDetail = Schema.Struct({
   viewer: Schema.optional(TrimmedNonEmptyString),
   commentCount: NonNegativeInt,
   linkedPullRequests: Schema.Array(IssueLinkedPullRequest),
+  /** Every field the host reports, for hosts whose issues have more than the shape above. */
+  properties: Schema.optional(Schema.Array(IssueProperty).check(Schema.isMaxLength(2_000))),
   /** Absent when the tracker has no issue hierarchy. */
   /** Root first, ending with the direct parent. */
   ancestors: Schema.optional(Schema.Array(IssueRelative)),

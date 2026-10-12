@@ -25,6 +25,7 @@ import type {
   IssueViewerPermissions,
   IssueActor,
   IssueLabel,
+  IssueProperty,
   IssueProviderKind,
   OrchestrationProjectShell,
 } from "@t3tools/contracts";
@@ -128,6 +129,7 @@ export interface ProviderIssueDetail extends ProviderIssue {
   readonly repositoryUrl?: string;
   readonly body: string;
   readonly linkedPullRequests: ReadonlyArray<IssueLinkedPullRequest>;
+  readonly properties?: ReadonlyArray<IssueProperty> | undefined;
   readonly ancestors?: ReadonlyArray<IssueRelative>;
   readonly subIssues?: ReadonlyArray<IssueRelativeNode>;
   readonly viewerPermissions: IssueViewerPermissions;

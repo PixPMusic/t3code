@@ -4,6 +4,7 @@ import type {
   EnvironmentId,
   IssueDetailView,
   IssueLinkedPullRequest,
+  IssueProperty,
   IssueRef,
   IssueRelative,
   WorkItemMatch,
@@ -13,8 +14,10 @@ import { normalizeWorkItemLinkKey } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowDownUpIcon,
+  LockIcon,
   MessageSquareIcon,
   MilestoneIcon,
+  PinIcon,
   TagIcon,
   UsersIcon,
 } from "lucide-react";
@@ -36,6 +39,8 @@ import {
 } from "../pullRequest/pullRequestPresentation";
 import { PullRequestMarkdown } from "../pullRequest/PullRequestMarkdown";
 import { SummaryMetaRow, SummarySection } from "../sourceControl/SummaryMetaRow";
+import { Badge } from "../ui/badge";
+import { IssuePropertyValue } from "./IssuePropertyValue";
 import { readableFailure } from "../sourceControl/handoff";
 import { resolvePullRequestState } from "../pullRequest/pullRequestPresentation";
 import { PullRequestEditButton } from "../pullRequest/PullRequestEditButton";
@@ -248,7 +253,10 @@ export function IssueSummaryTab({
   onLoadMoreComments,
   loadingMoreComments,
   onRefresh,
+  pinnedProperties = [],
 }: {
+  /** Host fields the reader pinned from the Properties tab, shown with the other details. */
+  pinnedProperties?: ReadonlyArray<IssueProperty>;
   environmentId: EnvironmentId;
   reference: IssueRef;
   detail: IssueDetailView;
@@ -439,6 +447,15 @@ export function IssueSummaryTab({
                   ? "1 comment"
                   : `${detail.commentCount} comments`}
           </SummaryMetaRow>
+          {pinnedProperties.map((property) => (
+            <SummaryMetaRow
+              key={property.id}
+              icon={<PinIcon className="size-3.5" />}
+              label={property.label}
+            >
+              <IssuePropertyValue value={property.value} />
+            </SummaryMetaRow>
+          ))}
         </div>
       </section>
 
@@ -707,6 +724,12 @@ export function IssueSummaryTab({
                         </TooltipPopup>
                       </Tooltip>
                       <span>{formatRelativeTimeLabel(comment.createdAt)}</span>
+                      {comment.visibility === "internal" || comment.visibility === "restricted" ? (
+                        <Badge variant="warning" className="ml-auto shrink-0">
+                          <LockIcon />
+                          {comment.visibility === "internal" ? "Internal" : "Restricted"}
+                        </Badge>
+                      ) : null}
                     </span>
                     {editingCommentId === comment.id ? (
                       <SourceControlMarkdownEditor

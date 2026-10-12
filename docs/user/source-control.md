@@ -287,12 +287,13 @@ its key and project connections.
 **Connect Jira**
 
 Jira reads through the Atlassian TWG CLI (`twg`) on the connected server. Install it there and run
-`twg login`, then open **Settings → Integrations → Issue Tracking** and choose a Jira project for
-each T3 project. The projects listed are the ones on TWG's default site.
+`twg login`. Any Jira issue your login can see can then be linked to a thread and opened beside it.
+To browse a Jira project on the Issues page, open **Settings → Integrations → Issue Tracking** and
+choose it for a T3 project. The projects listed are the ones on TWG's default site.
 
-Jira supports browsing, search, and comments. In Jira Service Management projects you can also add
-internal notes, and comments show whether they are internal or restricted. Change anything else in
-Jira.
+Jira supports browsing, search, and comments. The **Properties** tab lists every field Jira reports;
+pin one to keep it on the summary. In Jira Service Management projects you can also add internal
+notes, and comments show whether they are internal or restricted. Change anything else in Jira.
 
 **Hand one to an agent**
 
@@ -314,7 +315,8 @@ An issue's **Linked threads** section takes you back to those conversations, whe
 their linked pull requests. These controls are available on web and desktop.
 
 In the **Link** dialog, paste a full issue URL or enter `owner/repo#N` for a repository on the
-current project’s host. GitLab work item URLs are accepted. Check the issue title and state in
+current project’s host. An issue from a repository no project uses, such as an upstream one, is read
+through the thread's project. GitLab work item URLs are accepted. Check the issue title and state in
 the preview before linking. A pull request cannot be added as an issue.
 
 Linked issue titles and status update after you change them in T3 Code. Changes made on the host

@@ -82,10 +82,17 @@ import { DetailGhost, TimelineGhost } from "../sourceControl/ListGhosts";
 import { IssueEditor, IssueSummaryTab } from "./IssueSummaryTab";
 import { IssuesUnavailableState } from "./IssuesUnavailableState";
 import { IssueTimelineTab } from "./IssueTimelineTab";
+import { IssuePropertiesTab } from "./IssuePropertiesTab";
+import {
+  pinnedIssueProperties,
+  readIssuePins,
+  toggleIssuePin,
+  writeIssuePins,
+} from "./issuePinPreferences";
 import { getIssueProviderPresentation, resolveIssueState } from "./issuePresentation";
 
 /** An issue has no patch to read, so there is no third tab here as there is on a change request. */
-type DetailTab = "summary" | "timeline";
+type DetailTab = "summary" | "timeline" | "properties";
 
 const ACTION_SUCCESS_LABELS: Record<IssueAction, string> = {
   close: "Issue closed",
@@ -126,6 +133,11 @@ const HANDOFF_WAITING_KIND = "waiting-for-activity";
 const TABS: ReadonlyArray<{ value: DetailTab; label: string }> = [
   { value: "summary", label: "Summary" },
   { value: "timeline", label: "Timeline" },
+];
+/** Hosts that report their own fields, such as Jira, get a third tab for them. */
+const TABS_WITH_PROPERTIES: ReadonlyArray<{ value: DetailTab; label: string }> = [
+  ...TABS,
+  { value: "properties", label: "Properties" },
 ];
 
 /**
@@ -211,6 +223,7 @@ export function IssueDetailPanel({
       previous.has(tab) ? previous : new Set<DetailTab>(previous).add(tab),
     );
   }, [tab]);
+  const [pinnedFieldIds, setPinnedFieldIds] = useState<ReadonlyArray<string> | null>(null);
   const [chromeCondensed, setChromeCondensed] = useState(false);
   // Each tab remembers whether its chrome was condensed. Only the active tab can emit scroll
   // events, so the capture handler always writes the active tab's entry — and a tab switch
@@ -311,6 +324,28 @@ export function IssueDetailPanel({
           },
     [activity, canWrite, coreDetail, loadedPage],
   );
+  // Pins are this browser's choice of fields to keep on the Summary, per issue.
+  const pinIdentity =
+    coreDetail === null || coreDetail.properties === undefined
+      ? null
+      : {
+          provider: coreDetail.provider,
+          host: URL.canParse(coreDetail.url) ? new URL(coreDetail.url).host : coreDetail.provider,
+          id: `${coreDetail.repository}-${coreDetail.number}`,
+        };
+  const pinKey = pinIdentity === null ? null : JSON.stringify(pinIdentity);
+  const pins = pinnedFieldIds ?? (pinIdentity === null ? [] : readIssuePins(pinIdentity));
+  const togglePin = (fieldId: string) => {
+    if (pinIdentity === null) return;
+    const next = toggleIssuePin(pins, fieldId);
+    writeIssuePins(pinIdentity, next);
+    setPinnedFieldIds(next);
+  };
+  const [pinsFor, setPinsFor] = useState(pinKey);
+  if (pinsFor !== pinKey) {
+    setPinsFor(pinKey);
+    setPinnedFieldIds(null);
+  }
   const activityPending = activityQuery.isPending && activity === null;
   const activityError = activity === null ? activityQuery.error : null;
   const refreshDetail = useCallback(() => {
@@ -949,7 +984,12 @@ export function IssueDetailPanel({
           </div>
         </div>
         {detail ? (
-          <DetailTabStrip label="Issue tabs" tabs={TABS} active={tab} onSelect={setTab}>
+          <DetailTabStrip
+            label="Issue tabs"
+            tabs={detail.properties === undefined ? TABS : TABS_WITH_PROPERTIES}
+            active={tab}
+            onSelect={setTab}
+          >
             {tab === "timeline" ? (
               <div className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
                 <span
@@ -1078,6 +1118,24 @@ export function IssueDetailPanel({
                   onOpenRelatedIssue={openRelatedIssue}
                   onOpenAiMatch={(match) => openLinkInBrowser(match.url)}
                   onRefresh={refreshDetail}
+                  pinnedProperties={
+                    pinIdentity === null || detail.properties === undefined
+                      ? []
+                      : pinnedIssueProperties(detail.properties, pins)
+                  }
+                />
+              </div>
+            ) : null}
+            {mountedTabs.has("properties") && detail.properties !== undefined ? (
+              <div
+                data-tab-scroller
+                className={cn("absolute inset-0", tab !== "properties" && "invisible")}
+              >
+                <IssuePropertiesTab
+                  provider={detail.provider}
+                  properties={detail.properties}
+                  pinnedFieldIds={pins}
+                  onTogglePin={togglePin}
                 />
               </div>
             ) : null}
