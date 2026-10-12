@@ -1,6 +1,7 @@
 import {
   type EnvironmentId,
   formatIssueReference,
+  issueReferenceStyleOf,
   type IssueLinkedPullRequest,
   type IssueRelative,
   normalizeWorkItemLinkKey,
@@ -194,7 +195,7 @@ function threadIssueKey(issue: ThreadIssueLink) {
 }
 
 function referenceStyleOf(issue: ThreadIssueLink) {
-  return issue.provider === "linear" ? ("key-number" as const) : ("hash" as const);
+  return issueReferenceStyleOf(issue.provider);
 }
 
 function PlainIssueRow({ issue, onOpen }: { issue: ThreadIssueLink; onOpen: () => void }) {

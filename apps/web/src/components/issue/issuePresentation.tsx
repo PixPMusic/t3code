@@ -7,7 +7,7 @@ import { getSourceControlPresentationForKind } from "~/sourceControlPresentation
 import { cn } from "~/lib/utils";
 
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { LinearIcon } from "../Icons";
+import { AtlassianIcon, LinearIcon } from "../Icons";
 
 interface StatePresentation {
   readonly label: string;
@@ -25,6 +25,8 @@ export function getIssueProviderPresentation(kind: IssueProviderKind) {
       return getSourceControlPresentationForKind(kind);
     case "linear":
       return { providerName: "Linear", Icon: LinearIcon };
+    case "jira":
+      return { providerName: "Jira", Icon: AtlassianIcon };
     default:
       return { providerName: kind, Icon: TicketIcon };
   }

@@ -2184,7 +2184,7 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:issues",
-      searchTerms: ["issues", "bugs", "tickets", "github", "gitlab", "linear"],
+      searchTerms: ["issues", "bugs", "tickets", "github", "gitlab", "linear", "jira"],
       title: "Open issues",
       icon: <CircleDotIcon className={ITEM_ICON_CLASS} />,
       run: async () => {

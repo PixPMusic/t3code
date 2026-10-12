@@ -15,6 +15,10 @@ export function normalizeWorkItemLinkKey(input: WorkItemLinkKey): WorkItemLinkKe
     const url = new URL(input.url);
     url.search = "";
     url.hash = "";
+    if (input.provider.toLowerCase() === "jira") {
+      const key = /\/browse\/([A-Za-z][A-Za-z0-9_]*-\d+)/u.exec(url.pathname)?.[1];
+      if (key) url.pathname = `/browse/${key.toUpperCase()}`;
+    }
     if (input.provider.toLowerCase() === "linear") {
       const match = /^(.*\/issue\/[^/]+)(?:\/.*)?$/u.exec(url.pathname);
       if (match?.[1]) url.pathname = match[1];

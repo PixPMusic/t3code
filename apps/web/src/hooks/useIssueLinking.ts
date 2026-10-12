@@ -15,6 +15,7 @@ import {
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 
 import {
+  jiraProjectForKey,
   linearProjectForTeam,
   linkIssuePreviewMatchesReference,
   resolveLinkIssueInput,
@@ -31,6 +32,9 @@ export function resolveIssueUrl(input: {
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly threadProjectId: ProjectId | null;
   readonly linearBindings:
+    | Readonly<Record<ProjectId, { readonly repository: string } | null>>
+    | undefined;
+  readonly jiraBindings?:
     | Readonly<Record<ProjectId, { readonly repository: string } | null>>
     | undefined;
 }) {
@@ -50,6 +54,14 @@ export function resolveIssueUrl(input: {
         currentProjectId: input.threadProjectId,
         bindings: input.linearBindings,
       }),
+    jiraProjectId: (host, key) =>
+      jiraProjectForKey({
+        host,
+        key,
+        projects: input.projects,
+        currentProjectId: input.threadProjectId,
+        bindings: input.jiraBindings,
+      }),
   });
 }
 
@@ -61,6 +73,7 @@ const savedIssueRef = (url: string) => {
     project: null,
     findProject: (link) => ({ id: "" as ProjectId, repository: link.repository }),
     linearProjectId: () => "" as ProjectId,
+    jiraProjectId: () => "" as ProjectId,
   });
   return parsed !== null && "issue" in parsed ? parsed.issue : null;
 };
@@ -107,6 +120,7 @@ export function useIssueLinking(environmentId: EnvironmentId | null | undefined)
   const config = environmentId == null ? undefined : configs.get(environmentId);
   const supported = config?.environment.capabilities.issues === true;
   const linearBindings = config?.settings.issueTracking.connections.linear?.projectBindings;
+  const jiraBindings = config?.settings.issueTracking.connections.jira?.projectBindings;
   const readDetail = useAtomQueryRunner(issueEnvironment.detail, {
     reportFailure: false,
     reportDefect: false,
@@ -123,6 +137,7 @@ export function useIssueLinking(environmentId: EnvironmentId | null | undefined)
             projects: environmentProjects,
             threadProjectId: readThreadShell(threadRef)?.projectId ?? null,
             linearBindings,
+            jiraBindings,
           })
         : null;
     const canLink = (threadRef: ScopedThreadRef, url: string) => {
@@ -190,5 +205,13 @@ export function useIssueLinking(environmentId: EnvironmentId | null | undefined)
       );
     };
     return { canLink, linkedIssueFor, changeLink };
-  }, [environmentId, linearBindings, projects, readDetail, supported, updateMetadata]);
+  }, [
+    environmentId,
+    jiraBindings,
+    linearBindings,
+    projects,
+    readDetail,
+    supported,
+    updateMetadata,
+  ]);
 }

@@ -15,6 +15,7 @@ import * as AzureDevOpsCli from "@t3tools/source-control-azure-devops/server/Azu
 import * as BitbucketApi from "@t3tools/source-control-bitbucket/server/BitbucketApi";
 import * as GitHubApi from "@t3tools/source-control-github/server/GitHubApi";
 import * as GitLabCli from "@t3tools/source-control-gitlab/server/GitLabCli";
+import * as ProcessRunner from "../processRunner.ts";
 import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
 import * as AzureDevOpsIssueCli from "./AzureDevOpsIssueCli.ts";
 import * as AzureDevOpsIssueProvider from "./AzureDevOpsIssueProvider.ts";
@@ -24,6 +25,8 @@ import * as GitHubIssueCli from "./GitHubIssueCli.ts";
 import * as GitHubIssueProvider from "./GitHubIssueProvider.ts";
 import * as GitLabIssueCli from "./GitLabIssueCli.ts";
 import * as GitLabIssueProvider from "./GitLabIssueProvider.ts";
+import * as JiraCli from "./JiraCli.ts";
+import * as JiraIssueProvider from "./JiraIssueProvider.ts";
 import * as LinearIssueProvider from "./LinearIssueProvider.ts";
 import {
   issueProviderContextKey,
@@ -304,6 +307,7 @@ const make = Effect.gen(function* () {
     BitbucketIssueProvider.make,
     AzureDevOpsIssueProvider.make,
     LinearIssueProvider.make,
+    JiraIssueProvider.make,
   ]);
   return yield* fromProviders(providers);
 });
@@ -313,4 +317,5 @@ export const layer = Layer.effect(IssueProviderRegistry, make).pipe(
   Layer.provide(GitLabIssueCli.layer.pipe(Layer.provide(GitLabCli.layer))),
   Layer.provide(BitbucketIssueApi.layer.pipe(Layer.provide(BitbucketApi.layer))),
   Layer.provide(AzureDevOpsIssueCli.layer.pipe(Layer.provide(AzureDevOpsCli.layer))),
+  Layer.provide(JiraCli.layer.pipe(Layer.provide(ProcessRunner.layer))),
 );

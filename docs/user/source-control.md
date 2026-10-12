@@ -261,7 +261,7 @@ and their marks follow the same rules as on web and desktop.
   Browsing issues across several environments is not yet supported.
 - Filter by state, project, host, or label. Assignment, author, and mention filters depend on the host.
 - Free-text search asks hosts that support search; other results are filtered locally.
-- Supports GitHub Issues, GitLab Issues, Bitbucket Issues, Azure DevOps work items, and Linear.
+- Supports GitHub Issues, GitLab Issues, Bitbucket Issues, Azure DevOps work items, Linear, and Jira.
   Forgejo issues are not yet supported; open them on the host website.
 - Available actions depend on the host and your permissions.
 
@@ -283,6 +283,16 @@ several accounts. Keys stay on the connected server.
 Linear supports browsing, search, comments, reactions, and agent handoffs. Create issues and change
 their title, description, state, labels, or assignees in Linear. Disconnecting a saved account removes
 its key and project connections.
+
+**Connect Jira**
+
+Jira reads through the Atlassian TWG CLI (`twg`) on the connected server. Install it there and run
+`twg login`, then open **Settings → Integrations → Issue Tracking** and choose a Jira project for
+each T3 project. The projects listed are the ones on TWG's default site.
+
+Jira supports browsing, search, and comments. In Jira Service Management projects you can also add
+internal notes, and comments show whether they are internal or restricted. Change anything else in
+Jira.
 
 **Hand one to an agent**
 

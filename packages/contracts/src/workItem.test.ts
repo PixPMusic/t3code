@@ -1,7 +1,12 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 
-import { WorkItemMatchError, WorkItemMatchInput, WorkItemMatchResult } from "./workItem.ts";
+import {
+  normalizeWorkItemLinkKey,
+  WorkItemMatchError,
+  WorkItemMatchInput,
+  WorkItemMatchResult,
+} from "./workItem.ts";
 
 const match = {
   kind: "issue" as const,
@@ -56,5 +61,16 @@ describe("work item matches", () => {
         detail: "Could not list candidate work items.",
       }),
     ).toMatchObject({ operation: "list-candidates", source });
+  });
+});
+
+describe("work item link keys", () => {
+  it("keys a Jira issue by its browse URL whatever page it was linked from", () => {
+    expect(
+      normalizeWorkItemLinkKey({
+        provider: "jira",
+        url: "https://acme.atlassian.net/browse/chk-412?focusedCommentId=10001#comment",
+      }),
+    ).toEqual({ provider: "jira", url: "https://acme.atlassian.net/browse/CHK-412" });
   });
 });

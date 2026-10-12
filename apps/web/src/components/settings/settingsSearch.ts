@@ -703,7 +703,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Issue Tracking",
     to: "/settings/integrations",
     searchTerms: [
-      "linear issue tracking issues tracker integration API key accounts teams project mapping connect disconnect",
+      "linear jira atlassian twg issue tracking issues tracker integration API key accounts teams project mapping connect disconnect",
     ],
   },
   {

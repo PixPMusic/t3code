@@ -1,6 +1,13 @@
 import type { AtomCommand } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
-import { CircleCheckIcon, MessageSquareIcon, RotateCcwIcon, SendIcon, XIcon } from "lucide-react";
+import {
+  CircleCheckIcon,
+  LockIcon,
+  MessageSquareIcon,
+  RotateCcwIcon,
+  SendIcon,
+  XIcon,
+} from "lucide-react";
 import { useRef, useState } from "react";
 
 import { useAtomCommand } from "~/state/use-atom-command";
@@ -17,6 +24,7 @@ type CommentPayload = {
     readonly repository: string;
     readonly number: number;
     readonly body: string;
+    readonly visibility?: "public" | "internal";
   };
 };
 
@@ -27,6 +35,7 @@ export function CommentComposer({
   command,
   followUpAction = null,
   actionPending = false,
+  internalNotes = false,
   onCommentAction,
   onCommented,
 }: {
@@ -39,6 +48,8 @@ export function CommentComposer({
   label: string;
   command: AtomCommand<CommentPayload, unknown, unknown>;
   actionPending?: boolean;
+  /** The host keeps internal notes apart from replies, so the composer offers both. */
+  internalNotes?: boolean;
   followUpAction?: "close" | "reopen" | null;
   onCommentAction?: (
     body: string,
@@ -48,14 +59,16 @@ export function CommentComposer({
 }) {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
-  const [submitting, setSubmitting] = useState<"comment" | "close" | "reopen" | null>(null);
+  const [submitting, setSubmitting] = useState<"comment" | "internal" | "close" | "reopen" | null>(
+    null,
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const postComment = useAtomCommand(command, { reportFailure: false });
-  const submit = async (action: "comment" | "close" | "reopen") => {
+  const submit = async (action: "comment" | "internal" | "close" | "reopen") => {
     const trimmed = body.trim();
     if (trimmed.length === 0 || submitting !== null || actionPending) return;
     setSubmitting(action);
-    if (action !== "comment") {
+    if (action === "close" || action === "reopen") {
       if (!onCommentAction) {
         setSubmitting(null);
         return;
@@ -75,11 +88,16 @@ export function CommentComposer({
         repository: detail.repository,
         number: detail.number,
         body: trimmed,
+        ...(action === "internal" ? { visibility: "internal" as const } : {}),
       },
     });
     if (result._tag === "Failure") {
       setSubmitting(null);
-      toastManager.add({ type: "error", title: "Could not post the comment" });
+      toastManager.add({
+        type: "error",
+        title:
+          action === "internal" ? "Could not add the internal note" : "Could not post the comment",
+      });
       return;
     }
     setBody("");
@@ -158,6 +176,17 @@ export function CommentComposer({
                     : "Reopen with comment"}
               </Button>
             )}
+            {internalNotes ? (
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={body.trim().length === 0 || submitting !== null || actionPending}
+                onClick={() => void submit("internal")}
+              >
+                <LockIcon className="size-3.5" />
+                {submitting === "internal" ? "Adding..." : "Add internal note"}
+              </Button>
+            ) : null}
             <Button
               size="xs"
               variant="outline"

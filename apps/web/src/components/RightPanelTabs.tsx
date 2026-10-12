@@ -1,4 +1,8 @@
-import { pullRequestHostOf, type SourceControlProviderKind } from "@t3tools/contracts";
+import {
+  issueReferenceStyleOf,
+  pullRequestHostOf,
+  type SourceControlProviderKind,
+} from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useProjects, useServerConfigs, useThreadShells } from "~/state/entities";
 import {
@@ -1602,5 +1606,7 @@ function issueTabReference(issue: {
   readonly repository: string;
   readonly number: number;
 }) {
-  return issue.provider === "linear" ? `${issue.repository}-${issue.number}` : `#${issue.number}`;
+  return issueReferenceStyleOf(issue.provider) === "key-number"
+    ? `${issue.repository}-${issue.number}`
+    : `#${issue.number}`;
 }

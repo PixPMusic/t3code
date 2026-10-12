@@ -1120,6 +1120,7 @@ export function IssueDetailPanel({
             label="Comment on this issue"
             command={issueEnvironment.comment}
             actionPending={actionPending || !canWrite}
+            internalNotes={coreDetail.capabilities.internalComments === true}
             followUpAction={
               detail.state === "open" && can("close")
                 ? "close"

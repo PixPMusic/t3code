@@ -12,6 +12,7 @@ import { formatEnvironmentQueryError, useEnvironmentQuery } from "../../state/qu
 import { useAtomCommand } from "../../state/use-atom-command";
 import { LinearIcon } from "../Icons";
 import { LinearConnectionDialog } from "../issue/LinearConnectionDialog";
+import { JiraIntegrationSettings } from "./JiraIntegrationSettings";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -329,6 +330,7 @@ function LinearIntegrationSection({
             </CollapsiblePanel>
           </Collapsible>
         ) : null}
+        <JiraIntegrationSettings />
       </SettingsSection>
       {addAccountOpen && environmentId !== null ? (
         <LinearConnectionDialog

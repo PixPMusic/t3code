@@ -80,6 +80,12 @@ export type IssueListSort = typeof IssueListSort.Type;
 export const IssueReferenceStyle = Schema.Literals(["hash", "key-number"]);
 export type IssueReferenceStyle = typeof IssueReferenceStyle.Type;
 
+/** Trackers that name issues by a project key and number (`ENG-12`) rather than `#12`. */
+export function issueReferenceStyleOf(provider: string | undefined): IssueReferenceStyle {
+  const kind = provider?.toLowerCase();
+  return kind === "linear" || kind === "jira" ? "key-number" : "hash";
+}
+
 export function formatIssueReference(input: {
   readonly repository: string;
   readonly number: number;
@@ -121,6 +127,14 @@ export const IssueReaction = Schema.Struct({
 });
 export type IssueReaction = typeof IssueReaction.Type;
 
+/**
+ * Who can read a comment, for hosts that keep more than one audience on an issue. Jira Service
+ * Management separates customer-facing replies from internal notes, and any Jira comment can be
+ * restricted to a role or group. Absent where a host has one audience.
+ */
+export const IssueCommentVisibility = Schema.Literals(["public", "internal", "restricted"]);
+export type IssueCommentVisibility = typeof IssueCommentVisibility.Type;
+
 export const IssueComment = Schema.Struct({
   id: TrimmedNonEmptyString,
   author: Schema.NullOr(IssueActor),
@@ -128,6 +142,7 @@ export const IssueComment = Schema.Struct({
   createdAt: IsoDateTime,
   url: Schema.NullOr(Schema.String),
   reactions: Schema.optional(Schema.Array(IssueReaction)),
+  visibility: Schema.optional(IssueCommentVisibility),
 });
 export type IssueComment = typeof IssueComment.Type;
 
@@ -238,6 +253,8 @@ export const IssueCapabilities = Schema.Struct({
   edit: Schema.Boolean,
   /** A posted comment can be rewritten by its author. */
   editComment: Schema.optional(Schema.Boolean),
+  /** A comment can be posted as an internal note that only the host's agents can read. */
+  internalComments: Schema.optional(Schema.Boolean),
   /** Reactions can be read, added, and removed on the issue and its comments. */
   reactions: Schema.optional(Schema.Boolean),
   labels: Schema.Boolean,
@@ -487,6 +504,8 @@ const CommentBody = Schema.String.check(Schema.isNonEmpty()).check(Schema.isMaxL
 export const IssueCommentInput = Schema.Struct({
   ...IssueRef.fields,
   body: CommentBody,
+  /** Only honoured where the host declared `internalComments`; otherwise every comment is public. */
+  visibility: Schema.optional(Schema.Literals(["public", "internal"])),
 });
 export type IssueCommentInput = typeof IssueCommentInput.Type;
 

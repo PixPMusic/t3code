@@ -1313,6 +1313,17 @@ export const make = Effect.gen(function* () {
             }),
           );
         }
+        if (
+          input.visibility === "internal" &&
+          project.adapter.capabilities.internalComments !== true
+        ) {
+          return Effect.fail(
+            new IssueOperationError({
+              operation: "comment",
+              detail: "This host cannot post an internal note.",
+            }),
+          );
+        }
         return viewerPermissionsOf(project, input, "comment").pipe(
           Effect.flatMap((viewer): Effect.Effect<void, IssueError> => {
             if (!viewer.comment) {
@@ -1331,6 +1342,7 @@ export const make = Effect.gen(function* () {
                 host: project.host,
                 number: input.number,
                 body: input.body,
+                ...(input.visibility === "internal" ? { visibility: "internal" as const } : {}),
               })
               .pipe(Effect.mapError(toIssueError("comment")));
           }),

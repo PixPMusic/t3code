@@ -1,5 +1,6 @@
 import {
   formatIssueReference,
+  issueReferenceStyleOf,
   type IssueLinkedPullRequest,
   type IssueRelative,
   type ProjectId,
@@ -248,7 +249,7 @@ function IssueTreeActions({
             size="icon-micro"
             aria-label={`Actions for issue ${formatIssueReference({
               ...issue,
-              referenceStyle: issue.provider === "linear" ? "key-number" : "hash",
+              referenceStyle: issueReferenceStyleOf(issue.provider),
             })}`}
           >
             <MoreHorizontalIcon className="size-3.5" />

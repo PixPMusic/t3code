@@ -2,7 +2,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 
+import type { ProjectId } from "@t3tools/contracts";
+
 import {
+  jiraIssueMatch,
+  jiraProjectForKey,
   linkIssuePreviewMatchesReference,
   linkPullRequestPreviewTarget,
   linkReferenceKind,
@@ -411,5 +415,56 @@ describe("linkPullRequestPreviewTarget", () => {
 
   it("does not read a Azure repository nothing has checked out", () => {
     expect(target("https://dev.azure.com/org/project/_git/web/pullrequest/7", true)).toBeNull();
+  });
+});
+
+describe("Jira issue links", () => {
+  const checkout = "project-checkout" as ProjectId;
+  const resolve = (reference: string) =>
+    resolveLinkIssueInput({
+      reference,
+      project: null,
+      findProject: () => undefined,
+      linearProjectId: () => undefined,
+      jiraProjectId: (host, key) =>
+        jiraProjectForKey({
+          host,
+          key,
+          projects: [{ id: checkout }],
+          currentProjectId: null,
+          bindings: { [checkout]: { repository: "acme.atlassian.net/CHK" } },
+        }),
+    });
+
+  it("reads the URL shapes Jira hands out", () => {
+    const issue = { host: "acme.atlassian.net", project: "CHK", number: 412 };
+    for (const url of [
+      "https://acme.atlassian.net/browse/CHK-412",
+      "https://acme.atlassian.net/jira/software/projects/CHK/boards/7?selectedIssue=CHK-412",
+      "https://acme.atlassian.net/jira/servicedesk/projects/CHK/queues/custom/1/CHK-412",
+      "https://acme.atlassian.net/servicedesk/customer/portal/3/CHK-412",
+    ]) {
+      expect(jiraIssueMatch(new URL(url)), url).toEqual(issue);
+    }
+    expect(jiraIssueMatch(new URL("https://jira.example.com/browse/CHK-412"))).toBeNull();
+    expect(linkReferenceKind("https://acme.atlassian.net/browse/CHK-412", "pull-request")).toBe(
+      "issue",
+    );
+  });
+
+  it("links a Jira issue through the project bound to its Jira project", () => {
+    expect(resolve("https://acme.atlassian.net/browse/chk-412")).toEqual({
+      issue: {
+        projectId: checkout,
+        provider: "jira",
+        host: "acme.atlassian.net",
+        repository: "CHK",
+        number: 412,
+      },
+    });
+    expect(resolve("https://acme.atlassian.net/browse/OPS-9")).toEqual({
+      error:
+        "No project in this environment reads Jira project OPS on acme.atlassian.net. Choose one in Settings → Integrations.",
+    });
   });
 });

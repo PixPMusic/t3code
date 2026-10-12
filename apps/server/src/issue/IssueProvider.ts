@@ -304,7 +304,12 @@ export interface IssueAdapter {
   ) => Effect.Effect<void, IssueProviderError>;
 
   readonly comment: (
-    input: ProviderRepositoryRef & { readonly number: number; readonly body: string },
+    input: ProviderRepositoryRef & {
+      readonly number: number;
+      readonly body: string;
+      /** Only passed as `internal` where the host declared `internalComments`. */
+      readonly visibility?: "public" | "internal" | undefined;
+    },
   ) => Effect.Effect<void, IssueProviderError>;
 
   readonly updateComment?: (

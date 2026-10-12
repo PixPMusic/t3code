@@ -182,6 +182,26 @@ const LINEAR_ISSUE_PATH = /^\/[^/]+\/issue\/([A-Za-z0-9]+)-([1-9]\d{0,8})(?:\/|$
 const linearIssueMatch = (url: URL) =>
   url.hostname.toLowerCase() === "linear.app" ? LINEAR_ISSUE_PATH.exec(url.pathname) : null;
 
+const JIRA_ISSUE_PATH =
+  /\/(?:browse|issues|portal\/\d+|queues\/custom\/\d+)\/([A-Za-z][A-Za-z0-9_]*-[1-9]\d{0,8})\/?$/u;
+const JIRA_ISSUE_KEY = /^([A-Za-z][A-Za-z0-9_]*)-([1-9]\d{0,8})$/u;
+
+/**
+ * A Jira Cloud issue in any of the URL shapes Jira hands out: `/browse/KEY-1`, a board with
+ * `?selectedIssue=KEY-1`, a project's `/issues/KEY-1`, a service desk queue, or a portal request.
+ */
+export function jiraIssueMatch(
+  url: URL,
+): { readonly host: string; readonly project: string; readonly number: number } | null {
+  const host = url.hostname.toLowerCase();
+  if (!host.endsWith(".atlassian.net")) return null;
+  const key = JIRA_ISSUE_PATH.exec(url.pathname)?.[1] ?? url.searchParams.get("selectedIssue");
+  const match = key === null ? null : JIRA_ISSUE_KEY.exec(key);
+  return match?.[1] && match[2]
+    ? { host, project: match[1].toUpperCase(), number: Number(match[2]) }
+    : null;
+}
+
 const issueUrlMatch = (url: URL) => {
   if (/^\/groups\/.+\/-\/(?:issues|work_items)\//u.test(url.pathname)) return null;
   if (url.hostname === "bitbucket.org") {
@@ -194,6 +214,8 @@ const issueUrlMatch = (url: URL) => {
 
 const selectLinearBindings = (settings: UnifiedSettings) =>
   settings.issueTracking.connections.linear?.projectBindings;
+const selectJiraBindings = (settings: UnifiedSettings) =>
+  settings.issueTracking.connections.jira?.projectBindings;
 
 export function linkReferenceKind(reference: string, chosen: LinkKind): LinkKind {
   const trimmed = reference.trim();
@@ -202,7 +224,7 @@ export function linkReferenceKind(reference: string, chosen: LinkKind): LinkKind
   if (!URL.canParse(trimmed)) return "pull-request";
   const url = new URL(trimmed);
   return /^https?:$/u.test(url.protocol) &&
-    (issueUrlMatch(url) !== null || linearIssueMatch(url) !== null)
+    (issueUrlMatch(url) !== null || linearIssueMatch(url) !== null || jiraIssueMatch(url) !== null)
     ? "issue"
     : "pull-request";
 }
@@ -246,6 +268,23 @@ export function linearProjectForTeam(input: {
   )?.id;
 }
 
+/** The project bound to a Jira project, which a binding names as `site/KEY`. */
+export function jiraProjectForKey(input: {
+  readonly host: string;
+  readonly key: string;
+  readonly projects: ReadonlyArray<{ readonly id: ProjectId }>;
+  readonly currentProjectId: string | null;
+  readonly bindings:
+    | Readonly<Record<ProjectId, { readonly repository: string } | null>>
+    | undefined;
+}): ProjectId | undefined {
+  const wanted = `${input.host}/${input.key}`.toLowerCase();
+  const bound = input.projects.filter(
+    (project) => input.bindings?.[project.id]?.repository.toLowerCase() === wanted,
+  );
+  return (bound.find((project) => project.id === input.currentProjectId) ?? bound[0])?.id;
+}
+
 export function resolveLinkIssueInput(input: {
   readonly reference: string;
   readonly project: (IssueProject & { readonly host: string }) | null;
@@ -254,6 +293,7 @@ export function resolveLinkIssueInput(input: {
     readonly repository: string;
   }) => IssueProject | undefined;
   readonly linearProjectId: (team: string) => ProjectId | undefined;
+  readonly jiraProjectId?: ((host: string, key: string) => ProjectId | undefined) | undefined;
 }): { issue: IssueRef } | { error: string } | null {
   const trimmed = input.reference.trim();
   const bare = /^#?(\d+)$/u.exec(trimmed);
@@ -282,6 +322,24 @@ export function resolveLinkIssueInput(input: {
         host: "linear.app",
         repository: linear[1],
         number: Number(linear[2]),
+      },
+    };
+  }
+  const jira = url === null ? null : jiraIssueMatch(url);
+  if (jira !== null) {
+    const projectId = input.jiraProjectId?.(jira.host, jira.project);
+    if (projectId === undefined) {
+      return {
+        error: `No project in this environment reads Jira project ${jira.project} on ${jira.host}. Choose one in Settings → Integrations.`,
+      };
+    }
+    return {
+      issue: {
+        projectId,
+        provider: "jira",
+        host: jira.host,
+        repository: jira.project,
+        number: jira.number,
       },
     };
   }
@@ -345,6 +403,7 @@ function LinkPullRequestDialog({
   const thread = useThreadShell(threadRef);
   const configs = useServerConfigs();
   const linearBindings = useEnvironmentSettings(threadRef.environmentId, selectLinearBindings);
+  const jiraBindings = useEnvironmentSettings(threadRef.environmentId, selectJiraBindings);
   const updateMetadata = useAtomCommand(threadEnvironment.updateMetadata, { reportFailure: false });
   const [pending, setPending] = useState(false);
   const settledReference = useDebouncedValue(reference, 250);
@@ -399,9 +458,17 @@ function LinkPullRequestDialog({
                 currentProjectId: projectId,
                 bindings: linearBindings,
               }),
+            jiraProjectId: (host, key) =>
+              jiraProjectForKey({
+                host,
+                key,
+                projects: environmentProjects,
+                currentProjectId: projectId,
+                bindings: jiraBindings,
+              }),
           })
         : null,
-    [environmentProjects, kind, linearBindings, ownProject, projectId, reference],
+    [environmentProjects, jiraBindings, kind, linearBindings, ownProject, projectId, reference],
   );
   const resolved = kind === "issue" ? resolvedIssue : resolvedPullRequest;
 

@@ -1,5 +1,5 @@
 import type { EnvironmentId, IssueComment, IssueDetailView, IssueRef } from "@t3tools/contracts";
-import { CircleDotIcon, PencilIcon } from "lucide-react";
+import { CircleDotIcon, LockIcon, PencilIcon } from "lucide-react";
 import { useState } from "react";
 
 import { openLinkInBrowser } from "~/lib/openIssueLink";
@@ -11,6 +11,7 @@ import { ConversationGroup } from "../sourceControl/ConversationGroup";
 import { PullRequestMarkdown } from "../pullRequest/PullRequestMarkdown";
 import { ActorName, IconMarker } from "../sourceControl/TimelineRail";
 import { PullRequestMarkdownEditor as SourceControlMarkdownEditor } from "../pullRequest/PullRequestMarkdownEditor";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { toastManager } from "../ui/toast";
 import { IssueReactionBar } from "./IssueReactions";
@@ -117,16 +118,27 @@ export function IssueTimelineTab({
                 onOpen={openLinkInBrowser}
                 renderActions={(entry) => {
                   const comment = editableComment(entry);
-                  return comment === null || editingId === entry.id ? null : (
-                    <Button
-                      size="icon-xs"
-                      variant="ghost-muted"
-                      className="-mt-1 shrink-0"
-                      aria-label="Edit comment"
-                      onClick={() => setEditingScope({ issue: detail.url, id: entry.id })}
-                    >
-                      <PencilIcon className="size-3" />
-                    </Button>
+                  const visibility = comments.get(entry.id)?.visibility;
+                  return (
+                    <>
+                      {visibility === "internal" || visibility === "restricted" ? (
+                        <Badge variant="warning" className="shrink-0">
+                          <LockIcon />
+                          {visibility === "internal" ? "Internal" : "Restricted"}
+                        </Badge>
+                      ) : null}
+                      {comment === null || editingId === entry.id ? null : (
+                        <Button
+                          size="icon-xs"
+                          variant="ghost-muted"
+                          className="-mt-1 shrink-0"
+                          aria-label="Edit comment"
+                          onClick={() => setEditingScope({ issue: detail.url, id: entry.id })}
+                        >
+                          <PencilIcon className="size-3" />
+                        </Button>
+                      )}
+                    </>
                   );
                 }}
                 renderBody={(entry) => {
