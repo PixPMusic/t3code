@@ -38,7 +38,6 @@ export function MaterialPullRequestToolbar(props: { readonly onRequestVisibility
   }, [dispatch, recordScrollOffset, tab.searchEntryOffset]);
   useEffect(() => {
     if (!searching || !listFocused) return;
-    input.current?.focus();
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       // Frozen Home screens can keep effects alive after a detail route opens.
       const state = navigation.getState();

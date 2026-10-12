@@ -203,7 +203,7 @@ export function PullRequestActionToolbar(props: {
               </View>
             ) : null}
             <MaterialIconButton
-              icon="doc.on.doc"
+              icon="file.diff"
               accessibilityLabel="Changed files"
               onPress={openFiles}
             />
@@ -306,12 +306,13 @@ export function PullRequestActionToolbar(props: {
       )}
     </NativeHeaderToolbar.Menu>
   ) : null;
+  // Tabler file-diff geometry, rasterized at 1x/2x/3x for UIKit template images.
   const filesControl = (
     <NativeHeaderToolbar.Button
       identifier="workspace-trailing-action"
       width={controlSize}
       height={controlSize}
-      icon="document.on.document"
+      icon={{ type: "image", source: require("../../../assets/icons/file-diff.png") }}
       accessibilityLabel="Changed files"
       onPress={openFiles}
       separateBackground

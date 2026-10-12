@@ -601,6 +601,7 @@ function AdaptiveWorkspaceLayoutContent(
         threadId: String(thread.id),
       };
       if (Platform.OS === "android") {
+        // Selecting a sidebar row enters its base chat, including from that chat's nested screens.
         setFileInspectorPreferredVisible(false);
         selectAndroidWorkspace({ name: "Thread", params });
         return;

@@ -22,6 +22,9 @@ const options = {
   routeNames: [
     "Home",
     "Thread",
+    "ThreadFiles",
+    "ThreadTerminal",
+    "GitOverview",
     "PullRequest",
     "PullRequestFile",
     "PullRequestReviewers",
@@ -135,6 +138,18 @@ describe("Android workspace navigation", () => {
     expect(back.routes[back.index]?.key).toBe(detail.routes[detail.index]?.key);
     expect(names(back)).toEqual(["Home", "PullRequest"]);
   });
+
+  it.each(["ThreadFiles", "ThreadTerminal", "GitOverview"])(
+    "returns to chat when its sidebar row is selected from %s",
+    (route) => {
+      const detail = select(router.getInitialState(options), thread);
+      const nested = apply(detail, StackActions.push(route, thread.params));
+      const selected = select(nested, thread);
+      expect(names(selected)).toEqual(["Home", "Thread"]);
+      expect(selected.routes[1]?.key).toBe(detail.routes[1]?.key);
+      expect(names(apply(selected, StackActions.pop()))).toEqual(["Home"]);
+    },
+  );
 
   it.each([
     { environmentId: "environment-b" },
