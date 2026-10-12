@@ -506,6 +506,7 @@ function IssuesRouteView() {
             ...(activeIssueSurface.provider === undefined
               ? {}
               : { provider: activeIssueSurface.provider }),
+            ...(activeIssueSurface.host === undefined ? {} : { host: activeIssueSurface.host }),
             repository: activeIssueSurface.repository,
             number: activeIssueSurface.number,
           },
@@ -1733,6 +1734,7 @@ function IssuesRouteView() {
                   ...(renderedSurface.provider === undefined
                     ? {}
                     : { provider: renderedSurface.provider }),
+                  ...(renderedSurface.host === undefined ? {} : { host: renderedSurface.host }),
                   repository: renderedSurface.repository,
                   number: renderedSurface.number,
                 }}

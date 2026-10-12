@@ -9,6 +9,7 @@ import * as Layer from "effect/Layer";
 import * as PubSub from "effect/PubSub";
 import * as Stream from "effect/Stream";
 import * as Scope from "effect/Scope";
+import { detectSourceControlProviderFromRemoteUrl } from "@t3tools/shared/sourceControl";
 import {
   IssueOperationError,
   ISSUE_LIST_CURSOR_MAX_LENGTH,
@@ -516,37 +517,70 @@ export const make = Effect.gen(function* () {
    * The project a request names, with the repository it claims checked against the project's own
    * remote: that field travels through the client, so it is never handed to a provider verbatim.
    */
+  /**
+   * An issue the user named by URL from outside the project's own repository or tracker, such as
+   * an upstream repository's issue or a Jira ticket, read in the context of the thread's project.
+   * The host decides the adapter, and the adapter accepts only references it can address safely.
+   */
+  const unboundSource = (
+    ref: Pick<IssueRef, "projectId" | "provider" | "repository" | "host">,
+  ): Effect.Effect<IssueProviderRegistry.IssueProjectSource | null, IssueError> => {
+    if (ref.host === undefined) return Effect.succeed(null);
+    const source = { host: ref.host.toLowerCase(), repository: ref.repository.trim() };
+    // A forge reference arrives without a provider; the host says which forge it is.
+    const provider =
+      ref.provider ??
+      detectSourceControlProviderFromRemoteUrl(`https://${source.host}/${source.repository}`)?.kind;
+    if (provider === undefined) return Effect.succeed(null);
+    const adapter = registry.unboundAdapter(provider, source);
+    if (adapter === null) return Effect.succeed(null);
+    return projects.listShells().pipe(
+      Effect.mapError(
+        (error) =>
+          new IssueOperationError({
+            operation: "listProjects",
+            detail: "The project list could not be read.",
+            cause: error,
+          }),
+      ),
+      Effect.map((shells) => {
+        const project = shells.find((shell) => shell.id === ref.projectId);
+        return project === undefined
+          ? null
+          : {
+              project,
+              adapter: withRateLimitBackoff(adapter, source.host, rateLimits),
+              repository: source.repository,
+              host: source.host,
+            };
+      }),
+    );
+  };
+
   const requireProject = (
     ref: Pick<IssueRef, "projectId" | "provider" | "repository" | "host">,
   ): Effect.Effect<IssueProviderRegistry.IssueProjectSource, IssueError> =>
     Effect.gen(function* () {
       const resolved = yield* ResolvedSource;
       if (resolved !== null) return resolved;
-      return yield* listWorkspaceProjects({ projectId: ref.projectId }).pipe(
-        Effect.flatMap(
-          ({ supported }): Effect.Effect<IssueProviderRegistry.IssueProjectSource, IssueError> => {
-            if (supported.length === 0) {
-              return Effect.fail(new IssueUnavailableError({ reason: "provider-unsupported" }));
-            }
-            const repository = ref.repository.trim().toLowerCase();
-            const match = supported.find(
-              (project) =>
-                project.repository.toLowerCase() === repository &&
-                (ref.provider === undefined || project.adapter.kind === ref.provider) &&
-                (ref.host === undefined || project.host.toLowerCase() === ref.host.toLowerCase()),
-            );
-            if (match === undefined) {
-              return Effect.fail(
-                new IssueOperationError({
-                  operation: "resolveRepository",
-                  detail: "The issue does not belong to the selected project.",
-                }),
-              );
-            }
-            return Effect.succeed(match);
-          },
-        ),
+      const workspace = yield* listWorkspaceProjects({ projectId: ref.projectId });
+      const repository = ref.repository.trim().toLowerCase();
+      const bound = workspace.supported.find(
+        (project) =>
+          project.repository.toLowerCase() === repository &&
+          (ref.provider === undefined || project.adapter.kind === ref.provider) &&
+          (ref.host === undefined || project.host.toLowerCase() === ref.host.toLowerCase()),
       );
+      if (bound !== undefined) return bound;
+      const unbound = yield* unboundSource(ref);
+      if (unbound !== null) return unbound;
+      if (workspace.supported.length === 0) {
+        return yield* new IssueUnavailableError({ reason: "provider-unsupported" });
+      }
+      return yield* new IssueOperationError({
+        operation: "resolveRepository",
+        detail: "The issue does not belong to the selected project.",
+      });
     });
 
   /**

@@ -7,6 +7,7 @@ import {
   type IssueAdapter,
   type ProviderIssueActivity,
   type ProviderIssueDetail,
+  readsNestedRepository,
 } from "./IssueProvider.ts";
 
 const CAPABILITIES: IssueCapabilities = {
@@ -77,6 +78,7 @@ export const make = Effect.gen(function* () {
 
   const provider: IssueAdapter = {
     kind: "gitlab",
+    readsWithoutBinding: readsNestedRepository,
     capabilities: CAPABILITIES,
 
     getViewer: (input) =>

@@ -270,6 +270,11 @@ export class IssueProviderRegistry extends Context.Service<
       projects: ReadonlyArray<OrchestrationProjectShell>,
       filter: IssueProjectFilter,
     ) => Effect.Effect<IssueWorkspaceProjects>;
+    /** The adapter that reads this provider's issues by reference, when it can without a binding. */
+    readonly unboundAdapter: (
+      provider: IssueProviderKind,
+      source: { readonly host: string; readonly repository: string },
+    ) => IssueAdapter | null;
   }
 >()("t3/issue/IssueProviderRegistry") {}
 
@@ -293,6 +298,13 @@ export const fromProviders = Effect.fn("IssueProviderRegistry.fromProviders")(fu
         : Effect.succeed(tracker);
     },
     resolveProjects: yield* projectResolver(byKind),
+    unboundAdapter: (
+      provider: IssueProviderKind,
+      source: { readonly host: string; readonly repository: string },
+    ) => {
+      const adapter = byKind.get(provider);
+      return adapter?.readsWithoutBinding?.(source) === true ? adapter : null;
+    },
   };
 });
 

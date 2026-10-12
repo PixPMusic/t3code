@@ -190,6 +190,14 @@ export interface IssueAdapterSource extends IssueProviderContext {
   readonly repository: string;
 }
 
+/** `owner/name`: the repositories GitHub and Bitbucket name an issue by. */
+export const readsOwnerRepository = (source: { readonly repository: string }) =>
+  /^[\w.-]+\/[\w.-]+$/u.test(source.repository);
+
+/** A path of one or more groups and a project, as GitLab and Azure DevOps name them. */
+export const readsNestedRepository = (source: { readonly repository: string }) =>
+  /^[\w.-]+(?:\/[\w.-]+)+$/u.test(source.repository);
+
 export interface IssueTracker {
   readonly status: Effect.Effect<IssueTrackerConnection, IssueTrackingError>;
   readonly connect: (token: string) => Effect.Effect<IssueTrackerConnection, IssueTrackingError>;
@@ -213,6 +221,16 @@ export interface IssueAdapter {
     host: string,
     read: (fingerprint: string) => Effect.Effect<A, E>,
   ) => Effect.Effect<A, E | IssueProviderError>;
+
+  /**
+   * Whether an issue the user names by URL can be read without a project bound to its tracker,
+   * for trackers whose issues are not owned by one repository. The host and repository come from
+   * the client, so the adapter accepts only shapes it can address safely.
+   */
+  readonly readsWithoutBinding?: (source: {
+    readonly host: string;
+    readonly repository: string;
+  }) => boolean;
 
   /**
    * Optional local project binding for adapters selected outside source control, such as a future

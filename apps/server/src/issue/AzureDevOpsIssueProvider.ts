@@ -8,6 +8,7 @@ import {
   type IssueAdapter,
   type ProviderIssue,
   type ProviderIssueDetail,
+  readsNestedRepository,
 } from "./IssueProvider.ts";
 
 /**
@@ -123,6 +124,7 @@ export const make = Effect.gen(function* () {
 
   return {
     kind: "azure-devops",
+    readsWithoutBinding: readsNestedRepository,
     capabilities: CAPABILITIES,
 
     getViewer: (input) => cli.getViewer(input).pipe(Effect.mapError(fail("getViewer"))),

@@ -1116,7 +1116,7 @@ export function IssueDetailPanel({
           <CommentComposer
             key={`${environmentId}:${detail.projectId}/${detail.repository}#${detail.number}`}
             environmentId={environmentId}
-            detail={detail}
+            detail={reference}
             label="Comment on this issue"
             command={issueEnvironment.comment}
             actionPending={actionPending || !canWrite}

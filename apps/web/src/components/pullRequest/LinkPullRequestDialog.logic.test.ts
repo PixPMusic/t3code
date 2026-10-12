@@ -463,8 +463,37 @@ describe("Jira issue links", () => {
       },
     });
     expect(resolve("https://acme.atlassian.net/browse/OPS-9")).toEqual({
-      error:
-        "No project in this environment reads Jira project OPS on acme.atlassian.net. Choose one in Settings → Integrations.",
+      error: "Open a thread to link this Jira issue.",
+    });
+  });
+
+  it("reads an issue no project owns through the thread's project", () => {
+    const thread = "project-thread" as ProjectId;
+    const fallback = (reference: string) =>
+      resolveLinkIssueInput({
+        reference,
+        project: null,
+        findProject: () => undefined,
+        linearProjectId: () => undefined,
+        jiraProjectId: () => undefined,
+        fallbackProjectId: thread,
+      });
+    expect(fallback("https://acme.atlassian.net/browse/OPS-9")).toEqual({
+      issue: {
+        projectId: thread,
+        provider: "jira",
+        host: "acme.atlassian.net",
+        repository: "OPS",
+        number: 9,
+      },
+    });
+    expect(fallback("https://github.com/pingdotgg/t3code/issues/6315")).toEqual({
+      issue: {
+        projectId: thread,
+        host: "github.com",
+        repository: "pingdotgg/t3code",
+        number: 6315,
+      },
     });
   });
 });

@@ -162,6 +162,7 @@ it("opens each issue in the project its URL names, and Linear in the thread's pr
       {
         projectId: "project-2",
         provider: "github",
+        host: "github.com",
         repository: "acme/api",
         number: 3,
       },
@@ -171,6 +172,7 @@ it("opens each issue in the project its URL names, and Linear in the thread's pr
       {
         projectId: "project-1",
         provider: "linear",
+        host: "linear.app",
         repository: "ENG",
         number: 12,
       },
@@ -198,6 +200,7 @@ it("keeps the saved source project for Linear", async () => {
   expect(openIssue).toHaveBeenCalledWith(ref, {
     projectId: "project-2",
     provider: "linear",
+    host: "linear.app",
     repository: "ENG",
     number: 12,
   });
@@ -360,6 +363,7 @@ it.each([
     expect(openIssue).toHaveBeenCalledWith(ref, {
       projectId: "project-1",
       provider: "github",
+      host: "github.com",
       repository: "acme/app",
       number: 12,
     });

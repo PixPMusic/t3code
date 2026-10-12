@@ -11298,6 +11298,9 @@ export default function ChatView(props: ChatViewProps) {
           ...(renderedRightPanelSurface.provider === undefined
             ? {}
             : { provider: renderedRightPanelSurface.provider }),
+          ...(renderedRightPanelSurface.host === undefined
+            ? {}
+            : { host: renderedRightPanelSurface.host }),
           repository: renderedRightPanelSurface.repository,
           number: renderedRightPanelSurface.number,
         }}

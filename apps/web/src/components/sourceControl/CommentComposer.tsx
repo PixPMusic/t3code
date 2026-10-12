@@ -21,6 +21,8 @@ type CommentPayload = {
   readonly environmentId: EnvironmentId;
   readonly input: {
     readonly projectId: ProjectId;
+    readonly provider?: string;
+    readonly host?: string;
     readonly repository: string;
     readonly number: number;
     readonly body: string;
@@ -42,6 +44,9 @@ export function CommentComposer({
   environmentId: EnvironmentId;
   detail: {
     readonly projectId: ProjectId;
+    /** Name the issue's tracker and host, for an issue the project does not own. */
+    readonly provider?: string | undefined;
+    readonly host?: string | undefined;
     readonly repository: string;
     readonly number: number;
   };
@@ -85,6 +90,8 @@ export function CommentComposer({
       environmentId,
       input: {
         projectId: detail.projectId,
+        ...(detail.provider === undefined ? {} : { provider: detail.provider }),
+        ...(detail.host === undefined ? {} : { host: detail.host }),
         repository: detail.repository,
         number: detail.number,
         body: trimmed,

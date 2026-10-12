@@ -10,6 +10,7 @@ import {
   IssueProviderError,
   type IssueAdapter,
   type ProviderIssueDetail,
+  readsOwnerRepository,
 } from "./IssueProvider.ts";
 
 const CAPABILITIES: IssueCapabilities = {
@@ -97,6 +98,7 @@ export const make = Effect.gen(function* () {
 
   const provider: IssueAdapter = {
     kind: "github",
+    readsWithoutBinding: readsOwnerRepository,
     capabilities: CAPABILITIES,
     candidatePermissionsIncluded: true,
     withCredential: (host, read) =>

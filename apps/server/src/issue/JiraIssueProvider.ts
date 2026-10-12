@@ -273,6 +273,9 @@ const make = Effect.gen(function* () {
 
   return {
     kind: "jira",
+    // Jira issues are not owned by a repository, so any thread can read one it was handed.
+    readsWithoutBinding: (source) =>
+      source.host.endsWith(".atlassian.net") && /^[A-Z][A-Z0-9_]*$/u.test(source.repository),
     tracker,
     capabilities: CAPABILITIES,
     resolveSource: (project) =>

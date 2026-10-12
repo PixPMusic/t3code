@@ -231,10 +231,12 @@ function LinkedIssueRead({
     () => ({
       projectId,
       provider: issue.provider,
+      // The link's own host, so an issue no project owns is read where it lives.
+      ...(URL.canParse(issue.url) ? { host: new URL(issue.url).host } : {}),
       repository: issue.repository,
       number: issue.number,
     }),
-    [projectId, issue.provider, issue.repository, issue.number],
+    [projectId, issue.provider, issue.url, issue.repository, issue.number],
   );
   const detailQuery = useEnvironmentQuery(
     issueEnvironment.detail({ environmentId, input: reference }),

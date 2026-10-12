@@ -294,6 +294,11 @@ export function resolveLinkIssueInput(input: {
   }) => IssueProject | undefined;
   readonly linearProjectId: (team: string) => ProjectId | undefined;
   readonly jiraProjectId?: ((host: string, key: string) => ProjectId | undefined) | undefined;
+  /**
+   * The thread's own project, which reads an issue no project owns: an upstream repository's
+   * issue, or a Jira ticket from a project nobody bound. The server decides whether it can.
+   */
+  readonly fallbackProjectId?: ProjectId | null | undefined;
 }): { issue: IssueRef } | { error: string } | null {
   const trimmed = input.reference.trim();
   const bare = /^#?(\d+)$/u.exec(trimmed);
@@ -327,11 +332,10 @@ export function resolveLinkIssueInput(input: {
   }
   const jira = url === null ? null : jiraIssueMatch(url);
   if (jira !== null) {
-    const projectId = input.jiraProjectId?.(jira.host, jira.project);
+    const projectId =
+      input.jiraProjectId?.(jira.host, jira.project) ?? input.fallbackProjectId ?? undefined;
     if (projectId === undefined) {
-      return {
-        error: `No project in this environment reads Jira project ${jira.project} on ${jira.host}. Choose one in Settings → Integrations.`,
-      };
+      return { error: "Open a thread to link this Jira issue." };
     }
     return {
       issue: {
@@ -351,6 +355,16 @@ export function resolveLinkIssueInput(input: {
   }
   const project = input.findProject({ host, repository: match[1] });
   if (project === undefined) {
+    if (url !== null && input.fallbackProjectId) {
+      return {
+        issue: {
+          projectId: input.fallbackProjectId,
+          host,
+          repository: match[1],
+          number: Number(match[2]),
+        },
+      };
+    }
     return { error: `No project in this environment can read ${host}/${match[1]}.` };
   }
   return {
@@ -466,6 +480,7 @@ function LinkPullRequestDialog({
                 currentProjectId: projectId,
                 bindings: jiraBindings,
               }),
+            fallbackProjectId: environmentProjects.find((project) => project.id === projectId)?.id,
           })
         : null,
     [environmentProjects, jiraBindings, kind, linearBindings, ownProject, projectId, reference],

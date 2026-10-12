@@ -3476,3 +3476,29 @@ it.effect("stops a stale detail refresh when the service scope closes", () =>
     assert.equal(reads, 2);
   }),
 );
+
+it.effect("reads an issue outside the project's own repository through the thread's project", () =>
+  Effect.gen(function* () {
+    const reads: Array<string> = [];
+    const github = fakeProvider("github", {
+      readsWithoutBinding: ({ repository }) => /^[\w.-]+\/[\w.-]+$/u.test(repository),
+      getIssue: ({ host, repository, number }) => {
+        reads.push(`${host}/${repository}#${number}`);
+        return Effect.succeed(issueDetail(number, { viewer: "bilal" }));
+      },
+    });
+    const service = yield* makeService({ projects: ONE_PROJECT, providers: [github] });
+    yield* service.detail({
+      projectId: REFERENCE.projectId,
+      host: "github.com",
+      repository: "pingdotgg/t3code",
+      number: 6315,
+    });
+    assert.deepEqual(reads, ["github.com/pingdotgg/t3code#6315"]);
+    // A shape the adapter does not accept stays refused.
+    const refused = yield* service
+      .detail({ projectId: REFERENCE.projectId, host: "github.com", repository: "bad", number: 1 })
+      .pipe(Effect.flip);
+    assert.strictEqual(refused._tag, "IssueOperationError");
+  }),
+);

@@ -62,6 +62,7 @@ export function resolveIssueUrl(input: {
         currentProjectId: input.threadProjectId,
         bindings: input.jiraBindings,
       }),
+    fallbackProjectId: input.threadProjectId,
   });
 }
 

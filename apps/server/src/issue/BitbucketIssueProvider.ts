@@ -2,7 +2,12 @@ import * as Effect from "effect/Effect";
 import type { IssueCapabilities, IssueViewerPermissions } from "@t3tools/contracts";
 
 import * as BitbucketIssueApi from "./BitbucketIssueApi.ts";
-import { IssueProviderError, type IssueAdapter, type ProviderIssue } from "./IssueProvider.ts";
+import {
+  IssueProviderError,
+  type IssueAdapter,
+  type ProviderIssue,
+  readsOwnerRepository,
+} from "./IssueProvider.ts";
 import type { BitbucketIssue } from "./bitbucketIssueJson.ts";
 
 const CAPABILITIES: IssueCapabilities = {
@@ -124,6 +129,7 @@ export const make = Effect.gen(function* () {
 
   const provider: IssueAdapter = {
     kind: "bitbucket",
+    readsWithoutBinding: readsOwnerRepository,
     capabilities: CAPABILITIES,
 
     // Bitbucket credentials come from the server's environment rather than a checkout, so the

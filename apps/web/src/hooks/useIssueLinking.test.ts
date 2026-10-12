@@ -58,9 +58,9 @@ describe("resolveIssueUrl", () => {
     expect(resolve(url)).toEqual({ issue: { projectId, repository, number } });
   });
 
-  it("refuses an issue no project here can read", () => {
+  it("reads an issue from another repository through the thread's project", () => {
     expect(resolve("https://github.com/other/repo/issues/3")).toMatchObject({
-      error: expect.stringContaining("github.com/other/repo"),
+      issue: { projectId: "web", host: "github.com", repository: "other/repo", number: 3 },
     });
   });
 

@@ -801,6 +801,7 @@ describe("issue toolkit handlers", () => {
               resolve: () => Effect.succeed(null),
             }),
             Layer.mock(IssueProviderRegistry.IssueProviderRegistry)({
+              unboundAdapter: () => null,
               resolveProjects: () =>
                 Effect.succeed({
                   supported: [

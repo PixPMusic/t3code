@@ -2336,6 +2336,9 @@ function PullRequestsRouteView() {
                   ...(renderedPullRequestSurface.provider === undefined
                     ? {}
                     : { provider: renderedPullRequestSurface.provider }),
+                  ...(renderedPullRequestSurface.host === undefined
+                    ? {}
+                    : { host: renderedPullRequestSurface.host }),
                   repository: renderedPullRequestSurface.repository,
                   number: renderedPullRequestSurface.number,
                 }}

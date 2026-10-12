@@ -97,6 +97,8 @@ export type RightPanelSurface =
       environmentId?: string;
       projectId: string;
       provider?: string;
+      /** Where an issue no project owns lives, such as an upstream repository or a Jira site. */
+      host?: string;
       repository: string;
       number: number;
     }
@@ -199,6 +201,7 @@ interface RightPanelStoreState {
       environmentId?: string;
       projectId: string;
       provider?: string;
+      host?: string;
       repository: string;
       number: number;
     },
@@ -371,6 +374,7 @@ function issueSurface(target: {
   environmentId?: string;
   projectId: string;
   provider?: string;
+  host?: string;
   repository: string;
   number: number;
 }): IssueSurface {
@@ -379,6 +383,7 @@ function issueSurface(target: {
     kind: "issue",
     ...(target.environmentId === undefined ? {} : { environmentId: target.environmentId }),
     ...(target.provider === undefined ? {} : { provider: target.provider }),
+    ...(target.host === undefined ? {} : { host: target.host }),
     projectId: target.projectId,
     repository: target.repository,
     number: target.number,
@@ -636,12 +641,13 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                       ) {
                         return [];
                       }
-                      const { environmentId, provider, ...rest } = surface;
+                      const { environmentId, provider, host, ...rest } = surface;
                       return [
                         issueSurface({
                           ...rest,
                           ...(typeof environmentId === "string" ? { environmentId } : {}),
                           ...(typeof provider === "string" ? { provider } : {}),
+                          ...(typeof host === "string" ? { host } : {}),
                         }),
                       ];
                     }

@@ -520,12 +520,16 @@ function EnabledThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThread
       const environmentProjects = projects.filter(
         (candidate) => candidate.environmentId === threadRef.environmentId,
       );
+      const threadProject = environmentProjects.find(
+        (candidate) => candidate.id === thread?.projectId,
+      );
+      // An issue no project owns, such as an upstream repository's, is read through the thread's.
       const project =
         issue.projectId !== undefined
           ? environmentProjects.find((candidate) => candidate.id === issue.projectId)
           : sourceControlClients.find(issue.provider) !== undefined
-            ? findProjectForLink(environmentProjects, issue)
-            : environmentProjects.find((candidate) => candidate.id === thread?.projectId);
+            ? (findProjectForLink(environmentProjects, issue) ?? threadProject)
+            : threadProject;
       return project?.id ?? null;
     },
     [projects, supportsIssues, thread?.projectId, threadRef.environmentId],
@@ -536,16 +540,28 @@ function EnabledThreadPullRequestsPanel({ threadRef }: { threadRef: ScopedThread
       const target =
         projectId === null
           ? null
-          : relatedIssueTarget(
+          : (relatedIssueTarget(
               environmentProjects,
               { projectId, repository: issue.repository },
               relative,
-            );
+            ) ?? {
+              // No project owns it, such as an upstream repository's issue: read it through
+              // the thread's project, where the server reads issues it does not own.
+              projectId,
+              repository: relative.repository ?? issue.repository,
+              number: relative.number,
+            });
       if (target === null) {
         openLinkInBrowser(relative.url);
         return;
       }
-      useRightPanelStore.getState().openIssue(threadRef, { ...target, provider: issue.provider });
+      // The host travels with the reference so an issue no project owns can still be read.
+      const host = URL.canParse(relative.url) ? new URL(relative.url).host : undefined;
+      useRightPanelStore.getState().openIssue(threadRef, {
+        ...target,
+        provider: issue.provider,
+        ...(host === undefined ? {} : { host }),
+      });
     },
     [environmentProjects, issueProjectId, threadRef],
   );
