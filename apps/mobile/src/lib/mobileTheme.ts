@@ -242,7 +242,15 @@ export function createMobileThemeVariables(
 ) {
   const c = nativeColors(colors);
   const groupedCard = themeColorToNativeColor(groupedCardColor);
-  const textSurfaces = [c.canvas, c.surface, c.surfaceRaised, c.chrome, groupedCard];
+  const textSurfaces = [
+    c.canvas,
+    c.surface,
+    c.surfaceRaised,
+    c.chrome,
+    c.sidebar,
+    c.secondary,
+    groupedCard,
+  ];
   return {
     "--color-screen": c.canvas,
     "--color-sheet": withAlpha(c.chrome, 0.98),
@@ -368,13 +376,16 @@ export function getMobileThemeVariables(
 ): MobileThemeVariables {
   const colors = getMobileThemeColors(themeId, appearance);
   // Mobile settings groups and fallback materials use tonal fills where desktop
-  // uses outlined cards. Regular cards retain their shared desktop surface.
+  // uses outlined cards. Raise flat desktop surfaces above the sheet so grouped
+  // content keeps a visible boundary. Regular cards retain their desktop surface.
   const groupedCard =
     themeId === DEFAULT_MOBILE_THEME_ID
       ? appearance === "light"
         ? colors.toolbarControlHover
         : colors.sidebarRowActive
-      : colors.surface;
+      : colors.surface === colors.chrome
+        ? colors.surfaceRaised
+        : colors.surface;
   const mobileColors =
     themeId === DEFAULT_MOBILE_THEME_ID
       ? {
