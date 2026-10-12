@@ -275,7 +275,7 @@ function AdaptiveWorkspaceLayoutContent(
   // The rail consumes real space before either pane; inspectors and the detail
   // navigator must use the remaining viewport rather than clipping behind it.
   const navigationRailWidth =
-    Platform.OS === "android" && layout.usesSplitView
+    Platform.OS === "android" && layout.usesSplitView && showPrimarySidebar
       ? ANDROID_WORKSPACE_RAIL_WIDTH * Math.max(1, androidControlScale)
       : 0;
   const width = viewportWidth - navigationRailWidth;
