@@ -57,6 +57,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
+import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { AndroidWorkspaceSidebarButton } from "../layout/workspace-sidebar-toolbar";
 import { useAndroidWorkspaceBack } from "../workspace/useAndroidWorkspaceNavigation";
@@ -272,12 +273,18 @@ function PullRequestOverview(props: {
   );
 }
 
+function usePullRequestToolbarHeight(bottomInset: number) {
+  const { buttonSize } = useAndroidControlSizing();
+  // Reserve the controls, native toolbar padding, and outer gaps before onLayout measures them.
+  return useState(() => (Platform.OS === "android" ? bottomInset + buttonSize + 40 : 0));
+}
+
 export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestParams>) {
   const returnToList = useAndroidWorkspaceBack("pullRequests");
   const { layout } = useAdaptiveWorkspaceLayout();
-  const [toolbarHeight, setToolbarHeight] = useState(0);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const [toolbarHeight, setToolbarHeight] = usePullRequestToolbarHeight(insets.bottom);
   const params = route.params;
   const connected = usePullRequestConnected(params.environmentId);
   const [section, setSection] = useState<"overview" | "activity" | "guide">("overview");
@@ -709,7 +716,7 @@ export function PullRequestFileRouteScreen({
   const { layout } = useAdaptiveWorkspaceLayout();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [toolbarHeight, setToolbarHeight] = useState(0);
+  const [toolbarHeight, setToolbarHeight] = usePullRequestToolbarHeight(insets.bottom);
   const commit = route.params.commit;
   const result = usePullRequestDiff(route.params);
   const filter = usePullRequestFileFilter(
