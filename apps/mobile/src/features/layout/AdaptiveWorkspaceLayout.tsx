@@ -76,6 +76,10 @@ import {
 } from "../../native/v5-workspace-context";
 
 import { useNativeLayoutMetrics } from "../../native/native-layout-metrics";
+import {
+  WorkspaceColumnsRendererContext,
+  WorkspacePresentationHostContext,
+} from "./workspace-presentation-context";
 
 interface AdaptiveWorkspaceContextValue {
   readonly layout: Layout;
@@ -254,6 +258,7 @@ function AdaptiveWorkspaceLayoutContent(
 ) {
   const projectGroupingMode = props.projectGroupingMode;
   const nativeWorkspace = use(NativeWorkspaceModeContext);
+  const usesPresentationHost = use(WorkspacePresentationHostContext);
   const windowDimensions = useWindowDimensions();
   const nativeMetrics = useNativeLayoutMetrics();
   const { width: viewportWidth, height } = nativeMetrics ?? windowDimensions;
@@ -699,108 +704,113 @@ function AdaptiveWorkspaceLayoutContent(
       </HomeListOptionsProvider>
     );
   }
+  const renderColumns = (children: ReactNode) => (
+    <View
+      testID="adaptive-workspace-layout"
+      className={Platform.OS === "android" ? "flex-1 flex-row bg-header" : "flex-1 flex-row"}
+    >
+      {shouldRenderNavigationRail ? (
+        <Animated.View
+          className="self-stretch overflow-hidden"
+          accessibilityElementsHidden={navigationRailWidth === 0}
+          importantForAccessibility={navigationRailWidth > 0 ? "auto" : "no-hide-descendants"}
+          pointerEvents={navigationRailWidth > 0 ? "auto" : "none"}
+          style={railAnimatedStyle}
+        >
+          <AndroidWorkspaceNavigation rail onSelect={revealPrimarySidebar} />
+        </Animated.View>
+      ) : null}
+      {shouldRenderPrimarySidebar && layout.listPaneWidth !== null ? (
+        <Animated.View
+          className="self-stretch overflow-hidden"
+          accessibilityElementsHidden={!panes.primarySidebarVisible}
+          collapsable={false}
+          importantForAccessibility={panes.primarySidebarVisible ? "auto" : "no-hide-descendants"}
+          pointerEvents={panes.primarySidebarVisible ? "auto" : "none"}
+          style={sidebarAnimatedStyle}
+        >
+          <View className="flex-1" style={{ width: layout.listPaneWidth }}>
+            <RenderErrorBoundary
+              renderFallback={(fallback) => (
+                <RenderFailureView
+                  {...fallback}
+                  title="The sidebar couldn't be displayed"
+                  exit={{ label: "Open settings", onPress: handleOpenSettings }}
+                />
+              )}
+            >
+              <AndroidWorkspaceSidebar
+                onRequestVisibility={revealPrimarySidebar}
+                selectedPullRequestKey={props.selectedPullRequestKey ?? null}
+              >
+                <AndroidHomeFabLayout sidebar onStartNewTask={handleStartNewTask}>
+                  <ThreadNavigationSidebar
+                    width={layout.listPaneWidth}
+                    visible={panes.primarySidebarVisible}
+                    onRequestVisibility={revealPrimarySidebar}
+                    selectedThreadKey={selectedThreadKey}
+                    onOpenSettings={handleOpenSettings}
+                    onOpenEnvironmentSettings={handleOpenEnvironmentSettings}
+                    onNewThreadInProject={handleNewThreadInProject}
+                    onNewThreadOnBranch={handleNewThreadOnBranch}
+                    onSelectThread={handleSelectThread}
+                    onSearchQueryChange={setPrimarySidebarSearchQuery}
+                    searchQuery={primarySidebarSearchQuery}
+                  />
+                </AndroidHomeFabLayout>
+              </AndroidWorkspaceSidebar>
+            </RenderErrorBoundary>
+          </View>
+        </Animated.View>
+      ) : null}
+      <View
+        className={
+          Platform.OS === "android"
+            ? "flex-1 overflow-hidden bg-header"
+            : "flex-1 overflow-hidden bg-screen"
+        }
+        collapsable={false}
+      >
+        <View
+          collapsable={false}
+          style={
+            contentSettledWidth !== null
+              ? {
+                  flex: 1,
+                  width: contentSettledWidth,
+                }
+              : { flex: 1 }
+          }
+        >
+          <WorkspaceContentWidthContext value={layout.usesSplitView ? renderedContentWidth : null}>
+            {children}
+          </WorkspaceContentWidthContext>
+        </View>
+      </View>
+      <WorkspaceInspectorPane
+        pathname={props.pathname}
+        renderedInspectorWidth={renderedInspectorWidth}
+        active={workspaceInspector?.active ?? false}
+        panes={panes}
+        renderInspector={workspaceInspector?.render}
+        setAuxiliaryPaneWidth={setAuxiliaryPaneWidth}
+        onClosed={handleWorkspaceInspectorClosed}
+      />
+    </View>
+  );
   return (
     <HomeListOptionsProvider
       projectGroupingMode={projectGroupingMode}
       savedFilters={props.savedThreadListFilters}
     >
       <AdaptiveWorkspaceContext.Provider value={contextValue}>
-        <View
-          testID="adaptive-workspace-layout"
-          className={Platform.OS === "android" ? "flex-1 flex-row bg-header" : "flex-1 flex-row"}
-        >
-          {shouldRenderNavigationRail ? (
-            <Animated.View
-              className="self-stretch overflow-hidden"
-              accessibilityElementsHidden={navigationRailWidth === 0}
-              importantForAccessibility={navigationRailWidth > 0 ? "auto" : "no-hide-descendants"}
-              pointerEvents={navigationRailWidth > 0 ? "auto" : "none"}
-              style={railAnimatedStyle}
-            >
-              <AndroidWorkspaceNavigation rail onSelect={revealPrimarySidebar} />
-            </Animated.View>
-          ) : null}
-          {shouldRenderPrimarySidebar && layout.listPaneWidth !== null ? (
-            <Animated.View
-              className="self-stretch overflow-hidden"
-              accessibilityElementsHidden={!panes.primarySidebarVisible}
-              collapsable={false}
-              importantForAccessibility={
-                panes.primarySidebarVisible ? "auto" : "no-hide-descendants"
-              }
-              pointerEvents={panes.primarySidebarVisible ? "auto" : "none"}
-              style={sidebarAnimatedStyle}
-            >
-              <View className="flex-1" style={{ width: layout.listPaneWidth }}>
-                <RenderErrorBoundary
-                  renderFallback={(fallback) => (
-                    <RenderFailureView
-                      {...fallback}
-                      title="The sidebar couldn't be displayed"
-                      exit={{ label: "Open settings", onPress: handleOpenSettings }}
-                    />
-                  )}
-                >
-                  <AndroidWorkspaceSidebar
-                    onRequestVisibility={revealPrimarySidebar}
-                    selectedPullRequestKey={props.selectedPullRequestKey ?? null}
-                  >
-                    <AndroidHomeFabLayout sidebar onStartNewTask={handleStartNewTask}>
-                      <ThreadNavigationSidebar
-                        width={layout.listPaneWidth}
-                        visible={panes.primarySidebarVisible}
-                        onRequestVisibility={revealPrimarySidebar}
-                        selectedThreadKey={selectedThreadKey}
-                        onOpenSettings={handleOpenSettings}
-                        onOpenEnvironmentSettings={handleOpenEnvironmentSettings}
-                        onNewThreadInProject={handleNewThreadInProject}
-                        onNewThreadOnBranch={handleNewThreadOnBranch}
-                        onSelectThread={handleSelectThread}
-                        onSearchQueryChange={setPrimarySidebarSearchQuery}
-                        searchQuery={primarySidebarSearchQuery}
-                      />
-                    </AndroidHomeFabLayout>
-                  </AndroidWorkspaceSidebar>
-                </RenderErrorBoundary>
-              </View>
-            </Animated.View>
-          ) : null}
-          <View
-            className={
-              Platform.OS === "android"
-                ? "flex-1 overflow-hidden bg-header"
-                : "flex-1 overflow-hidden bg-screen"
-            }
-            collapsable={false}
-          >
-            <View
-              collapsable={false}
-              style={
-                contentSettledWidth !== null
-                  ? {
-                      flex: 1,
-                      width: contentSettledWidth,
-                    }
-                  : { flex: 1 }
-              }
-            >
-              <WorkspaceContentWidthContext
-                value={layout.usesSplitView ? renderedContentWidth : null}
-              >
-                {props.children}
-              </WorkspaceContentWidthContext>
-            </View>
-          </View>
-          <WorkspaceInspectorPane
-            pathname={props.pathname}
-            renderedInspectorWidth={renderedInspectorWidth}
-            active={workspaceInspector?.active ?? false}
-            panes={panes}
-            renderInspector={workspaceInspector?.render}
-            setAuxiliaryPaneWidth={setAuxiliaryPaneWidth}
-            onClosed={handleWorkspaceInspectorClosed}
-          />
-        </View>
+        {usesPresentationHost ? (
+          <WorkspaceColumnsRendererContext value={renderColumns}>
+            {props.children}
+          </WorkspaceColumnsRendererContext>
+        ) : (
+          renderColumns(props.children)
+        )}
       </AdaptiveWorkspaceContext.Provider>
     </HomeListOptionsProvider>
   );
