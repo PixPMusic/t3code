@@ -24,6 +24,7 @@ import {
 } from "react";
 import { Platform, useWindowDimensions, View } from "react-native";
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -61,6 +62,7 @@ import {
   ANDROID_WORKSPACE_RAIL_WIDTH,
 } from "../workspace/AndroidWorkspaceNavigation";
 import { AndroidWorkspaceSidebar } from "../workspace/AndroidWorkspaceSidebar";
+import { useAndroidWorkspaceSelection } from "../workspace/useAndroidWorkspaceSelection";
 import { HomeListOptionsProvider } from "../home/home-list-options";
 import { ThreadNavigationSidebar } from "../threads/ThreadNavigationSidebar";
 import { RenderErrorBoundary, RenderFailureView } from "../../components/RenderErrorBoundary";
@@ -274,8 +276,9 @@ function AdaptiveWorkspaceLayoutContent(
   const layout = baseLayout;
   // The rail consumes real space before either pane; inspectors and the detail
   // navigator must use the remaining viewport rather than clipping behind it.
+  const shouldRenderNavigationRail = Platform.OS === "android" && layout.usesSplitView;
   const navigationRailWidth =
-    Platform.OS === "android" && layout.usesSplitView && showPrimarySidebar
+    shouldRenderNavigationRail && showPrimarySidebar
       ? ANDROID_WORKSPACE_RAIL_WIDTH * Math.max(1, androidControlScale)
       : 0;
   const width = viewportWidth - navigationRailWidth;
@@ -492,22 +495,80 @@ function AdaptiveWorkspaceLayoutContent(
     [navigation],
   );
 
+  const inspectorColumnTargetWidth =
+    workspaceInspector !== null && workspaceInspector.active && panes.auxiliaryPaneVisible
+      ? (panes.auxiliaryPaneWidth ?? 0)
+      : 0;
+  const contentTargetWidth = layout.usesSplitView
+    ? Math.max(0, panes.contentPaneWidth - inspectorColumnTargetWidth)
+    : null;
+  const [contentSizing, setContentSizing] = useState({
+    viewportWidth,
+    target: contentTargetWidth,
+    sidebarVisible: panes.primarySidebarVisible,
+    width: contentTargetWidth,
+    revision: 0,
+  });
+  if (
+    Platform.OS === "android" &&
+    (contentSizing.viewportWidth !== viewportWidth ||
+      contentSizing.target !== contentTargetWidth ||
+      contentSizing.sidebarVisible !== panes.primarySidebarVisible)
+  ) {
+    const openingSidebar =
+      Platform.OS === "android" &&
+      contentSizing.viewportWidth === viewportWidth &&
+      !contentSizing.sidebarVisible &&
+      panes.primarySidebarVisible &&
+      contentSizing.width !== null &&
+      contentTargetWidth !== null;
+    setContentSizing({
+      viewportWidth,
+      target: contentTargetWidth,
+      sidebarVisible: panes.primarySidebarVisible,
+      // Clip the wide navigator during expansion, then reflow once at the end.
+      // Narrowing it first exposes an empty strip before the sidebar arrives.
+      width: openingSidebar
+        ? Math.max(contentSizing.width ?? 0, contentTargetWidth ?? 0)
+        : contentTargetWidth,
+      revision: contentSizing.revision + 1,
+    });
+  }
+  const settleContentWidth = useCallback((revision: number) => {
+    setContentSizing((current) =>
+      current.revision !== revision || current.width === current.target
+        ? current
+        : { ...current, width: current.target },
+    );
+  }, []);
+  const contentSettledWidth = Platform.OS === "android" ? contentSizing.width : contentTargetWidth;
+  const contentRevision = contentSizing.revision;
+
   const renderedSidebarWidth = useSharedValue(
     panes.primarySidebarVisible ? (layout.listPaneWidth ?? 0) + (layout.listPaneGap ?? 0) : 0,
   );
+  const renderedRailWidth = useSharedValue(navigationRailWidth);
   useEffect(() => {
     if (nativeWorkspace) return;
     const targetWidth = panes.primarySidebarVisible
       ? (layout.listPaneWidth ?? 0) + (layout.listPaneGap ?? 0)
       : 0;
-    renderedSidebarWidth.value = withTiming(targetWidth, WORKSPACE_PANE_TIMING);
+    renderedSidebarWidth.value = withTiming(targetWidth, WORKSPACE_PANE_TIMING, (finished) => {
+      if (finished && Platform.OS === "android") runOnJS(settleContentWidth)(contentRevision);
+    });
+    renderedRailWidth.set(withTiming(navigationRailWidth, WORKSPACE_PANE_TIMING));
   }, [
     nativeWorkspace,
+    navigationRailWidth,
     layout.listPaneWidth,
     layout.listPaneGap,
     panes.primarySidebarVisible,
     renderedSidebarWidth,
+    renderedRailWidth,
+    settleContentWidth,
+    contentRevision,
   ]);
+  const railAnimatedStyle = useAnimatedStyle(() => ({ width: renderedRailWidth.value }));
   const sidebarAnimatedStyle = useAnimatedStyle(() => ({
     // Fading a UIKit glass ancestor can leave remounted header effects missing.
     // The clipped width already reveals and hides the iOS sidebar.
@@ -521,24 +582,29 @@ function AdaptiveWorkspaceLayoutContent(
   // animating columns merely clip/reveal it over a matching background.
   // Continuously re-wrapping the chat feed was the main source of dropped
   // frames during sidebar/inspector transitions.
-  const inspectorColumnTargetWidth =
-    workspaceInspector !== null && workspaceInspector.active && panes.auxiliaryPaneVisible
-      ? (panes.auxiliaryPaneWidth ?? 0)
-      : 0;
-  const contentSettledWidth = layout.usesSplitView
-    ? Math.max(0, panes.contentPaneWidth - inspectorColumnTargetWidth)
-    : null;
   const renderedInspectorWidth = useSharedValue(inspectorColumnTargetWidth);
   const renderedContentWidth = useDerivedValue(() =>
-    Math.max(0, width - renderedSidebarWidth.value - renderedInspectorWidth.value),
+    Math.max(
+      0,
+      viewportWidth -
+        renderedRailWidth.value -
+        renderedSidebarWidth.value -
+        renderedInspectorWidth.value,
+    ),
   );
 
+  const selectAndroidWorkspace = useAndroidWorkspaceSelection();
   const handleSelectThread = useCallback(
     (thread: EnvironmentThreadShell) => {
       const params = {
         environmentId: String(thread.environmentId),
         threadId: String(thread.id),
       };
+      if (Platform.OS === "android") {
+        setFileInspectorPreferredVisible(false);
+        selectAndroidWorkspace({ name: "Thread", params });
+        return;
+      }
       const navigationAction = resolveThreadSelectionNavigationAction({
         usesSplitView: layout.usesSplitView,
         pathname,
@@ -570,7 +636,14 @@ function AdaptiveWorkspaceLayoutContent(
       }
       navigation.navigate("Thread", params);
     },
-    [layout.usesSplitView, pathname, navigation, selectedThreadKey, props.workspaceRouteKey],
+    [
+      layout.usesSplitView,
+      pathname,
+      navigation,
+      selectedThreadKey,
+      props.workspaceRouteKey,
+      selectAndroidWorkspace,
+    ],
   );
 
   const contextValue = useMemo(
@@ -620,9 +693,20 @@ function AdaptiveWorkspaceLayoutContent(
   return (
     <HomeListOptionsProvider projectGroupingMode={projectGroupingMode}>
       <AdaptiveWorkspaceContext.Provider value={contextValue}>
-        <View testID="adaptive-workspace-layout" className="flex-1 flex-row">
-          {navigationRailWidth > 0 ? (
-            <AndroidWorkspaceNavigation rail onSelect={revealPrimarySidebar} />
+        <View
+          testID="adaptive-workspace-layout"
+          className={Platform.OS === "android" ? "flex-1 flex-row bg-header" : "flex-1 flex-row"}
+        >
+          {shouldRenderNavigationRail ? (
+            <Animated.View
+              className="self-stretch overflow-hidden"
+              accessibilityElementsHidden={navigationRailWidth === 0}
+              importantForAccessibility={navigationRailWidth > 0 ? "auto" : "no-hide-descendants"}
+              pointerEvents={navigationRailWidth > 0 ? "auto" : "none"}
+              style={railAnimatedStyle}
+            >
+              <AndroidWorkspaceNavigation rail onSelect={revealPrimarySidebar} />
+            </Animated.View>
           ) : null}
           {shouldRenderPrimarySidebar && layout.listPaneWidth !== null ? (
             <Animated.View

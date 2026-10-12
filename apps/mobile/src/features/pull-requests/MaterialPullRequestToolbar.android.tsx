@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { useCallback, useEffect, useRef } from "react";
 import { BackHandler, Keyboard, View, type TextInputInstance } from "react-native";
 import { AndroidHeaderIconButton, AndroidScreenHeader } from "../../components/AndroidScreenHeader";
@@ -12,7 +12,9 @@ import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 export function MaterialPullRequestToolbar(props: { readonly onRequestVisibility?: () => void }) {
   const navigation = useNavigation();
   const workspace = useWorkspaceTabs()!;
-  const { dispatch, getScrollOffset, recordScrollOffset } = workspace;
+  const { dispatch, getScrollOffset, recordScrollOffset, isTabActive } = workspace;
+  const homeFocused = useNavigationState((state) => state.routes[state.index]?.name === "Home");
+  const listFocused = homeFocused && workspace.state.selectedTab === "pullRequests";
   const { onRequestVisibility } = props;
   const tab = workspace.state.tabs.pullRequests;
   const input = useRef<TextInputInstance>(null);
@@ -35,14 +37,19 @@ export function MaterialPullRequestToolbar(props: { readonly onRequestVisibility
     dispatch({ type: "cancel", tab: "pullRequests" });
   }, [dispatch, recordScrollOffset, tab.searchEntryOffset]);
   useEffect(() => {
-    if (!searching) return;
+    if (!searching || !listFocused) return;
     input.current?.focus();
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      closeSearch();
+      // Frozen Home screens can keep effects alive after a detail route opens.
+      const state = navigation.getState();
+      if (!state || state.routes[state.index]?.name !== "Home" || !isTabActive("pullRequests"))
+        return false;
+      if (Keyboard.isVisible()) Keyboard.dismiss();
+      else closeSearch();
       return true;
     });
     return () => subscription.remove();
-  }, [searching, closeSearch]);
+  }, [searching, closeSearch, listFocused, navigation, isTabActive]);
   return (
     <AndroidScreenHeader
       title="Pull requests"

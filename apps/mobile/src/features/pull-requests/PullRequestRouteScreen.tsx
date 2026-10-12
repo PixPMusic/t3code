@@ -58,6 +58,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText as Text } from "../../components/AppText";
 import { AndroidScreenHeader } from "../../components/AndroidScreenHeader";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
+import { AndroidWorkspaceSidebarButton } from "../layout/workspace-sidebar-toolbar";
+import { useAndroidWorkspaceBack } from "../workspace/useAndroidWorkspaceNavigation";
 import { EmptyState } from "../../components/EmptyState";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { SymbolView } from "../../components/AppSymbol";
@@ -271,6 +273,7 @@ function PullRequestOverview(props: {
 }
 
 export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestParams>) {
+  const returnToList = useAndroidWorkspaceBack("pullRequests");
   const { layout } = useAdaptiveWorkspaceLayout();
   const [toolbarHeight, setToolbarHeight] = useState(0);
   const navigation = useNavigation();
@@ -373,7 +376,8 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
           <AndroidScreenHeader
             title={`#${params.number}${connected ? "" : " · Offline"}`}
             subtitle={params.repository}
-            onBack={() => navigation.goBack()}
+            onBack={layout.usesSplitView ? undefined : returnToList}
+            leading={layout.usesSplitView ? <AndroidWorkspaceSidebarButton /> : undefined}
             actions={[
               ...(permissions.verdicts.length
                 ? [

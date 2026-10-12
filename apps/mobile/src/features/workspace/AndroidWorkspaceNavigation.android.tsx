@@ -1,4 +1,6 @@
 import { requireNativeView } from "expo";
+import { CommonActions, useNavigation } from "@react-navigation/native";
+import { androidWorkspaceNavigationState } from "../../lib/android-workspace-navigation";
 import {
   Keyboard,
   processColor,
@@ -41,6 +43,7 @@ export function AndroidWorkspaceNavigation(props: {
   readonly onSelect?: () => void;
 }) {
   const workspace = useWorkspaceTabs()!;
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const { themeAppearance, themeVariables: colors } = useAppearancePreferences();
@@ -60,6 +63,7 @@ export function AndroidWorkspaceNavigation(props: {
         backgroundColor: containerColor,
         ...(rail
           ? {
+              flex: 1,
               width: ANDROID_WORKSPACE_RAIL_WIDTH * Math.max(1, scale),
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
@@ -78,7 +82,13 @@ export function AndroidWorkspaceNavigation(props: {
         unselectedColor={nativeColor(colors["--color-header-foreground"])}
         onTabSelected={(event) => {
           Keyboard.dismiss();
-          workspace.dispatch({ type: "select", tab: event.nativeEvent.tab });
+          const tab = event.nativeEvent.tab;
+          if (tab !== workspace.state.selectedTab) {
+            workspace.dispatch({ type: "select", tab });
+            navigation.dispatch((state) =>
+              CommonActions.reset(androidWorkspaceNavigationState(state)),
+            );
+          }
           props.onSelect?.();
         }}
         style={rail ? { flex: 1 } : { height: 80 * Math.max(1, scale) }}
