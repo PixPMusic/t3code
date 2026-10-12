@@ -554,7 +554,7 @@ export const make = Effect.fn("LocalDeviceHost.make")(function* () {
     }
     // There is no `daemon start`; the first command in a state dir spawns the
     // daemon and blocks until it answers. `devices` is the cheapest one.
-    const result = yield* runner
+    const runResult = yield* runner
       .run({
         command: nodePath,
         args: [agentTool.entryPath, "devices", "--json"],
@@ -562,16 +562,19 @@ export const make = Effect.fn("LocalDeviceHost.make")(function* () {
         timeout: Duration.millis(DAEMON_READY_TIMEOUT_MS),
         timeoutBehavior: "timedOutResult",
       })
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new DeviceHost.DeviceHostError({ hostId, step: "starting agent tools", cause }),
-        ),
-      );
+      .pipe(Effect.result);
     // Discovery can fail after the daemon starts. A published endpoint still
     // lets agents connect; absent one, preserve the CLI failure instead of polling.
     const started = yield* readDaemonFile().pipe(Effect.option);
     if (started._tag === "Some") return toEndpoint(started.value);
+    if (runResult._tag === "Failure") {
+      return yield* new DeviceHost.DeviceHostError({
+        hostId,
+        step: "starting agent tools",
+        cause: runResult.failure,
+      });
+    }
+    const result = runResult.success;
     if (result.timedOut) {
       return yield* new DeviceHost.DeviceHostTimeoutError({
         hostId,

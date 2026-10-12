@@ -171,6 +171,40 @@ describe("AgentDevice startup", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("uses a registered daemon when reading startup command output fails", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const cause = new ProcessRunner.ProcessReadError({
+        command: process.execPath,
+        argumentCount: 3,
+        stream: "stdout",
+        cause: new Error("output read failed after registration"),
+      });
+      let attempts = 0;
+      const { host } = yield* agentFixture((stateDir) =>
+        Effect.gen(function* () {
+          attempts++;
+          yield* fs
+            .writeFileString(
+              `${stateDir}/daemon.json`,
+              JSON.stringify({ httpPort: 12345, token: "test-token" }),
+            )
+            .pipe(Effect.orDie);
+          return yield* cause;
+        }),
+      );
+      const ready = yield* host.ensureAgentReady(() => Effect.void);
+      expect(ready.agentDevice).toMatchObject({
+        baseUrl: "http://127.0.0.1:12345",
+        token: "test-token",
+      });
+      expect((yield* host.ensureAgentReady(() => Effect.void)).agentDevice).toEqual(
+        ready.agentDevice,
+      );
+      expect(attempts).toBe(1);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("allows retry and uses a registered daemon even when discovery exits nonzero", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
