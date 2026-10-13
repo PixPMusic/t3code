@@ -37,6 +37,10 @@ disconnect an otherwise healthy conversation.
 In the web or desktop app, open Settings → Connections and edit Host name. Connected clients and
 T3 Connect use the new name without a server restart.
 
+On mobile, open Settings → Environments, choose a T3 Connect host, and edit Host name.
+You need permission to update that environment’s settings. Labels on manually paired
+connections remain local to your device.
+
 Clear the field to return to the name detected from the host operating system. This setting changes
 the environment name shown by T3 Code; it does not change the machine's operating-system hostname.
 
