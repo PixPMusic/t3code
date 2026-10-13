@@ -743,7 +743,11 @@ export function ReviewSheet(props: ReviewSheetProps) {
           {showConnectionNotice ? (
             <View className="flex-1" style={{ paddingTop: topContentInset }}>
               <EnvironmentConnectionNotice
-                environmentLabel={environment.presentation?.entry.target.label ?? "Environment"}
+                environmentLabel={
+                  environment.presentation?.serverConfig?.environment.label ??
+                  environment.presentation?.entry.target.label ??
+                  "Environment"
+                }
                 connection={
                   environment.presentation?.connection ?? {
                     phase: "available",

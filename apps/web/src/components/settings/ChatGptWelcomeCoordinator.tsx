@@ -39,7 +39,8 @@ export function ChatGptWelcomeCoordinator() {
             provider.instanceId,
             provider.auth.profileId ?? provider.auth.email ?? "default",
           ]),
-          environmentLabel: presentation.entry.target.label,
+          environmentLabel:
+            presentation.serverConfig?.environment.label ?? presentation.entry.target.label,
           providerName: provider.displayName ?? "Codex",
         })),
   );

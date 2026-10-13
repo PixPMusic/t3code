@@ -333,7 +333,14 @@ export function useRefreshLimits(
           setFailedEnvironments((previous) => [
             ...previous.filter((failed) => failed.environmentId !== environmentId),
             ...(result._tag === "Failure"
-              ? [{ environmentId, label: presentation.entry.target.label }]
+              ? [
+                  {
+                    environmentId,
+                    label:
+                      presentation.serverConfig?.environment.label ??
+                      presentation.entry.target.label,
+                  },
+                ]
               : []),
           ]);
         }),
