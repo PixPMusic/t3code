@@ -563,24 +563,24 @@ const make = Effect.gen(function* () {
           operation: "status",
         });
       }
-      if (decoded.descriptor.label !== link.label) {
-        yield* links
-          .updateLabelForUser({
-            userId: input.userId,
-            environmentId: input.environmentId,
-            label: decoded.descriptor.label,
-            checkedAt: decoded.checkedAt,
-          })
-          .pipe(
-            Effect.tapError((error) =>
-              Effect.logWarning("managed environment label persistence failed", {
-                environmentId: input.environmentId,
-                errorTag: error._tag,
-              }),
-            ),
-            Effect.ignore,
-          );
-      }
+      // Record unchanged labels too: a newer probe after clearing a name must
+      // prevent an older rename response from overwriting that name again.
+      yield* links
+        .updateLabelForUser({
+          userId: input.userId,
+          environmentId: input.environmentId,
+          label: decoded.descriptor.label,
+          checkedAt: decoded.checkedAt,
+        })
+        .pipe(
+          Effect.tapError((error) =>
+            Effect.logWarning("managed environment label persistence failed", {
+              environmentId: input.environmentId,
+              errorTag: error._tag,
+            }),
+          ),
+          Effect.ignore,
+        );
       return {
         environmentId: link.environmentId,
         endpoint,
