@@ -332,64 +332,74 @@ describe("EnvironmentConnector", () => {
     }).pipe(Effect.provide(layerConnectorTest(execute)));
   });
 
-  it.effect("persists a label reported by a verified environment health response", () => {
-    const updates: Array<{ userId: string; environmentId: string; label: string }> = [];
-    const execute = (request: HttpClientRequest.HttpClientRequest) =>
-      Effect.sync(() => {
-        const healthRequest = decodeHealthRequestBody(requestBodyText(request));
-        return HttpClientResponse.fromWeb(
-          request,
-          Response.json(
-            signHealthResponse(
-              healthRequest,
-              environmentKeyPair.privateKey,
-              {},
-              {
-                descriptor: {
-                  environmentId: "env-connector-test" as never,
-                  label: "Studio Mac",
-                  platform: { os: "darwin", arch: "arm64" },
-                  serverVersion: "0.0.0-test",
-                  capabilities: { repositoryIdentity: true },
+  it.effect.each([false, true])(
+    "returns verified health when label persistence fails: %s",
+    (persistenceFails) => {
+      const updates: Array<{ userId: string; environmentId: string; label: string }> = [];
+      const execute = (request: HttpClientRequest.HttpClientRequest) =>
+        Effect.sync(() => {
+          const healthRequest = decodeHealthRequestBody(requestBodyText(request));
+          return HttpClientResponse.fromWeb(
+            request,
+            Response.json(
+              signHealthResponse(
+                healthRequest,
+                environmentKeyPair.privateKey,
+                {},
+                {
+                  descriptor: {
+                    environmentId: "env-connector-test" as never,
+                    label: "Studio Mac",
+                    platform: { os: "darwin", arch: "arm64" },
+                    serverVersion: "0.0.0-test",
+                    capabilities: { repositoryIdentity: true },
+                  },
                 },
-              },
+              ),
+              { status: 200 },
             ),
-            { status: 200 },
-          ),
-        );
-      });
-    const links = makeLinks();
+          );
+        });
+      const links = makeLinks();
 
-    return Effect.gen(function* () {
-      const connector = yield* EnvironmentConnector.EnvironmentConnector;
-      const result = yield* connector.status({
-        userId: "user_123",
-        environmentId: "env-connector-test",
-      });
-
-      expect(result.descriptor?.label).toBe("Studio Mac");
-      expect(updates).toEqual([
-        {
+      return Effect.gen(function* () {
+        const connector = yield* EnvironmentConnector.EnvironmentConnector;
+        const result = yield* connector.status({
           userId: "user_123",
           environmentId: "env-connector-test",
-          label: "Studio Mac",
-          checkedAt: expect.any(String),
-        },
-      ]);
-    }).pipe(
-      Effect.provide(
-        layerConnectorTest(execute, {
-          links: {
-            ...links,
-            updateLabelForUser: (input) =>
-              Effect.sync(() => {
-                updates.push(input);
-              }),
+        });
+
+        expect(result.descriptor?.label).toBe("Studio Mac");
+        expect(updates).toEqual([
+          {
+            userId: "user_123",
+            environmentId: "env-connector-test",
+            label: "Studio Mac",
+            checkedAt: expect.any(String),
           },
-        }),
-      ),
-    );
-  });
+        ]);
+      }).pipe(
+        Effect.provide(
+          layerConnectorTest(execute, {
+            links: {
+              ...links,
+              updateLabelForUser: (input) =>
+                Effect.gen(function* () {
+                  updates.push(input);
+                  if (persistenceFails) {
+                    return yield* new EnvironmentLinks.EnvironmentLinkLabelUpdatePersistenceError({
+                      userId: input.userId,
+                      environmentId: input.environmentId,
+                      cause: new Error("database unavailable"),
+                    });
+                  }
+                }),
+            },
+          }),
+        ),
+      );
+    },
+  );
 
   it.effect("rejects manual endpoints before sending a health request", () => {
     let requestCount = 0;

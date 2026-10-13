@@ -53,6 +53,48 @@ function harness() {
 }
 
 describe("environment summary subscriptions", () => {
+  it("updates labels from the live descriptor while keeping unrelated subscribers stable", () => {
+    const h = harness();
+    const initialIds = h.registry.get(h.environmentIdsAtom);
+    const initialConnected = h.registry.get(h.connectedEnvironmentIdsAtom);
+    const initialMachines = h.registry.get(h.machineByIdAtom);
+    const counts = { labels: 0, connections: 0, ids: 0, connected: 0, machines: 0 };
+    const stops = [
+      h.registry.subscribe(h.identitiesAtom, () => counts.labels++),
+      h.registry.subscribe(h.environmentsAtom, () => counts.connections++),
+      h.registry.subscribe(h.environmentIdsAtom, () => counts.ids++),
+      h.registry.subscribe(h.connectedEnvironmentIdsAtom, () => counts.connected++),
+      h.registry.subscribe(h.machineByIdAtom, () => counts.machines++),
+    ];
+    try {
+      const previous = config();
+      h.registry.set(h.configs(FIRST), {
+        ...previous,
+        environment: { ...previous.environment, label: "Studio Mac" },
+      });
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Studio Mac");
+      expect(h.registry.get(h.environmentsAtom)[0]?.environmentLabel).toBe("Studio Mac");
+      expect(h.registry.get(h.environmentIdsAtom)).toBe(initialIds);
+      expect(h.registry.get(h.connectedEnvironmentIdsAtom)).toBe(initialConnected);
+      expect(h.registry.get(h.machineByIdAtom)).toBe(initialMachines);
+      expect(counts).toEqual({ labels: 1, connections: 1, ids: 0, connected: 0, machines: 0 });
+
+      // Clearing the override publishes the server's detected name.
+      h.registry.set(h.configs(FIRST), {
+        ...previous,
+        environment: { ...previous.environment, label: "Detected Mac" },
+      });
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Detected Mac");
+      expect(h.registry.get(h.environmentsAtom)[0]?.environmentLabel).toBe("Detected Mac");
+      h.registry.set(h.configs(FIRST), null);
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("first");
+      expect(h.registry.get(h.environmentsAtom)[0]?.environmentLabel).toBe("first");
+    } finally {
+      stops.forEach((stop) => stop());
+      h.registry.dispose();
+    }
+  });
+
   it("publishes full config updates without notifying membership, labels, connections or capability consumers", () => {
     const h = harness();
     h.registry.get(h.full.presentationsAtom);

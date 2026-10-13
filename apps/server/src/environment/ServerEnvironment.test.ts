@@ -269,6 +269,11 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
         yield* secrets.set(RELAY_URL_SECRET, encode("https://relay.example"));
         const linked = yield* serverEnvironment.getDescriptor;
         expect(linked.capabilities.agentActivityPublishing).toBe(true);
+        const snapshot = yield* serverEnvironment.getDescriptorForSettings({
+          environmentLabel: "Studio Mac",
+        });
+        expect(snapshot.label).toBe("Studio Mac");
+        expect(snapshot.capabilities).toEqual(linked.capabilities);
 
         // The toggle changes at runtime, so the same service instance must
         // reflect a flip without a restart.

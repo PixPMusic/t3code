@@ -81,10 +81,16 @@ it.effect("does not block server config when editor discovery never resolves", (
 const snapshotConfig = (fields: Partial<ServerConfig>) =>
   ({ availableEditors: [], settings: {}, ...fields }) as unknown as ServerConfig;
 
-const settingsUpdated = (settings: object): ServerConfigStreamEvent => ({
+const settingsUpdated = (
+  settings: object,
+  environment?: ServerConfig["environment"],
+): ServerConfigStreamEvent => ({
   version: 1,
   type: "settingsUpdated",
-  payload: { settings: settings as ServerConfig["settings"] },
+  payload: {
+    settings: settings as ServerConfig["settings"],
+    ...(environment === undefined ? {} : { environment }),
+  },
 });
 
 it.effect("resends late editors without rolling back updates already sent", () =>
@@ -95,13 +101,9 @@ it.effect("resends late editors without rolling back updates already sent", () =
         settings: { enableProviderUpdateChecks: true } as never,
         environment: { label: "Initial host" } as never,
       }),
-      Stream.make({
-        ...settingsUpdated({ enableProviderUpdateChecks: false }),
-        payload: {
-          settings: { enableProviderUpdateChecks: false } as never,
-          environment: { label: "Renamed host" } as never,
-        },
-      }),
+      Stream.make(
+        settingsUpdated({ enableProviderUpdateChecks: false }, { label: "Renamed host" } as never),
+      ),
       {
         resolveAvailableEditors: () => Effect.succeed(["file-manager"]),
         // Holds the late snapshot until the settings change has gone out.

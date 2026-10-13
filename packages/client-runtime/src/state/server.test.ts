@@ -428,6 +428,15 @@ describe("server state projection", () => {
     expect(result.config.settings).toBe(settings);
     expect(result.config.environment).toBe(environment);
     expect(result.latestEvent.type).toBe("settingsUpdated");
+
+    const legacyUpdate = Option.getOrThrow(
+      applyServerConfigProjection(projected, {
+        version: 1,
+        type: "settingsUpdated",
+        payload: { settings },
+      }),
+    );
+    expect(legacyUpdate.config.environment).toBe(environment);
   });
 
   it("carries published environment themes in and out of the projected snapshot", () => {
