@@ -77,18 +77,18 @@ describe("EnvironmentLinks", () => {
 
     return Effect.gen(function* () {
       const links = yield* EnvironmentLinks.EnvironmentLinks;
-      yield* links.updateLabel({
+      yield* links.recordEnvironmentLabel({
         environmentId: "env-1",
         environmentPublicKey: "verified-public-key",
         label: "Studio Mac",
-        checkedAt: "2026-08-20T12:00:00.000Z",
       });
 
+      // Stamped with relay time (the test clock starts at the epoch).
       const query = new PgDialect().sqlToQuery(whereConditions[0] as never);
       expect(query.sql).not.toContain("user_id");
       expect(query.sql).toContain('"relay_environment_links"."environment_public_key" = $2');
       expect(query.sql).toContain('"relay_environment_links"."updated_at" <= $3');
-      expect(query.params).toEqual(["env-1", "verified-public-key", "2026-08-20T12:00:00.000Z"]);
+      expect(query.params).toEqual(["env-1", "verified-public-key", "1970-01-01T00:00:00.000Z"]);
     }).pipe(
       Effect.provide(
         EnvironmentLinks.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb))),
