@@ -409,6 +409,151 @@ describe("EnvironmentConnector", () => {
     },
   );
 
+  it.effect("persists a verified rename using relay time when the host clock is behind", () => {
+    const relayCheckedAt = "2026-08-20T12:00:30.000Z";
+    const hostCheckedAt = "2026-08-20T12:00:00.000Z";
+    const linkedAt = "2026-08-20T12:00:20.000Z";
+    const updates: Array<
+      Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabelForUser"]>[0]
+    > = [];
+    const execute = (request: HttpClientRequest.HttpClientRequest) =>
+      Effect.sync(() => {
+        const healthRequest = decodeHealthRequestBody(requestBodyText(request));
+        const requestProof = decodeRequestProof<RelayCloudEnvironmentHealthProofPayload>(
+          healthRequest.proof,
+        );
+        const response = signHealthResponse(healthRequest);
+        return HttpClientResponse.fromWeb(
+          request,
+          Response.json(
+            signHealthResponse(
+              healthRequest,
+              environmentKeyPair.privateKey,
+              {},
+              {
+                iat: requestProof.iat - 30,
+                exp: requestProof.exp - 30,
+                checkedAt: hostCheckedAt,
+                descriptor: { ...response.descriptor, label: "Studio Mac" },
+              },
+            ),
+            { status: 200 },
+          ),
+        );
+      });
+
+    return Effect.gen(function* () {
+      yield* TestClock.setTime(Date.parse(relayCheckedAt));
+      const connector = yield* EnvironmentConnector.EnvironmentConnector;
+      const result = yield* connector.status({
+        userId: "user_123",
+        environmentId: "env-connector-test",
+      });
+      expect(result).toMatchObject({
+        status: "online",
+        checkedAt: hostCheckedAt,
+        descriptor: { label: "Studio Mac" },
+      });
+      expect(updates).toHaveLength(1);
+      expect(updates[0]?.checkedAt).toBe(relayCheckedAt);
+      expect(Date.parse(updates[0]?.checkedAt ?? "")).toBeGreaterThan(Date.parse(linkedAt));
+      expect(Date.parse(hostCheckedAt)).toBeLessThan(Date.parse(linkedAt));
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          TestClock.layer(),
+          layerConnectorTest(execute, {
+            links: {
+              ...makeLinks({ linkedAt }),
+              updateLabelForUser: (input) =>
+                Effect.sync(() => {
+                  updates.push(input);
+                }),
+            },
+          }),
+        ),
+      ),
+    );
+  });
+
+  it.effect("orders delayed rename and unchanged reset probes by their relay start time", () =>
+    Effect.gen(function* () {
+      const firstStarted = yield* Deferred.make<void>();
+      const releaseFirst = yield* Deferred.make<void>();
+      const updates: Array<
+        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabelForUser"]>[0]
+      > = [];
+      let requests = 0;
+      const execute = (request: HttpClientRequest.HttpClientRequest) =>
+        Effect.gen(function* () {
+          const first = ++requests === 1;
+          const healthRequest = decodeHealthRequestBody(requestBodyText(request));
+          const requestProof = decodeRequestProof<RelayCloudEnvironmentHealthProofPayload>(
+            healthRequest.proof,
+          );
+          const response = signHealthResponse(healthRequest);
+          const checkedAt = DateTime.formatIso(
+            DateTime.makeUnsafe((requestProof.iat + (first ? 30 : -30)) * 1_000),
+          );
+          if (first) {
+            yield* Deferred.succeed(firstStarted, undefined);
+            yield* Deferred.await(releaseFirst);
+          }
+          return HttpClientResponse.fromWeb(
+            request,
+            Response.json(
+              signHealthResponse(
+                healthRequest,
+                environmentKeyPair.privateKey,
+                {},
+                {
+                  checkedAt,
+                  descriptor: {
+                    ...response.descriptor,
+                    label: first ? "Studio Mac" : "Connector Test Environment",
+                  },
+                },
+              ),
+              { status: 200 },
+            ),
+          );
+        });
+      const checks = Effect.gen(function* () {
+        yield* TestClock.setTime(Date.parse("2026-08-20T12:00:30.000Z"));
+        const connector = yield* EnvironmentConnector.EnvironmentConnector;
+        const statusInput = { userId: "user_123", environmentId: "env-connector-test" };
+        const older = yield* connector.status(statusInput).pipe(Effect.forkChild);
+        yield* Deferred.await(firstStarted);
+        yield* TestClock.adjust("5 seconds");
+        const newer = yield* connector.status(statusInput);
+        yield* Deferred.succeed(releaseFirst, undefined);
+        const olderResult = yield* Fiber.join(older);
+        // Completion order and host timestamps both disagree with relay probe order.
+        expect(Date.parse(olderResult.checkedAt)).toBeGreaterThan(Date.parse(newer.checkedAt));
+        expect(updates.map(({ label, checkedAt }) => ({ label, checkedAt }))).toEqual([
+          { label: "Connector Test Environment", checkedAt: "2026-08-20T12:00:35.000Z" },
+          { label: "Studio Mac", checkedAt: "2026-08-20T12:00:30.000Z" },
+        ]);
+      });
+      yield* checks.pipe(
+        Effect.provide(
+          Layer.merge(
+            TestClock.layer(),
+            layerConnectorTest(execute, {
+              links: {
+                ...makeLinks(),
+                updateLabelForUser: (input) =>
+                  Effect.sync(() => {
+                    updates.push(input);
+                  }),
+              },
+            }),
+          ),
+        ),
+      );
+    }),
+  );
+
   it.effect("rejects manual endpoints before sending a health request", () => {
     let requestCount = 0;
     const execute = () =>
