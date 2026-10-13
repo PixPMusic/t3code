@@ -275,9 +275,14 @@ describe("EnvironmentConnector", () => {
     }).pipe(Effect.provide(layerConnectorTest(execute)));
   });
 
-  it.effect.each([false, true])(
-    "returns verified health when label persistence fails: %s",
-    (persistenceFails) => {
+  it.effect.each([
+    { persistenceFails: false, storedLabel: "Connector Test Environment" },
+    { persistenceFails: true, storedLabel: "Connector Test Environment" },
+    { persistenceFails: false, storedLabel: "Studio Mac" },
+    { persistenceFails: true, storedLabel: "Studio Mac" },
+  ])(
+    "records the verified label timestamp and retains health on persistence failure: %s",
+    ({ persistenceFails, storedLabel }) => {
       const updates: Array<{ userId: string; environmentId: string; label: string }> = [];
       const execute = (request: HttpClientRequest.HttpClientRequest) =>
         Effect.sync(() => {
@@ -303,7 +308,7 @@ describe("EnvironmentConnector", () => {
             ),
           );
         });
-      const links = makeLinks();
+      const links = makeLinks({ label: storedLabel });
 
       return Effect.gen(function* () {
         const connector = yield* EnvironmentConnector.EnvironmentConnector;
