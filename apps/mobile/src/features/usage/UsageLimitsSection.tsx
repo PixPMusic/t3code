@@ -312,9 +312,7 @@ export function useRefreshLimits(
   const [now, setNow] = useState(() => Date.now());
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
-  const [failedEnvironments, setFailedEnvironments] = useState<
-    readonly { environmentId: EnvironmentId; label: string }[]
-  >([]);
+  const [failedEnvironments, setFailedEnvironments] = useState<readonly EnvironmentId[]>([]);
   const refresh = async (automatic = false, afterPending = false) => {
     const connected = [...presentations].filter(
       ([environmentId, presentation]) =>
@@ -323,7 +321,7 @@ export function useRefreshLimits(
     );
     try {
       await Promise.all(
-        connected.map(async ([environmentId, presentation]) => {
+        connected.map(async ([environmentId]) => {
           const result = await refreshUsageLimits(
             environmentId,
             () => refreshProviders({ environmentId, input: {} }),
@@ -332,15 +330,8 @@ export function useRefreshLimits(
           );
           if (result === undefined) return;
           setFailedEnvironments((previous) => [
-            ...previous.filter((failed) => failed.environmentId !== environmentId),
-            ...(result._tag === "Failure"
-              ? [
-                  {
-                    environmentId,
-                    label: environmentDisplayLabel(presentation.entry, presentation.serverConfig),
-                  },
-                ]
-              : []),
+            ...previous.filter((failed) => failed !== environmentId),
+            ...(result._tag === "Failure" ? [environmentId] : []),
           ]);
         }),
       );
@@ -375,12 +366,14 @@ export function useRefreshLimits(
     if (active && connectedLimitsEnvironments) void autoRefreshLimits();
   }, [active, connectedLimitsEnvironments]);
 
-  const failedLabels = failedEnvironments
-    .filter(
-      ({ environmentId }) =>
-        selectedEnvironmentIds === null || selectedEnvironmentIds.has(environmentId),
-    )
-    .map(({ label }) => label);
+  // Labels resolve at render so a host renamed after its failure shows the new name.
+  const failedLabels = failedEnvironments.flatMap((environmentId) => {
+    const presentation = presentations.get(environmentId);
+    return presentation &&
+      (selectedEnvironmentIds === null || selectedEnvironmentIds.has(environmentId))
+      ? [environmentDisplayLabel(presentation.entry, presentation.serverConfig)]
+      : [];
+  });
   return {
     now,
     refreshing,
