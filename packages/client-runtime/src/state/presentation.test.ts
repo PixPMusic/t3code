@@ -3,7 +3,13 @@ import { EnvironmentId, type ServerConfig } from "@t3tools/contracts";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 
-import { AVAILABLE_CONNECTION_STATE, PrimaryConnectionTarget } from "../connection/model.ts";
+import {
+  AVAILABLE_CONNECTION_STATE,
+  PrimaryConnectionTarget,
+  RelayConnectionTarget,
+  BearerConnectionTarget,
+} from "../connection/model.ts";
+import type { ConnectionCatalogEntry } from "../connection/catalog.ts";
 import {
   createEnvironmentPresentationAtoms,
   createEnvironmentSummaryAtoms,
@@ -53,6 +59,69 @@ function harness() {
 }
 
 describe("environment summary subscriptions", () => {
+  it("renames a Connect host while leaving a manual alias and its subscribers unchanged", () => {
+    const h = harness();
+    const manualTarget = new BearerConnectionTarget({
+      environmentId: SECOND,
+      label: "My alias",
+      connectionId: "manual",
+    });
+    const relayTarget = new RelayConnectionTarget({ environmentId: SECOND, label: "Catalog host" });
+    h.registry.set(h.catalog, {
+      isReady: true,
+      entries: new Map<EnvironmentId, ConnectionCatalogEntry>([
+        [
+          FIRST,
+          {
+            ...entry(FIRST),
+            target: new RelayConnectionTarget({ environmentId: FIRST, label: "Studio" }),
+          },
+        ],
+        [
+          SECOND,
+          {
+            ...entry(SECOND),
+            target: manualTarget,
+            alternateRoutes: [
+              { target: manualTarget, profile: Option.none() },
+              { target: relayTarget, profile: Option.none() },
+            ],
+          },
+        ],
+      ]),
+    });
+    const manualAtom = Atom.make((get) =>
+      get(h.environmentsAtom).find((environment) => environment.environmentId === SECOND),
+    );
+    const manual = h.registry.get(manualAtom);
+    let manualChanges = 0;
+    const stop = h.registry.subscribe(manualAtom, () => manualChanges++);
+    try {
+      h.registry.set(h.configs(SECOND), {
+        ...config(),
+        environment: { ...config().environment, label: "Different shared name" },
+      });
+      expect(h.registry.get(manualAtom)).toBe(manual);
+      expect(h.registry.get(h.identitiesAtom)[1]?.label).toBe("My alias");
+      for (const label of ["Studio Mac", "Detected Mac"]) {
+        h.registry.set(h.configs(FIRST), {
+          ...config(),
+          environment: { ...config().environment, label },
+        });
+        expect(
+          h.registry
+            .get(h.environmentsAtom)
+            .find((environment) => environment.environmentId === FIRST)?.environmentLabel,
+        ).toBe(label);
+        expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe(label);
+        expect(h.registry.get(manualAtom)).toBe(manual);
+      }
+      expect(manualChanges).toBe(0);
+    } finally {
+      stop();
+      h.registry.dispose();
+    }
+  });
   it("updates labels from the live descriptor while keeping unrelated subscribers stable", () => {
     const h = harness();
     const initialIds = h.registry.get(h.environmentIdsAtom);

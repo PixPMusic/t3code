@@ -10,6 +10,7 @@ import { AsyncResult, Atom } from "effect/reactivity";
 import { AVAILABLE_CONNECTION_STATE, type SupervisorConnectionState } from "../connection/model.ts";
 import {
   connectionCatalogDisplayUrl,
+  environmentDisplayLabel,
   presentEnvironmentConnection,
   type EnvironmentConnectionPhase,
   type EnvironmentPresentation,
@@ -97,7 +98,7 @@ export function projectEnvironmentConnectionSummary(
 ): EnvironmentConnectionSummary {
   return {
     environmentId,
-    environmentLabel: environment.serverConfig?.environment.label ?? environment.entry.target.label,
+    environmentLabel: environmentDisplayLabel(environment.entry, environment.serverConfig),
     displayUrl: connectionCatalogDisplayUrl(environment.entry) ?? "",
     isRelayManaged: hasRelayRoute(environment.entry),
     isEnabled: environment.entry.enabled,
@@ -126,9 +127,10 @@ export function createEnvironmentSummaryAtoms(input: {
   const identitiesAtom = Atom.make((get) => {
     const next = [...get(input.catalogValueAtom).entries].map(([environmentId, entry]) => ({
       environmentId,
-      label:
-        get(input.presentationAtom(environmentId))?.serverConfig?.environment.label ??
-        entry.target.label,
+      label: environmentDisplayLabel(
+        entry,
+        get(input.presentationAtom(environmentId))?.serverConfig ?? null,
+      ),
     }));
     const previous = Option.getOrNull(
       get.self<ReadonlyArray<{ readonly environmentId: EnvironmentId; readonly label: string }>>(),

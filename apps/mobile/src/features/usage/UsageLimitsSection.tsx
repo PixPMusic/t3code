@@ -1,3 +1,4 @@
+import { environmentDisplayLabel } from "@t3tools/client-runtime/connection";
 import { useAtomValue } from "@effect/atom-react";
 import {
   AuthProvidersManageScope,
@@ -336,9 +337,7 @@ export function useRefreshLimits(
               ? [
                   {
                     environmentId,
-                    label:
-                      presentation.serverConfig?.environment.label ??
-                      presentation.entry.target.label,
+                    label: environmentDisplayLabel(presentation.entry, presentation.serverConfig),
                   },
                 ]
               : []),
