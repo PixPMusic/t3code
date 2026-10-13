@@ -90,13 +90,12 @@ export class EnvironmentLinkEnvironmentLookupPersistenceError extends Schema.Tag
 export class EnvironmentLinkLabelUpdatePersistenceError extends Schema.TaggedError<EnvironmentLinkLabelUpdatePersistenceError>()(
   "EnvironmentLinkLabelUpdatePersistenceError",
   {
-    userId: Schema.String,
     environmentId: Schema.String,
     cause: Schema.Defect(),
   },
 ) {
   override get message(): string {
-    return `Failed to update the environment label for user '${this.userId}', environment '${this.environmentId}'`;
+    return `Failed to update the label for environment '${this.environmentId}'`;
   }
 }
 
@@ -163,8 +162,9 @@ export class EnvironmentLinks extends Context.Service<
       readonly environmentPublicKey: string;
       readonly holdWebhooksWhileOffline: boolean;
     }) => Effect.Effect<void, EnvironmentLinkEnvironmentLookupPersistenceError>;
-    readonly updateLabelForUser: (input: {
-      readonly userId: string;
+    /** Without a user, updates every active link to the environment's verified key. */
+    readonly updateLabel: (input: {
+      readonly userId?: string;
       readonly environmentId: string;
       readonly environmentPublicKey: string;
       readonly label: string;
@@ -474,38 +474,35 @@ const make = Effect.gen(function* () {
         );
     }),
 
-    updateLabelForUser: Effect.fn("relay.environment_links.update_label_for_user")(
-      function* (input) {
-        yield* Effect.annotateCurrentSpan({
-          "relay.environment_id": input.environmentId,
-        });
-        yield* db
-          .update(relayEnvironmentLinks)
-          .set({
-            environmentLabel: input.label,
-            updatedAt: input.checkedAt,
-          })
-          .where(
-            and(
-              eq(relayEnvironmentLinks.userId, input.userId),
-              eq(relayEnvironmentLinks.environmentId, input.environmentId),
-              eq(relayEnvironmentLinks.environmentPublicKey, input.environmentPublicKey),
-              isNull(relayEnvironmentLinks.revokedAt),
-              lte(relayEnvironmentLinks.updatedAt, input.checkedAt),
-            ),
-          )
-          .pipe(
-            Effect.mapError(
-              (cause) =>
-                new EnvironmentLinkLabelUpdatePersistenceError({
-                  userId: input.userId,
-                  environmentId: input.environmentId,
-                  cause,
-                }),
-            ),
-          );
-      },
-    ),
+    updateLabel: Effect.fn("relay.environment_links.update_label")(function* (input) {
+      yield* Effect.annotateCurrentSpan({
+        "relay.environment_id": input.environmentId,
+      });
+      yield* db
+        .update(relayEnvironmentLinks)
+        .set({
+          environmentLabel: input.label,
+          updatedAt: input.checkedAt,
+        })
+        .where(
+          and(
+            input.userId === undefined ? undefined : eq(relayEnvironmentLinks.userId, input.userId),
+            eq(relayEnvironmentLinks.environmentId, input.environmentId),
+            eq(relayEnvironmentLinks.environmentPublicKey, input.environmentPublicKey),
+            isNull(relayEnvironmentLinks.revokedAt),
+            lte(relayEnvironmentLinks.updatedAt, input.checkedAt),
+          ),
+        )
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new EnvironmentLinkLabelUpdatePersistenceError({
+                environmentId: input.environmentId,
+                cause,
+              }),
+          ),
+        );
+    }),
 
     revokeForUser: Effect.fn("relay.environment_links.revoke_for_user")(function* (input) {
       yield* Effect.annotateCurrentSpan({

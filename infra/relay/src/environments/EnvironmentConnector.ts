@@ -566,7 +566,7 @@ const make = Effect.gen(function* () {
       // Order persistence by relay probe start time, matching the clock used for link writes.
       // Record unchanged labels too so a newer reset probe blocks an older rename response.
       yield* links
-        .updateLabelForUser({
+        .updateLabel({
           userId: input.userId,
           environmentId: input.environmentId,
           environmentPublicKey: link.environmentPublicKey,

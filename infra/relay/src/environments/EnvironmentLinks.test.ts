@@ -64,7 +64,7 @@ describe("EnvironmentLinks", () => {
 
     return Effect.gen(function* () {
       const links = yield* EnvironmentLinks.EnvironmentLinks;
-      yield* links.updateLabelForUser({
+      yield* links.updateLabel({
         userId: "user-1",
         environmentId: "env-1",
         environmentPublicKey: "verified-public-key",
@@ -89,6 +89,40 @@ describe("EnvironmentLinks", () => {
         "verified-public-key",
         "2026-08-20T12:00:00.000Z",
       ]);
+    }).pipe(
+      Effect.provide(
+        EnvironmentLinks.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb))),
+      ),
+    );
+  });
+
+  it.effect("updates every user’s link to the key when the environment pushes its label", () => {
+    const whereConditions: Array<unknown> = [];
+    const fakeDb = {
+      update: () => ({
+        set: () => ({
+          where: (condition: unknown) => {
+            whereConditions.push(condition);
+            return Effect.void;
+          },
+        }),
+      }),
+    } as unknown as RelayDb.RelayDb["Service"];
+
+    return Effect.gen(function* () {
+      const links = yield* EnvironmentLinks.EnvironmentLinks;
+      yield* links.updateLabel({
+        environmentId: "env-1",
+        environmentPublicKey: "verified-public-key",
+        label: "Studio Mac",
+        checkedAt: "2026-08-20T12:00:00.000Z",
+      });
+
+      const query = new PgDialect().sqlToQuery(whereConditions[0] as never);
+      expect(query.sql).not.toContain("user_id");
+      expect(query.sql).toContain('"relay_environment_links"."environment_public_key" = $2');
+      expect(query.sql).toContain('"relay_environment_links"."updated_at" <= $3');
+      expect(query.params).toEqual(["env-1", "verified-public-key", "2026-08-20T12:00:00.000Z"]);
     }).pipe(
       Effect.provide(
         EnvironmentLinks.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb))),
