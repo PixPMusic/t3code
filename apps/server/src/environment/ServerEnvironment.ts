@@ -262,6 +262,7 @@ export const make = Effect.gen(function* () {
       serverResolvedCommandContext: true,
       threadStop: true,
       environmentIcon: true,
+      environmentLabel: true,
       projectCloneTracking: true,
       ignoredFileListing: true,
       ...(serverSelfUpdate === null ? {} : { serverSelfUpdate }),

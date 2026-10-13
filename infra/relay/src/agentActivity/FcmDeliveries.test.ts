@@ -156,6 +156,7 @@ function harness() {
     }),
     Layer.succeed(EnvironmentLinks.EnvironmentLinks, {
       upsert: () => Effect.void,
+      updateLabelForUser: () => Effect.void,
       listDeliveryUsersForEnvironment: (input) =>
         Effect.sync(() =>
           current.linked && !current.revokedEnvironments.includes(input.environmentId)

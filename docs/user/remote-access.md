@@ -34,9 +34,8 @@ disconnect an otherwise healthy conversation.
 
 ## Name this host
 
-In the web or desktop app, open **Settings → Connections** and edit **Host name** under
-**This environment**. T3 Code uses that name in T3 Connect and as the default label when another
-client adds the environment through a manual pairing connection.
+In the web or desktop app, open Settings → Connections and edit Host name. Connected clients and
+T3 Connect use the new name without a server restart.
 
 Clear the field to return to the name detected from the host operating system. This setting changes
 the environment name shown by T3 Code; it does not change the machine's operating-system hostname.

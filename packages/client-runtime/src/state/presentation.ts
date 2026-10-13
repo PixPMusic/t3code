@@ -200,7 +200,7 @@ export function projectEnvironmentConnectionSummary(
 ): EnvironmentConnectionSummary {
   return {
     environmentId,
-    environmentLabel: environment.entry.target.label,
+    environmentLabel: environment.serverConfig?.environment.label ?? environment.entry.target.label,
     displayUrl: connectionCatalogDisplayUrl(environment.entry) ?? "",
     isRelayManaged: hasRelayRoute(environment.entry),
     isEnabled: environment.entry.enabled,
@@ -228,7 +228,9 @@ export function createEnvironmentSummaryAtoms(input: {
   const identitiesAtom = Atom.make((get) => {
     const next = [...get(input.catalogValueAtom).entries].map(([environmentId, entry]) => ({
       environmentId,
-      label: entry.target.label,
+      label:
+        get(input.presentationAtom(environmentId))?.serverConfig?.environment.label ??
+        entry.target.label,
     }));
     const previous = Option.getOrNull(
       get.self<ReadonlyArray<{ readonly environmentId: EnvironmentId; readonly label: string }>>(),

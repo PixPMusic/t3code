@@ -655,17 +655,29 @@ export function ConnectionsSettings() {
   const renderEnvironmentLabelRow = () => (
     <SettingsRow
       title="Host name"
-      description="Shown in T3 Connect and used as the default name for new manual connections. Clear it to use this computer’s name."
+      description={
+        primaryServerConfig?.environment.capabilities.environmentLabel === true
+          ? "Shown to connected clients and in T3 Connect. Clear it to use this computer’s name."
+          : "Update this environment to set its host name."
+      }
+      serverScoped
+      settingKeys={["environmentLabel"]}
       control={
-        <DraftInput
-          className="w-full sm:w-64"
-          value={environmentLabel}
-          onCommit={(next) => updatePrimarySettings({ environmentLabel: next })}
-          placeholder="Use this computer’s name"
-          aria-label="Host name"
-          disabled={!canEditEnvironmentLabel || primaryEnvironment?.connection.phase !== "connected"}
-          spellCheck={false}
-        />
+        <div className="w-full sm:w-64">
+          <DraftInput
+            size="sm"
+            value={environmentLabel}
+            onCommit={(next) => updatePrimarySettings({ environmentLabel: next })}
+            placeholder="Use this computer’s name"
+            aria-label="Host name"
+            disabled={
+              !canEditEnvironmentLabel ||
+              primaryEnvironment?.connection.phase !== "connected" ||
+              primaryServerConfig?.environment.capabilities.environmentLabel !== true
+            }
+            spellCheck={false}
+          />
+        </div>
       }
     />
   );

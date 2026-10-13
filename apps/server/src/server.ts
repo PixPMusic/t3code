@@ -1053,11 +1053,7 @@ const layerMakeServer = Layer.unwrap(
     return layerServerApplication.pipe(
       Layer.provide(CloudLink.layer.pipe(Layer.provideMerge(ConnectReachability.layer))),
       Layer.provideMerge(layerRuntimeServices),
-      Layer.provideMerge(
-        McpSessionRegistry.layer.pipe(
-          Layer.provide(layerServerEnvironment),
-        ),
-      ),
+      Layer.provideMerge(McpSessionRegistry.layer.pipe(Layer.provide(layerServerEnvironment))),
       Layer.provide(layerActivation),
       Layer.provideMerge(RelayTracing.layerServerRelayBroker),
       Layer.provideMerge(layerHttpServer),

@@ -265,6 +265,11 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
         yield* secrets.set(RELAY_URL_SECRET, encode("https://relay.example"));
         const linked = yield* serverEnvironment.getDescriptor;
         expect(linked.capabilities.agentActivityPublishing).toBe(true);
+        const snapshot = yield* serverEnvironment.getDescriptorForSettings({
+          environmentLabel: "Studio Mac",
+        });
+        expect(snapshot.label).toBe("Studio Mac");
+        expect(snapshot.capabilities).toEqual(linked.capabilities);
 
         yield* secrets.set(PUBLISH_AGENT_ACTIVITY_SECRET, encode("false"));
         const disabled = yield* serverEnvironment.getDescriptor;
