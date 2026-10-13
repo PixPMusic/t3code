@@ -232,7 +232,7 @@ function makeLinks(
       }),
     findActiveManagedForEnvironment: () => Effect.succeed([]),
     setHoldWebhooksWhileOffline: () => Effect.void,
-    updateLabelForUser: () => Effect.void,
+    updateLabel: () => Effect.void,
     revokeForUser: () => Effect.succeed(false),
   };
 }
@@ -287,7 +287,7 @@ describe("EnvironmentConnector", () => {
     "records the verified label, timestamp and captured key, retaining health on persistence failure: %s",
     ({ persistenceFails, storedLabel }) => {
       const updates: Array<
-        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabelForUser"]>[0]
+        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabel"]>[0]
       > = [];
       const execute = (request: HttpClientRequest.HttpClientRequest) =>
         Effect.sync(() => {
@@ -337,12 +337,11 @@ describe("EnvironmentConnector", () => {
           layerConnectorTest(execute, {
             links: {
               ...links,
-              updateLabelForUser: (input) =>
+              updateLabel: (input) =>
                 Effect.gen(function* () {
                   updates.push(input);
                   if (persistenceFails) {
                     return yield* new EnvironmentLinks.EnvironmentLinkLabelUpdatePersistenceError({
-                      userId: input.userId,
                       environmentId: input.environmentId,
                       cause: new Error("database unavailable"),
                     });
@@ -360,7 +359,7 @@ describe("EnvironmentConnector", () => {
     const hostCheckedAt = "2026-08-20T12:00:00.000Z";
     const linkedAt = "2026-08-20T12:00:20.000Z";
     const updates: Array<
-      Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabelForUser"]>[0]
+      Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabel"]>[0]
     > = [];
     const execute = (request: HttpClientRequest.HttpClientRequest) =>
       Effect.sync(() => {
@@ -411,7 +410,7 @@ describe("EnvironmentConnector", () => {
           layerConnectorTest(execute, {
             links: {
               ...makeLinks({ linkedAt }),
-              updateLabelForUser: (input) =>
+              updateLabel: (input) =>
                 Effect.sync(() => {
                   updates.push(input);
                 }),
@@ -427,7 +426,7 @@ describe("EnvironmentConnector", () => {
       const firstStarted = yield* Deferred.make<void>();
       const releaseFirst = yield* Deferred.make<void>();
       const updates: Array<
-        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabelForUser"]>[0]
+        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabel"]>[0]
       > = [];
       let requests = 0;
       const execute = (request: HttpClientRequest.HttpClientRequest) =>
@@ -488,7 +487,7 @@ describe("EnvironmentConnector", () => {
             layerConnectorTest(execute, {
               links: {
                 ...makeLinks(),
-                updateLabelForUser: (input) =>
+                updateLabel: (input) =>
                   Effect.sync(() => {
                     updates.push(input);
                   }),

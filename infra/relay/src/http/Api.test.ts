@@ -532,7 +532,7 @@ function layerRelayUnlinkTest(input?: {
         getForUser: input?.getForUser ?? (() => Effect.succeed(null)),
         findActiveManagedForEnvironment: () => Effect.die("unused findActiveManagedForEnvironment"),
         setHoldWebhooksWhileOffline: () => Effect.die("unused setHoldWebhooksWhileOffline"),
-        updateLabelForUser: () => Effect.die("unused updateLabelForUser"),
+        updateLabel: () => Effect.die("unused updateLabel"),
         revokeForUser: input?.revokeForUser ?? (() => Effect.succeed(false)),
       }),
     ),
@@ -1409,7 +1409,12 @@ describe("relay routing fallback", () => {
                 Layer.mock(ManagedEndpointProvider.ManagedEndpointProvider, {}),
               ),
             ),
-            Layer.provide([layerPublisher, layerSignatures, Layer.mock(HeldHooks.HeldHooks, {})]),
+            Layer.provide([
+              layerPublisher,
+              layerSignatures,
+              Layer.mock(HeldHooks.HeldHooks, {}),
+              Layer.mock(EnvironmentLinks.EnvironmentLinks, {}),
+            ]),
           ),
         ),
         Layer.provide(layerAuth),
@@ -1451,6 +1456,79 @@ describe("relay routing fallback", () => {
         })),
       );
       expect(verified.map((input) => input.threadId)).toEqual(threadIds);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("stores a pushed label only for the authenticated environment's key", () =>
+    Effect.gen(function* () {
+      const updates: Array<
+        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabel"]>[0]
+      > = [];
+      const layerAuth = Layer.succeed(RelayEnvironmentAuth, {
+        environmentBearer: (effect) =>
+          effect.pipe(
+            Effect.provideService(RelayEnvironmentPrincipal, {
+              environmentId: "environment-1",
+              environmentPublicKey: "environment-public-key",
+            }),
+          ),
+      });
+      const layerRoutes = HttpApiBuilder.layer(
+        HttpApi.make("RelayApi").add(RelayApi.groups.server),
+      ).pipe(
+        Layer.provide(
+          RelayHttpApi.layerServerApi.pipe(
+            HttpRouter.provideRequest(
+              Layer.mergeAll(
+                Layer.succeed(RelayConfiguration.RelayConfiguration, relaySettings),
+                Layer.mock(EnvironmentLinks.EnvironmentLinks, {}),
+                Layer.mock(ManagedEndpointAllocations.ManagedEndpointAllocations, {}),
+                Layer.mock(ManagedEndpointProvider.ManagedEndpointProvider, {}),
+              ),
+            ),
+            Layer.provide([
+              Layer.mock(AgentActivityPublisher.AgentActivityPublisher, {}),
+              Layer.mock(EnvironmentPublishSignatures.EnvironmentPublishSignatures, {}),
+              Layer.mock(HeldHooks.HeldHooks, {}),
+              Layer.mock(EnvironmentLinks.EnvironmentLinks, {
+                updateLabel: (input) => Effect.sync(() => void updates.push(input)),
+              }),
+            ]),
+          ),
+        ),
+        Layer.provide(layerAuth),
+        Layer.provide([NodeServices.layer, NodeHttpPlatform.layer, Etag.layerWeak]),
+      );
+      const httpEffect = yield* HttpRouter.toHttpEffect(layerRoutes).pipe(
+        Effect.provideService(HttpRouter.RouterConfig, RELAY_HTTP_ROUTER_CONFIG),
+      );
+      const put = (environmentId: string) =>
+        httpEffect.pipe(
+          Effect.provideService(
+            HttpServerRequest.HttpServerRequest,
+            HttpServerRequest.fromWeb(
+              new Request(`https://relay.test/v1/environments/${environmentId}/label`, {
+                method: "PUT",
+                headers: {
+                  authorization: "Bearer environment-credential",
+                  "content-type": "application/json",
+                },
+                body: '{"label":"Studio Mac"}',
+              }),
+            ),
+          ),
+        );
+
+      expect((yield* put("environment-1")).status).toBe(200);
+      expect((yield* put("environment-2")).status).toBe(401);
+      expect(updates).toEqual([
+        {
+          environmentId: "environment-1",
+          environmentPublicKey: "environment-public-key",
+          label: "Studio Mac",
+          checkedAt: "1970-01-01T00:00:00.000Z",
+        },
+      ]);
     }).pipe(Effect.scoped),
   );
 });
