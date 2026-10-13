@@ -342,6 +342,7 @@ function layerRelayUnlinkTest(input?: {
         findActiveManagedForEnvironment: () => Effect.die("unused findActiveManagedForEnvironment"),
         setHoldWebhooksWhileOffline: () => Effect.die("unused setHoldWebhooksWhileOffline"),
         updateLabel: () => Effect.die("unused updateLabel"),
+        recordEnvironmentLabel: () => Effect.die("unused recordEnvironmentLabel"),
         revokeForUser: input?.revokeForUser ?? (() => Effect.succeed(false)),
       }),
     ),
@@ -1364,7 +1365,7 @@ describe("relay routing fallback", () => {
   it.effect("stores a pushed label only for the authenticated environment's key", () =>
     Effect.gen(function* () {
       const updates: Array<
-        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabel"]>[0]
+        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["recordEnvironmentLabel"]>[0]
       > = [];
       const layerAuth = Layer.succeed(RelayEnvironmentAuth, {
         environmentBearer: (effect) =>
@@ -1393,7 +1394,7 @@ describe("relay routing fallback", () => {
               Layer.mock(EnvironmentPublishSignatures.EnvironmentPublishSignatures, {}),
               Layer.mock(HeldHooks.HeldHooks, {}),
               Layer.mock(EnvironmentLinks.EnvironmentLinks, {
-                updateLabel: (input) => Effect.sync(() => void updates.push(input)),
+                recordEnvironmentLabel: (input) => Effect.sync(() => void updates.push(input)),
               }),
             ]),
           ),
@@ -1428,7 +1429,6 @@ describe("relay routing fallback", () => {
           environmentId: "environment-1",
           environmentPublicKey: "environment-public-key",
           label: "Studio Mac",
-          checkedAt: "1970-01-01T00:00:00.000Z",
         },
       ]);
     }).pipe(Effect.scoped),

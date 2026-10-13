@@ -1399,13 +1399,10 @@ export const layerServerApi = HttpApiBuilder.group(
         Effect.fn("relay.api.server.updateEnvironmentLabel")(function* ({ params, payload }) {
           yield* requireOwnEnvironment(params.environmentId);
           const principal = yield* RelayEnvironmentPrincipal;
-          // Stamped with relay time, so a status probe that started earlier
-          // cannot restore the previous name.
-          yield* links.updateLabel({
+          yield* links.recordEnvironmentLabel({
             environmentId: params.environmentId,
             environmentPublicKey: principal.environmentPublicKey,
             label: payload.label,
-            checkedAt: DateTime.formatIso(yield* DateTime.now),
           });
           return { ok: true as const };
         }, mapRelayCommonApiErrors("not_authorized")),
