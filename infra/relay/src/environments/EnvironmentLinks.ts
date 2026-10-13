@@ -166,6 +166,7 @@ export class EnvironmentLinks extends Context.Service<
     readonly updateLabelForUser: (input: {
       readonly userId: string;
       readonly environmentId: string;
+      readonly environmentPublicKey: string;
       readonly label: string;
       readonly checkedAt: string;
     }) => Effect.Effect<void, EnvironmentLinkLabelUpdatePersistenceError>;
@@ -488,6 +489,7 @@ const make = Effect.gen(function* () {
             and(
               eq(relayEnvironmentLinks.userId, input.userId),
               eq(relayEnvironmentLinks.environmentId, input.environmentId),
+              eq(relayEnvironmentLinks.environmentPublicKey, input.environmentPublicKey),
               isNull(relayEnvironmentLinks.revokedAt),
               lte(relayEnvironmentLinks.updatedAt, input.checkedAt),
             ),

@@ -569,6 +569,7 @@ const make = Effect.gen(function* () {
         .updateLabelForUser({
           userId: input.userId,
           environmentId: input.environmentId,
+          environmentPublicKey: link.environmentPublicKey,
           label: decoded.descriptor.label,
           checkedAt: decoded.checkedAt,
         })

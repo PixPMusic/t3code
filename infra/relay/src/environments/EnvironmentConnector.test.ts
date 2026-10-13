@@ -338,9 +338,11 @@ describe("EnvironmentConnector", () => {
     { persistenceFails: false, storedLabel: "Studio Mac" },
     { persistenceFails: true, storedLabel: "Studio Mac" },
   ])(
-    "records the verified label timestamp and retains health on persistence failure: %s",
+    "records the verified label, timestamp and captured key, retaining health on persistence failure: %s",
     ({ persistenceFails, storedLabel }) => {
-      const updates: Array<{ userId: string; environmentId: string; label: string }> = [];
+      const updates: Array<
+        Parameters<EnvironmentLinks.EnvironmentLinks["Service"]["updateLabelForUser"]>[0]
+      > = [];
       const execute = (request: HttpClientRequest.HttpClientRequest) =>
         Effect.sync(() => {
           const healthRequest = decodeHealthRequestBody(requestBodyText(request));
@@ -379,6 +381,7 @@ describe("EnvironmentConnector", () => {
           {
             userId: "user_123",
             environmentId: "env-connector-test",
+            environmentPublicKey: environmentKeyPair.publicKey,
             label: "Studio Mac",
             checkedAt: expect.any(String),
           },
