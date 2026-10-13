@@ -563,15 +563,15 @@ const make = Effect.gen(function* () {
           operation: "status",
         });
       }
-      // Record unchanged labels too: a newer probe after clearing a name must
-      // prevent an older rename response from overwriting that name again.
+      // Order persistence by relay probe start time, matching the clock used for link writes.
+      // Record unchanged labels too so a newer reset probe blocks an older rename response.
       yield* links
         .updateLabelForUser({
           userId: input.userId,
           environmentId: input.environmentId,
           environmentPublicKey: link.environmentPublicKey,
           label: decoded.descriptor.label,
-          checkedAt: decoded.checkedAt,
+          checkedAt,
         })
         .pipe(
           Effect.tapError((error) =>
