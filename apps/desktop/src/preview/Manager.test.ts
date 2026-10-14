@@ -777,6 +777,63 @@ describe("PreviewManager", () => {
     ),
   );
 
+  for (const stage of ["renderer", "debugger"] as const) {
+    for (const initialUrl of [undefined, "https://example.com/start"]) {
+      effectIt.effect(
+        `keeps navigation issued during isolated ${stage} startup (${initialUrl ?? "no initial URL"})`,
+        () =>
+          withManager((manager) =>
+            Effect.gen(function* () {
+              const preview = makeTestIsolatedWindow();
+              const initializing = Promise.withResolvers<void>();
+              const ready = Promise.withResolvers<void>();
+              const initialPageLoaded = Promise.withResolvers<void>();
+              preview.loadURL.mockImplementation(async (url) => {
+                if (stage === "renderer" && url === "about:blank") {
+                  initializing.resolve();
+                  await ready.promise;
+                }
+                if (url === initialUrl) await initialPageLoaded.promise;
+              });
+              vi.mocked(preview.window.webContents.debugger.sendCommand).mockImplementation(
+                async (method) => {
+                  if (
+                    stage === "debugger" &&
+                    method === "Emulation.setDefaultBackgroundColorOverride"
+                  ) {
+                    initializing.resolve();
+                    await ready.promise;
+                  }
+                },
+              );
+              fromId.mockReturnValue(preview.window.webContents);
+              browserWindowConstructor.mockImplementation(function () {
+                return preview.window;
+              });
+              const creation = yield* manager
+                .createTab("tab_startup_navigation", {
+                  serverTab: { threadId: "thread-1", tabId: "server-tab-1" },
+                  ...(initialUrl === undefined ? {} : { url: initialUrl }),
+                })
+                .pipe(Effect.forkChild({ startImmediately: true }));
+              yield* Effect.promise(() => initializing.promise);
+              const latestUrl = "https://example.com/latest";
+              const navigation = yield* manager
+                .navigate("tab_startup_navigation", latestUrl)
+                .pipe(Effect.forkChild({ startImmediately: true }));
+              ready.resolve();
+              yield* Fiber.join(creation);
+              yield* Fiber.join(navigation);
+              expect(preview.loadURL.mock.calls.map(([url]) => url).at(-1)).toBe(latestUrl);
+              const state = yield* manager.createTab("tab_startup_navigation");
+              expect(state.navStatus).toMatchObject({ kind: "Loading", url: latestUrl });
+              initialPageLoaded.resolve();
+            }),
+          ),
+      );
+    }
+  }
+
   effectIt.effect("closes isolated tab windows when their app window closes", () =>
     withManager((manager) =>
       Effect.gen(function* () {

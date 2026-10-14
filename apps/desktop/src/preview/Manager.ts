@@ -1800,11 +1800,11 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
         if (!frameCaptureWindowOpen) return yield* new PreviewMainWindowClosedError({ tabId });
         if (initialUrl !== undefined) {
           yield* update(tabId, { navStatus: { kind: "Loading", url: initialUrl, title: "" } });
-          runFork(
-            attemptPromise({ operation: "createTab.loadInitialUrl", tabId }, () =>
-              window.webContents.loadURL(initialUrl),
-            ).pipe(Effect.ignore),
-          );
+          // Start loading before releasing creation's lifecycle lock. A newer
+          // navigation waits for this handoff, not for the page to finish loading.
+          yield* attempt({ operation: "createTab.loadInitialUrl", tabId }, () => {
+            void window.webContents.loadURL(initialUrl).catch(() => undefined);
+          }).pipe(Effect.ignore);
         }
       }).pipe(Effect.onError(() => closeTabUnlocked(tabId).pipe(Effect.ignore)));
       return (yield* SynchronizedRef.get(tabsRef)).get(tabId) ?? result.state;
@@ -2120,6 +2120,9 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     const url = yield* attempt({ operation: "navigate.normalizeUrl", tabId }, () =>
       normalizePreviewUrl(rawUrl),
     );
+    // Creation must finish registering the renderer before a navigation commits;
+    // its blank document and initial URL can otherwise overwrite the request.
+    yield* withTabLifecycleLock(tabId, Effect.void);
     const updatedAt = yield* currentIso;
     const pending = yield* SynchronizedRef.modify(tabsRef, (tabs) => {
       const current = tabs.get(tabId);
