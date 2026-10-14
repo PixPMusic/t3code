@@ -206,6 +206,7 @@ describe("previewWindowOpenAction", () => {
 
 const {
   browserWindowConstructor,
+  browserSessionGet,
   clipboardItemConstructor,
   createFromPath,
   fromId,
@@ -218,6 +219,7 @@ const {
   writeClipboard,
 } = vi.hoisted(() => ({
   browserWindowConstructor: vi.fn(),
+  browserSessionGet: vi.fn<(scope?: string, persistent?: boolean, namespace?: "profile") => void>(),
   clipboardItemConstructor: vi.fn(),
   createFromPath: vi.fn((): { readonly isEmpty: () => boolean; readonly toPNG: () => Buffer } => ({
     isEmpty: () => false,
@@ -263,7 +265,11 @@ const layerBrowserSession = Layer.succeed(
   BrowserSession.BrowserSession.of({
     getPartition: () => Effect.succeed("persist:t3code-preview-test"),
     isPartition: (partition) => partition.startsWith("persist:t3code-preview-"),
-    getSession: () => Effect.succeed(previewSession as unknown as Electron.Session),
+    getSession: (scope, persistent, namespace) =>
+      Effect.sync(() => {
+        browserSessionGet(scope, persistent, namespace);
+        return previewSession as unknown as Electron.Session;
+      }),
     clearCookies: () => Effect.void,
     clearCache: () => Effect.void,
   }),
@@ -537,6 +543,37 @@ const makeFaviconWebContents = (options?: {
   };
 };
 
+const makeTestIsolatedWindow = () => {
+  const preview = makeFaviconWebContents({ url: "about:blank" });
+  const listeners = new Map<string, () => void>();
+  let destroyed = false;
+  let debuggerAttached = false;
+  const contents = preview.webContents as Electron.WebContents;
+  Object.assign(contents, { getType: () => "window" });
+  Object.assign(contents.debugger, {
+    isAttached: () => debuggerAttached,
+    attach: vi.fn(() => {
+      debuggerAttached = true;
+    }),
+    detach: vi.fn(() => {
+      debuggerAttached = false;
+    }),
+  });
+  const window = {
+    webContents: contents,
+    isDestroyed: () => destroyed,
+    once: vi.fn((event: string, listener: () => void) => listeners.set(event, listener)),
+    destroy: vi.fn(() => {
+      destroyed = true;
+      preview.setDestroyed(true);
+      listeners.get("closed")?.();
+    }),
+    show: vi.fn(),
+    focus: vi.fn(),
+  };
+  return { ...preview, window };
+};
+
 const settle = function* (until: () => boolean) {
   for (let attempt = 0; attempt < 30 && !until(); attempt++) {
     yield* Effect.promise(() => Promise.resolve());
@@ -587,6 +624,7 @@ const makeTestPictureInPictureWindow = (loadURL: () => Promise<void> = async () 
 describe("PreviewManager", () => {
   beforeEach(() => {
     browserWindowConstructor.mockReset();
+    browserSessionGet.mockClear();
     fromId.mockClear();
     getFocusedWebContents.mockReset();
     getFocusedWebContents.mockReturnValue(null);
@@ -599,6 +637,269 @@ describe("PreviewManager", () => {
     createFromPath.mockClear();
     webviewSend.mockClear();
   });
+
+  effectIt.effect("owns an isolated server tab through creation, navigation and close", () =>
+    Effect.gen(function* () {
+      const host = yield* DesktopBrowserHost.DesktopBrowserHost;
+      const lines = yield* Queue.unbounded<string>();
+      yield* host.events.pipe(
+        Stream.runForEach((line) => Queue.offer(lines, new TextDecoder().decode(line))),
+        Effect.forkScoped,
+      );
+      const nextType = Queue.take(lines).pipe(
+        Effect.map((line) => /"type":"(\w+)"/.exec(line)?.[1]),
+      );
+      const preview = makeTestIsolatedWindow();
+      const navigation = Promise.withResolvers<void>();
+      preview.loadURL.mockImplementation(async (url) => {
+        if (url === "https://example.com/start") navigation.resolve();
+      });
+      fromId.mockReturnValue(preview.window.webContents);
+      browserWindowConstructor.mockImplementation(function () {
+        return preview.window;
+      });
+      const manager = yield* PreviewManager.PreviewManager;
+      const blankStopped = Promise.withResolvers<void>();
+      yield* manager.subscribeStateChanges((_tabId, state) =>
+        Effect.sync(() => {
+          if (state.webContentsId !== null && state.navStatus.kind === "Idle") {
+            blankStopped.resolve();
+          }
+        }),
+      );
+      vi.mocked(preview.window.webContents.debugger.sendCommand).mockImplementation(
+        async (method) => {
+          if (method === "Emulation.setDefaultBackgroundColorOverride") {
+            // The startup blank page can stop loading after listeners attach,
+            // replacing the pending initial URL before control initialization ends.
+            preview.listeners.get("did-stop-loading")!();
+            await blankStopped.promise;
+          }
+        },
+      );
+      const session = previewSession as unknown as Electron.Session;
+      const defaults = {
+        serverTab: { threadId: "thread-1", tabId: "server-tab-1" },
+        url: "https://example.com/start",
+        zoomFactor: 1.25,
+        environmentId: "environment-1",
+        profileId: "incognito",
+      };
+      const state = yield* manager.createTab("tab_isolated", defaults);
+      yield* Effect.promise(() => navigation.promise);
+      expect(state.webContentsId).toBe(preview.window.webContents.id);
+      expect(browserSessionGet).toHaveBeenCalledExactlyOnceWith(
+        '["environment-1","incognito"]',
+        false,
+        "profile",
+      );
+      expect(previewSession.on).toHaveBeenCalledWith("will-download", expect.any(Function));
+      expect(state.zoomFactor).toBe(1);
+      expect(preview.window.webContents.setZoomFactor).toHaveBeenLastCalledWith(1);
+      expect(preview.loadURL.mock.calls.map(([url]) => url)).toEqual(["about:blank", defaults.url]);
+      expect(yield* nextType).toBe("attached");
+      expect(browserWindowConstructor).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          show: false,
+          focusable: false,
+          webPreferences: expect.objectContaining({
+            session,
+            offscreen: true,
+            focusOnNavigation: false,
+            backgroundThrottling: false,
+            preload: "/tmp/t3/desktop/preview-pick-preload.cjs",
+            sandbox: true,
+            nodeIntegration: false,
+          }),
+        }),
+      );
+      expect(preview.window.show).not.toHaveBeenCalled();
+      expect(preview.window.focus).not.toHaveBeenCalled();
+      yield* manager.createTab("tab_isolated", defaults);
+      expect(browserWindowConstructor).toHaveBeenCalledOnce();
+      yield* manager.closeTab("tab_isolated");
+      expect(yield* nextType).toBe("detached");
+      expect(preview.window.destroy).toHaveBeenCalledOnce();
+      expect(preview.window.webContents.debugger.detach).toHaveBeenCalledOnce();
+    }).pipe(Effect.provide(managerLayer()), Effect.scoped),
+  );
+
+  effectIt.effect("does not let renderer webviews replace an isolated server tab", () =>
+    withManager((manager) =>
+      Effect.gen(function* () {
+        const preview = makeTestIsolatedWindow();
+        fromId.mockReturnValue(preview.window.webContents);
+        browserWindowConstructor.mockImplementation(function () {
+          return preview.window;
+        });
+        yield* manager.createTab("tab_isolated", {
+          serverTab: { threadId: "thread-1", tabId: "server-tab-1" },
+        });
+        fromId.mockReturnValue(makeFaviconWebContents({ id: 43 }).webContents);
+        const exit = yield* manager.registerWebview("tab_isolated", 43).pipe(Effect.exit);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toMatchObject({
+            _tag: "PreviewWebContentsNotFoundError",
+          });
+        }
+        yield* manager.closeTab("tab_isolated");
+        expect(preview.window.destroy).toHaveBeenCalledOnce();
+      }),
+    ),
+  );
+
+  effectIt.effect("waits for the isolated renderer before attaching browser control", () =>
+    withManager((manager) =>
+      Effect.gen(function* () {
+        const preview = makeTestIsolatedWindow();
+        const navigating = Promise.withResolvers<void>();
+        const rendererReady = Promise.withResolvers<void>();
+        preview.loadURL.mockImplementation(() => {
+          navigating.resolve();
+          return rendererReady.promise;
+        });
+        fromId.mockReturnValue(preview.window.webContents);
+        browserWindowConstructor.mockImplementation(function () {
+          return preview.window;
+        });
+        const creation = yield* manager
+          .createTab("tab_isolated_renderer", {
+            serverTab: { threadId: "thread-1", tabId: "server-tab-1" },
+          })
+          .pipe(Effect.forkChild({ startImmediately: true }));
+        yield* Effect.promise(() => navigating.promise);
+        expect(preview.window.webContents.debugger.attach).not.toHaveBeenCalled();
+        rendererReady.resolve();
+        yield* Fiber.join(creation);
+        expect(preview.window.webContents.debugger.attach).toHaveBeenCalledOnce();
+      }),
+    ),
+  );
+
+  effectIt.effect("closes isolated tab windows when their app window closes", () =>
+    withManager((manager) =>
+      Effect.gen(function* () {
+        let closeMainWindow: (() => void) | undefined;
+        yield* manager.setMainWindow({
+          once: (_event: string, listener: () => void) => {
+            closeMainWindow = listener;
+          },
+        } as never);
+        const preview = makeTestIsolatedWindow();
+        fromId.mockReturnValue(preview.window.webContents);
+        browserWindowConstructor.mockImplementation(function () {
+          return preview.window;
+        });
+        yield* manager.createTab("tab_isolated_window", {
+          serverTab: { threadId: "thread-1", tabId: "server-tab-1" },
+        });
+        const closed = Promise.withResolvers<void>();
+        yield* manager.subscribeStateChanges((tabId, state) =>
+          Effect.sync(() => {
+            if (tabId === "tab_isolated_window" && state.webContentsId === null) closed.resolve();
+          }),
+        );
+        closeMainWindow?.();
+        yield* Effect.promise(() => closed.promise);
+        expect(preview.window.destroy).toHaveBeenCalledOnce();
+        const lateCreate = yield* manager
+          .createTab("tab_isolated_late", {
+            serverTab: { threadId: "thread-1", tabId: "server-tab-2" },
+          })
+          .pipe(Effect.exit);
+        expect(Exit.isFailure(lateCreate)).toBe(true);
+        if (Exit.isFailure(lateCreate)) {
+          expect(Option.getOrThrow(Cause.findErrorOption(lateCreate.cause))).toMatchObject({
+            _tag: "PreviewMainWindowClosedError",
+          });
+        }
+        expect(browserWindowConstructor).toHaveBeenCalledOnce();
+      }),
+    ),
+  );
+
+  effectIt.effect("destroys isolated contents on scope close and on failed registration", () =>
+    Effect.gen(function* () {
+      const preview = makeTestIsolatedWindow();
+      fromId.mockReturnValue(preview.window.webContents);
+      browserWindowConstructor.mockImplementation(function () {
+        return preview.window;
+      });
+      yield* withManager((manager) =>
+        manager.createTab("tab_isolated_scope", {
+          serverTab: { threadId: "thread-1", tabId: "server-tab-1" },
+        }),
+      );
+      expect(preview.window.destroy).toHaveBeenCalledOnce();
+
+      const failed = makeTestIsolatedWindow();
+      fromId.mockReturnValue(failed.window.webContents);
+      browserWindowConstructor.mockImplementation(function () {
+        return failed.window;
+      });
+      vi.mocked(failed.window.webContents.setAudioMuted).mockImplementationOnce(() => {
+        throw new Error("Contents disappeared during registration.");
+      });
+      yield* withManager((manager) =>
+        manager
+          .createTab("tab_isolated_failure", {
+            serverTab: { threadId: "thread-1", tabId: "server-tab-1" },
+          })
+          .pipe(
+            Effect.exit,
+            Effect.tap((exit) => Effect.sync(() => expect(Exit.isFailure(exit)).toBe(true))),
+          ),
+      );
+      expect(failed.window.destroy).toHaveBeenCalledOnce();
+    }),
+  );
+
+  effectIt.effect("presents sign-in popups from isolated pages without activating them", () =>
+    withManager((manager) =>
+      Effect.gen(function* () {
+        const preview = makeTestIsolatedWindow();
+        fromId.mockReturnValue(preview.window.webContents);
+        browserWindowConstructor.mockImplementation(function () {
+          return preview.window;
+        });
+        yield* manager.createTab("tab_isolated_popup", {
+          serverTab: { threadId: "thread-1", tabId: "server-tab-1" },
+        });
+        const handler = vi.mocked(preview.window.webContents.setWindowOpenHandler).mock
+          .lastCall![0];
+        expect(
+          handler({
+            url: "https://accounts.example.com/login",
+            disposition: "new-window",
+          } as Electron.HandlerDetails),
+        ).toMatchObject({
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            show: false,
+            webPreferences: {
+              contextIsolation: true,
+              offscreen: false,
+              focusOnNavigation: false,
+            },
+          },
+        });
+        const popup = makeFaviconWebContents({ id: 43 });
+        const showInactive = vi.fn();
+        const show = vi.fn();
+        const focus = vi.fn();
+        preview.listeners.get("did-create-window")!({
+          webContents: popup.webContents,
+          showInactive,
+          show,
+          focus,
+        } as never);
+        expect(showInactive).toHaveBeenCalledOnce();
+        expect(show).not.toHaveBeenCalled();
+        expect(focus).not.toHaveBeenCalled();
+      }),
+    ),
+  );
 
   effectIt.effect("opens a target=_blank link as a new tab without navigating the opener", () =>
     withManager((manager) =>
@@ -2873,39 +3174,6 @@ describe("PreviewManager", () => {
         expect(host.session.setDisplayMediaRequestHandler).not.toHaveBeenCalled();
       }),
     ),
-  );
-
-  effectIt.effect("tells the server when a tab it renders natively closes", () =>
-    Effect.gen(function* () {
-      const host = yield* DesktopBrowserHost.DesktopBrowserHost;
-      const serverTab = { threadId: "thread-1", tabId: "server-tab-1" };
-      const lines = yield* Queue.unbounded<string>();
-      yield* host.events.pipe(
-        Stream.runForEach((line) => Queue.offer(lines, new TextDecoder().decode(line))),
-        Effect.forkScoped,
-      );
-      const nextType = Queue.take(lines).pipe(
-        Effect.map((line) => /"type":"(\w+)"/.exec(line)?.[1]),
-      );
-      const capturePage = vi.fn(async () => ({
-        toPNG: () => Buffer.from("png"),
-        toJPEG: () => Buffer.from("jpeg"),
-        getSize: () => ({ width: 100, height: 80 }),
-      }));
-      fromId.mockReturnValue(
-        Object.assign(makeTestPreviewWebContents(capturePage, 42), {
-          isDevToolsOpened: () => false,
-          getUserAgent: () => "Electron",
-        }),
-      );
-      const manager = yield* PreviewManager.PreviewManager;
-      yield* manager.createTab("tab_1", { serverTab });
-      yield* manager.registerWebview("tab_1", 42);
-      // The debugger attaches in the background; the server hears it here.
-      expect(yield* nextType).toBe("attached");
-      yield* manager.closeTab("tab_1");
-      expect(yield* nextType).toBe("detached");
-    }).pipe(Effect.provide(managerLayer()), Effect.scoped),
   );
 
   effectIt.effect("stops capture retries when the tab swaps during the retry delay", () =>

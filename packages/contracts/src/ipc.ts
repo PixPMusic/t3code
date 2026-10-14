@@ -1035,13 +1035,16 @@ export const DesktopPreviewTabInputSchema = Schema.Struct({
  * Tab creation carries the client's configured browser defaults so the guest
  * is born already zoomed and color-scheme-emulated. Applying them after
  * creation instead would paint one frame at 100%/system first, which reads as
- * a flash on every tab open. Both fields are optional so an older renderer
- * still gets the historical defaults.
+ * a flash on every tab open. Isolated server tabs also carry their profile
+ * scope and initial URL. Optional fields preserve older renderer defaults.
  */
 export const DesktopPreviewCreateTabInputSchema = Schema.Struct({
   tabId: DesktopPreviewTabIdSchema,
   zoomFactor: Schema.optional(Schema.Number.check(Schema.isGreaterThan(0))),
   colorScheme: Schema.optional(DesktopPreviewColorSchemeSchema),
+  environmentId: Schema.optional(TrimmedNonEmptyString),
+  profileId: Schema.optional(TrimmedNonEmptyString),
+  url: Schema.optional(Schema.String),
   serverTab: Schema.optional(
     Schema.Struct({ threadId: TrimmedNonEmptyString, tabId: TrimmedNonEmptyString }),
   ),
@@ -1050,6 +1053,9 @@ export const DesktopPreviewCreateTabInputSchema = Schema.Struct({
 export interface DesktopPreviewTabDefaults {
   readonly zoomFactor?: number | undefined;
   readonly colorScheme?: DesktopPreviewColorScheme | undefined;
+  readonly environmentId?: string | undefined;
+  readonly profileId?: string | undefined;
+  readonly url?: string | undefined;
   /** A tab of the desktop's own server: the server drives it through the desktop browser channel. */
   readonly serverTab?: { readonly threadId: string; readonly tabId: string } | undefined;
 }

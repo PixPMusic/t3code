@@ -1310,7 +1310,7 @@ it.live("viewers see the agent's pointer move to its target and click there", ()
   ).pipe(Effect.provide(layer)),
 );
 
-it.live("drives the desktop's own page for a tab the desktop renders", () =>
+it.live("drives and sizes the desktop's isolated page for streamed viewers", () =>
   Effect.scoped(
     Effect.gen(function* () {
       const browser = yield* ServerBrowser.ServerBrowser;
@@ -1326,10 +1326,42 @@ it.live("drives the desktop's own page for a tab the desktop renders", () =>
       // No headless context was launched for it.
       expect(contexts).toEqual([]);
       const page = desktopConnections[0]!.context.page;
-      // The desktop panel sizes its page, so a viewer resize leaves it alone.
+      expect(page.setViewportSize).toHaveBeenCalledWith({ width: 1280, height: 800 });
       yield* viewer.input({ type: "takeControl" });
       yield* viewer.input({ type: "resize", width: 390, height: 844 });
-      expect(page.setViewportSize).not.toHaveBeenCalled();
+      expect(page.viewportSize()).toEqual({ width: 390, height: 844 });
+      yield* manager.adjust({
+        threadId: scope.thread.threadId,
+        tabId: opened.tabId,
+        zoomFactor: 1.25,
+      });
+      const session = desktopConnections[0]!.context.sessions[0]!;
+      const reloaded = Promise.withResolvers<void>();
+      const send = session.send.getMockImplementation()!;
+      session.send.mockImplementation(async (method, input) => {
+        if (method === "Page.reload") reloaded.resolve();
+        return send(method, input);
+      });
+      yield* manager.adjust({
+        threadId: scope.thread.threadId,
+        tabId: opened.tabId,
+        hardReload: true,
+      });
+      // The ordered reload marks the earlier rendering update's completion.
+      yield* Effect.promise(() => reloaded.promise);
+      expect(session.send).toHaveBeenCalledWith("Emulation.setDeviceMetricsOverride", {
+        width: 312,
+        height: 675,
+        deviceScaleFactor: 2.5,
+        mobile: false,
+      });
+      yield* viewer.input({ type: "resize", width: 500, height: 900 });
+      expect(session.send).toHaveBeenLastCalledWith("Emulation.setDeviceMetricsOverride", {
+        width: 400,
+        height: 720,
+        deviceScaleFactor: 2.5,
+        mobile: false,
+      });
       yield* viewer.input({ type: "releaseControl" });
       // Agents reach it through the same engine as a headless tab.
       const evaluated = yield* broker.invoke({

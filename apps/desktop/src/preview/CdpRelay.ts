@@ -1,6 +1,6 @@
 /**
  * Presents one preview tab's debugger as a minimal CDP browser endpoint, so
- * the environment server can drive a desktop `<webview>` with the same
+ * the environment server can drive an isolated desktop page with the same
  * Playwright engine it uses for headless tabs.
  *
  * Only the tab's own page is reachable. Browser-level commands Playwright sends
@@ -159,6 +159,9 @@ export function createCdpRelayConnection(
 
   const pageCommand = (command: CdpCommand): Promise<unknown> => {
     const child = sessions.get(command.sessionId!) === "page" ? undefined : command.sessionId;
+    // Revealing a preview belongs to the client. Playwright must not activate
+    // its native window while someone is typing or dictating in the app.
+    if (command.method === "Page.bringToFront") return Promise.resolve({});
     // The page itself is already running, but its child frames are not:
     // Playwright auto-attaches with waitForDebuggerOnStart, so Chromium pauses
     // every new cross-site iframe and worker until this reaches it. Swallowing

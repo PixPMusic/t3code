@@ -325,6 +325,9 @@ contextBridge.exposeInMainWorld("desktopBridge", {
         zoomFactor: defaults?.zoomFactor,
         serverTab: defaults?.serverTab,
         colorScheme: defaults?.colorScheme,
+        environmentId: defaults?.environmentId,
+        profileId: defaults?.profileId,
+        url: defaults?.url,
       }),
     closeTab: (tabId) => ipcRenderer.invoke(IpcChannels.PREVIEW_CLOSE_TAB_CHANNEL, { tabId }),
     registerWebview: (tabId, webContentsId) =>

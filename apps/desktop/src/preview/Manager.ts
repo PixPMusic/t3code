@@ -1,9 +1,8 @@
 /**
  * Desktop side of the in-app browser preview.
  *
- * Hosts per-tab Chromium WebContents references (the actual <webview>
- * elements live in the renderer; we only attach listeners and forward state
- * here). Single layer-scoped browser session partition.
+ * Server tabs use isolated offscreen windows so agent input cannot move the
+ * app renderer's focus. Renderer-owned legacy tabs still attach as webviews.
  */
 import {
   DesktopPreviewRecordingInputSchema,
@@ -74,6 +73,7 @@ import {
   ELEMENT_PICKED_CHANNEL,
   HUMAN_INPUT_CHANNEL,
   MOUSE_NAVIGATE_CHANNEL,
+  PASSKEY_BRIDGE_ARGUMENT,
   RECORDING_CURSOR_CHANNEL,
   RECORDING_INPUT_CHANNEL,
   RECORDING_CONTROLLER_CHANNEL,
@@ -541,6 +541,7 @@ const isPreviewInputSignal = (value: unknown): value is PreviewInputSignal => {
 const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function* (
   artifactDirectory: string,
   pictureInPicturePreloadPath: string,
+  previewPreloadPath: string,
 ) {
   const fileSystem = yield* FileSystem.FileSystem;
   const rendererHistory = yield* DesktopRendererHistory.DesktopRendererHistory;
@@ -557,6 +558,7 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
   let forwardedShortcuts: ReadonlyArray<PreviewForwardedShortcut> = [];
   const annotationThemeRef = yield* Ref.make(DEFAULT_ANNOTATION_THEME);
   const annotationSendEnabled = new Map<string, boolean>();
+  const isolatedWindows = new Map<string, BrowserWindow>();
   const mainWindowRef = yield* Ref.make<Option.Option<BrowserWindow>>(Option.none());
   const tabsRef = yield* SynchronizedRef.make<ReadonlyMap<string, PreviewTabState>>(new Map());
   const attachedRef = yield* Ref.make<ReadonlyMap<number, ManagedListeners>>(new Map());
@@ -1515,7 +1517,8 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
       // Native editing roles must remain available after the page handles the key.
       // Background automation must not edit whichever other renderer has focus.
       contents.setIgnoreMenuShortcuts(
-        !isPreviewEditingShortcut(input, hostPlatform) ||
+        (contents === wc && isolatedWindows.has(tabId)) ||
+          !isPreviewEditingShortcut(input, hostPlatform) ||
           webContents.getFocusedWebContents() !== contents,
       );
     };
@@ -1528,6 +1531,7 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
       window.webContents.on("before-input-event", (_event, input) => {
         syncMenuShortcuts(window.webContents, input);
       });
+      if (isolatedWindows.has(tabId)) window.showInactive();
     };
     const beforeInput = (event: Electron.Event, input: Electron.Input): void => {
       syncMenuShortcuts(wc, input);
@@ -1617,7 +1621,20 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
         wc.setWindowOpenHandler((details) => {
           const action = previewWindowOpenAction(details);
           if (action === "popup") {
-            return { action: "allow", overrideBrowserWindowOptions: POPUP_WINDOW_OPTIONS };
+            return {
+              action: "allow",
+              overrideBrowserWindowOptions: isolatedWindows.has(tabId)
+                ? {
+                    ...POPUP_WINDOW_OPTIONS,
+                    show: false,
+                    webPreferences: {
+                      ...POPUP_WINDOW_OPTIONS.webPreferences,
+                      offscreen: false,
+                      focusOnNavigation: false,
+                    },
+                  }
+                : POPUP_WINDOW_OPTIONS,
+            };
           }
           if (action === "deny") return { action: "deny" };
           if (action === "new-tab") {
@@ -1668,11 +1685,16 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
           if (currentMainWindow !== window) return;
           currentMainWindow = undefined;
           frameCaptureWindowOpen = false;
+          const isolatedTabIds = [...isolatedWindows.keys()];
           mainWindowCleanupFiber = runFork(
-            Effect.all([closeAllPictureInPicture(), stopAllRecordings()], {
-              concurrency: "unbounded",
-              discard: true,
-            }).pipe(Effect.ignore),
+            Effect.all(
+              [
+                closeAllPictureInPicture(),
+                stopAllRecordings(),
+                Effect.forEach(isolatedTabIds, closeTab, { discard: true }),
+              ],
+              { concurrency: "unbounded", discard: true },
+            ).pipe(Effect.ignore),
           );
         });
         return [undefined, sessions] as const;
@@ -1683,7 +1705,15 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
   const createTabUnlocked = Effect.fn("PreviewManager.createTabUnlocked")(function* (
     tabId: string,
     defaults?: DesktopPreviewTabDefaults,
+    browserSession?: Session,
   ) {
+    const requestedUrl = defaults?.url;
+    const initialUrl =
+      requestedUrl === undefined
+        ? undefined
+        : yield* attempt({ operation: "createTab.normalizeUrl", tabId }, () =>
+            normalizePreviewUrl(requestedUrl),
+          );
     const updatedAt = yield* currentIso;
     const result = yield* SynchronizedRef.modify(
       tabsRef,
@@ -1698,10 +1728,17 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
         const initial: PreviewTabState = {
           tabId,
           webContentsId: null,
-          navStatus: { kind: "Idle" },
+          navStatus:
+            initialUrl === undefined
+              ? { kind: "Idle" }
+              : { kind: "Loading", url: initialUrl, title: "" },
           canGoBack: false,
           canGoForward: false,
-          zoomFactor: normalizeZoomFactor(defaults?.zoomFactor),
+          // Stream zoom is applied by the server; Chromium's physical zoom stays at 1.
+          zoomFactor:
+            defaults?.serverTab && browserSession
+              ? DEFAULT_ZOOM_FACTOR
+              : normalizeZoomFactor(defaults?.zoomFactor),
           pictureInPicture: false,
           colorScheme: defaults?.colorScheme ?? "system",
           ...(defaults?.serverTab === undefined ? {} : { serverTab: defaults.serverTab }),
@@ -1722,14 +1759,65 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
       tabLifecycleGenerations.set(tabId, (tabLifecycleGenerations.get(tabId) ?? 0) + 1);
     }
     yield* emit(tabId, result.state);
+    if (result.created && defaults?.serverTab && browserSession) {
+      yield* Effect.gen(function* () {
+        if (!frameCaptureWindowOpen) return yield* new PreviewMainWindowClosedError({ tabId });
+        const window = yield* attempt({ operation: "createTab.isolatedWindow", tabId }, () => {
+          const window = new BrowserWindow({
+            width: 1280,
+            height: 720,
+            show: false,
+            focusable: false,
+            skipTaskbar: true,
+            fullscreenable: false,
+            webPreferences: {
+              session: browserSession,
+              offscreen: true,
+              backgroundThrottling: false,
+              focusOnNavigation: false,
+              preload: previewPreloadPath,
+              contextIsolation: false,
+              sandbox: true,
+              nodeIntegration: false,
+              nodeIntegrationInSubFrames: false,
+              nodeIntegrationInWorker: false,
+              disableHtmlFullscreenWindowResize: true,
+              ...(passkeys.bridgeEnabled ? { additionalArguments: [PASSKEY_BRIDGE_ARGUMENT] } : {}),
+            },
+          });
+          isolatedWindows.set(tabId, window);
+          window.once("closed", () => {
+            if (isolatedWindows.get(tabId) === window) runFork(closeTab(tabId));
+          });
+          return window;
+        });
+        // A new BrowserWindow has no renderer until its first navigation. CDP
+        // initialization cannot complete before that renderer exists.
+        yield* attemptPromise({ operation: "createTab.initializeRenderer", tabId }, () =>
+          window.webContents.loadURL("about:blank"),
+        );
+        yield* registerContents(tabId, window.webContents, tabLifecycleGenerations.get(tabId));
+        if (!frameCaptureWindowOpen) return yield* new PreviewMainWindowClosedError({ tabId });
+        if (initialUrl !== undefined) {
+          yield* update(tabId, { navStatus: { kind: "Loading", url: initialUrl, title: "" } });
+          runFork(
+            attemptPromise({ operation: "createTab.loadInitialUrl", tabId }, () =>
+              window.webContents.loadURL(initialUrl),
+            ).pipe(Effect.ignore),
+          );
+        }
+      }).pipe(Effect.onError(() => closeTabUnlocked(tabId).pipe(Effect.ignore)));
+      return (yield* SynchronizedRef.get(tabsRef)).get(tabId) ?? result.state;
+    }
     return result.state;
   });
 
   const createTab = Effect.fn("PreviewManager.createTab")(function* (
     tabId: string,
     defaults?: DesktopPreviewTabDefaults,
+    browserSession?: Session,
   ) {
-    return yield* withTabLifecycleLock(tabId, createTabUnlocked(tabId, defaults));
+    return yield* withTabLifecycleLock(tabId, createTabUnlocked(tabId, defaults, browserSession));
   });
 
   const closeTabUnlocked = Effect.fn("PreviewManager.closeTabUnlocked")(function* (tabId: string) {
@@ -1768,6 +1856,13 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
         { concurrency: 2, discard: true },
       );
     }
+    const window = isolatedWindows.get(tabId);
+    isolatedWindows.delete(tabId);
+    if (window) {
+      yield* attempt({ operation: "closeTab.isolatedWindow", tabId }, () => {
+        if (!window.isDestroyed()) window.destroy();
+      }).pipe(Effect.ignore);
+    }
     const updatedAt = yield* currentIso;
     const closed: PreviewTabState = {
       ...closedTab,
@@ -1804,9 +1899,9 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     );
   });
 
-  const registerWebviewUnlocked = Effect.fn("PreviewManager.registerWebviewUnlocked")(function* (
+  const registerContents = Effect.fn("PreviewManager.registerContents")(function* (
     tabId: string,
-    webContentsId: number,
+    wc: Electron.WebContents,
     expectedGeneration: number | undefined,
   ) {
     const tab = (yield* SynchronizedRef.get(tabsRef)).get(tabId);
@@ -1817,16 +1912,7 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     ) {
       return yield* new PreviewTabNotFoundError({ tabId });
     }
-    const wc = webContents.fromId(webContentsId);
-    const mainWindow = yield* Ref.get(mainWindowRef);
-    if (
-      !wc ||
-      wc.isDestroyed() ||
-      wc.getType() !== "webview" ||
-      (Option.isSome(mainWindow) && wc.hostWebContents !== mainWindow.value.webContents)
-    ) {
-      return yield* new PreviewWebContentsNotFoundError({ tabId, webContentsId });
-    }
+    const webContentsId = wc.id;
     yield* rendererHistory.register(wc, { surface: "preview", tabId });
     const attached = yield* Ref.get(attachedRef);
     const annotationTheme = yield* Ref.get(annotationThemeRef);
@@ -1897,7 +1983,10 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
           (yield* Ref.get(closingTabIdsRef)).has(tabId)
         ) {
           return [
-            Option.none<{ readonly state: PreviewTabState; readonly pendingUrl: string | null }>(),
+            Option.none<{
+              readonly state: PreviewTabState;
+              readonly pendingUrl: string | null;
+            }>(),
             tabs,
           ] as const;
         }
@@ -1938,7 +2027,8 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     // Best-effort here, unlike in setAudioMuted: a guest that dies mid-attach
     // must not fail the registration it was attaching for.
     yield* assertTabAudioMuted(tabId).pipe(Effect.ignore);
-    runFork(restoreControlSession(tabId, wc));
+    if (isolatedWindows.has(tabId)) yield* restoreControlSession(tabId, wc);
+    else runFork(restoreControlSession(tabId, wc));
     // emitIfCurrent, not emit: audio-state-changed can land between the commit
     // above and here, and republishing this snapshot would roll the UI back to
     // a superseded audibility that syncTabAudible will not re-send.
@@ -1953,6 +2043,7 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
     });
     const latestNavStatus = (yield* SynchronizedRef.get(tabsRef)).get(tabId)?.navStatus;
     if (
+      !isolatedWindows.has(tabId) &&
       pendingUrl &&
       latestNavStatus?.kind === "Loading" &&
       latestNavStatus.url === pendingUrl &&
@@ -1964,6 +2055,29 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
         ).pipe(Effect.ignore),
       );
     }
+  });
+
+  const registerWebviewUnlocked = Effect.fn("PreviewManager.registerWebviewUnlocked")(function* (
+    tabId: string,
+    webContentsId: number,
+    expectedGeneration: number | undefined,
+  ) {
+    const tab = (yield* SynchronizedRef.get(tabsRef)).get(tabId);
+    if (!tab || tabLifecycleGenerations.get(tabId) !== expectedGeneration) {
+      return yield* new PreviewTabNotFoundError({ tabId });
+    }
+    const wc = webContents.fromId(webContentsId);
+    const mainWindow = yield* Ref.get(mainWindowRef);
+    if (
+      !wc ||
+      wc.isDestroyed() ||
+      wc.getType() !== "webview" ||
+      isolatedWindows.has(tabId) ||
+      (Option.isSome(mainWindow) && wc.hostWebContents !== mainWindow.value.webContents)
+    ) {
+      return yield* new PreviewWebContentsNotFoundError({ tabId, webContentsId });
+    }
+    yield* registerContents(tabId, wc, expectedGeneration);
   });
 
   const registerWebview = Effect.fn("PreviewManager.registerWebview")(function* (
@@ -2029,6 +2143,7 @@ const makeNativeOperations = Effect.fn("PreviewManager.makeOperations")(function
         audioMuted: current?.audioMuted ?? false,
         audible: current?.audible ?? false,
         controller: current?.controller ?? "none",
+        ...(current?.serverTab ? { serverTab: current.serverTab } : {}),
         ...(current?.favicon ? { favicon: current.favicon } : {}),
         updatedAt,
       };
@@ -3738,30 +3853,44 @@ export const make = Effect.gen(function* PreviewManagerMake() {
     });
   };
 
+  const getBrowserSession = Effect.fn("PreviewManager.getBrowserSession")(function* (
+    scope?: string,
+    persistent?: boolean,
+    namespace?: BrowserSession.BrowserSessionPartitionNamespace,
+  ) {
+    const session = yield* browserSession
+      .getSession(scope, persistent, namespace)
+      .pipe(
+        Effect.mapError(
+          (cause) => new PreviewOperationError({ operation: "getBrowserSession", cause }),
+        ),
+      );
+    placeServerDownloads(session);
+    passkeys.installSessionHandlers(session);
+    return session;
+  });
+
   const operations = yield* makeNativeOperations(
     environment.browserArtifactsDir,
     environment.path.join(environment.dirname, "preview-pip-preload.cjs"),
+    environment.path.join(environment.dirname, "preview-pick-preload.cjs"),
   );
 
   return PreviewManager.of({
     setMainWindow: operations.setMainWindow,
     setForwardedShortcuts: operations.setForwardedShortcuts,
-    getBrowserSession: Effect.fn("PreviewManager.getBrowserSession")(
-      function* (scope, persistent, namespace) {
-        const session = yield* browserSession
-          .getSession(scope, persistent, namespace)
-          .pipe(
-            Effect.mapError(
-              (cause) => new PreviewOperationError({ operation: "getBrowserSession", cause }),
-            ),
-          );
-        placeServerDownloads(session);
-        passkeys.installSessionHandlers(session);
-        return session;
-      },
-    ),
+    getBrowserSession,
     isBrowserPartition: browserSession.isPartition,
-    createTab: operations.createTab,
+    createTab: Effect.fn("PreviewManager.createTab")(function* (tabId, defaults) {
+      const profile =
+        defaults?.environmentId === undefined
+          ? undefined
+          : BrowserSession.resolvePartitionScope(defaults.environmentId, defaults.profileId);
+      const session = defaults?.serverTab
+        ? yield* getBrowserSession(profile?.scope, profile?.persistent, profile?.namespace)
+        : undefined;
+      return yield* operations.createTab(tabId, defaults, session);
+    }),
     closeTab: operations.closeTab,
     registerWebview: operations.registerWebview,
     prepareWebview: operations.prepareWebview,

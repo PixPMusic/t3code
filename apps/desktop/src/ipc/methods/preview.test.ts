@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import * as PreviewManager from "../../preview/Manager.ts";
 import * as BrowserImport from "../../preview/BrowserImport/BrowserImport.ts";
+import * as BrowserSession from "../../preview/BrowserSession.ts";
 import * as PreviewIpc from "./preview.ts";
 
 const { fromPartition } = vi.hoisted(() => ({
@@ -44,8 +45,8 @@ describe("preview IPC methods", () => {
   });
 
   it("derives distinct partition scopes when identifiers contain the delimiter", () => {
-    const first = PreviewIpc.resolvePartitionScope("a", "b::c");
-    const second = PreviewIpc.resolvePartitionScope("a::b", "c");
+    const first = BrowserSession.resolvePartitionScope("a", "b::c");
+    const second = BrowserSession.resolvePartitionScope("a::b", "c");
 
     expect(first).toEqual({ scope: '["a","b::c"]', persistent: true, namespace: "profile" });
     expect(second).toEqual({ scope: '["a::b","c"]', persistent: true, namespace: "profile" });
@@ -53,9 +54,9 @@ describe("preview IPC methods", () => {
   });
 
   it("preserves lone surrogates without collapsing them to replacement characters", () => {
-    const highSurrogate = PreviewIpc.resolvePartitionScope("environment", "profile-\ud800");
-    const lowSurrogate = PreviewIpc.resolvePartitionScope("environment", "profile-\udc00");
-    const replacement = PreviewIpc.resolvePartitionScope("environment", "profile-�");
+    const highSurrogate = BrowserSession.resolvePartitionScope("environment", "profile-\ud800");
+    const lowSurrogate = BrowserSession.resolvePartitionScope("environment", "profile-\udc00");
+    const replacement = BrowserSession.resolvePartitionScope("environment", "profile-�");
 
     expect(highSurrogate.scope).toBe('["environment","profile-\\ud800"]');
     expect(lowSurrogate.scope).toBe('["environment","profile-\\udc00"]');
@@ -65,15 +66,15 @@ describe("preview IPC methods", () => {
   });
 
   it("keeps the legacy default partition scope and incognito persistence", () => {
-    expect(PreviewIpc.resolvePartitionScope("environment::legacy", undefined)).toEqual({
+    expect(BrowserSession.resolvePartitionScope("environment::legacy", undefined)).toEqual({
       scope: "environment::legacy",
       persistent: true,
     });
     expect(
-      PreviewIpc.resolvePartitionScope("environment::legacy", DEFAULT_BROWSER_PROFILE_ID),
+      BrowserSession.resolvePartitionScope("environment::legacy", DEFAULT_BROWSER_PROFILE_ID),
     ).toEqual({ scope: "environment::legacy", persistent: true });
     expect(
-      PreviewIpc.resolvePartitionScope("environment::legacy", INCOGNITO_BROWSER_PROFILE_ID),
+      BrowserSession.resolvePartitionScope("environment::legacy", INCOGNITO_BROWSER_PROFILE_ID),
     ).toEqual({
       scope: '["environment::legacy","incognito"]',
       persistent: false,
@@ -104,9 +105,9 @@ describe("preview IPC methods", () => {
       yield* request("a", "b");
       yield* request("a::b", DEFAULT_BROWSER_PROFILE_ID);
 
-      expect(received[0]).toMatchObject(PreviewIpc.resolvePartitionScope("a", "b"));
+      expect(received[0]).toMatchObject(BrowserSession.resolvePartitionScope("a", "b"));
       expect(received[1]).toMatchObject(
-        PreviewIpc.resolvePartitionScope("a::b", DEFAULT_BROWSER_PROFILE_ID),
+        BrowserSession.resolvePartitionScope("a::b", DEFAULT_BROWSER_PROFILE_ID),
       );
       expect(received[0]?.namespace).toBe("profile");
       expect(received[1]?.namespace).toBeUndefined();

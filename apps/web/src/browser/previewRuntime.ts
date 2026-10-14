@@ -11,8 +11,8 @@ import {
 } from "~/state/entities";
 
 /**
- * Where a tab the user opens should run. The desktop app draws its own
- * server's tabs natively, so those stay agent-drivable at no cost. A remote
+ * Where a tab the user opens should run. The desktop's own server drives
+ * isolated pages in its browser profile and streams them to clients. A remote
  * environment's tabs would stream, so the desktop opens them in its own
  * browser instead: no latency, and it reaches what this computer reaches. The
  * user can move a tab to the environment when only it can reach the page.
@@ -54,11 +54,10 @@ export function usePreviewAvailable(environmentId: EnvironmentId | null): boolea
 }
 
 /**
- * Whether this client draws a server tab with its own `<webview>`. The desktop
- * app renders tabs of the server it launched, which drives them over the
- * desktop browser channel; every other client and environment streams them.
+ * Whether the desktop hosts this server tab's browser profile. Its page is
+ * isolated from the app's native focus tree and streams like remote tabs.
  */
-export function rendersServerTabNatively(
+export function hostsServerTabProfile(
   environmentId: EnvironmentId,
   primaryEnvironmentId: EnvironmentId | null,
   snapshot: Pick<PreviewSessionSnapshot, "runtime"> | null | undefined,
@@ -71,9 +70,9 @@ export function rendersServerTabNatively(
   );
 }
 
-export function useRendersServerTabNatively(
+export function useHostsServerTabProfile(
   environmentId: EnvironmentId,
   snapshot: Pick<PreviewSessionSnapshot, "runtime"> | null | undefined,
 ): boolean {
-  return rendersServerTabNatively(environmentId, useAtomValue(primaryEnvironmentIdAtom), snapshot);
+  return hostsServerTabProfile(environmentId, useAtomValue(primaryEnvironmentIdAtom), snapshot);
 }

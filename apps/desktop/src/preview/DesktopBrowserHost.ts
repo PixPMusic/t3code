@@ -5,7 +5,7 @@
  * service writes events for the desktop's tabs to one and reads commands from
  * the other. Each attached tab is reachable only through its `CdpRelay`.
  *
- * A tab is attached once its `<webview>` registers with a key the web app
+ * A tab is attached once its isolated page registers with a key the web app
  * gave it. The preview manager owns the tab's single debugger session and hands
  * it here; the relay shares it.
  */
@@ -75,7 +75,7 @@ export class DesktopBrowserHost extends Context.Service<
     readonly events: Stream.Stream<Uint8Array>;
     /** One line from the backend's browser control fd. */
     readonly handleCommandLine: (line: string) => Effect.Effect<void>;
-    /** Offers a server tab's `<webview>` to the server. */
+    /** Offers a server tab's isolated page to the server. */
     readonly attach: (key: DesktopBrowserTabKey, debuggee: DesktopBrowserTabDebugger) => void;
     /** Withdraws it: closed, swapped, crashed, or devtools needs the debugger. */
     readonly detach: (key: DesktopBrowserTabKey) => void;

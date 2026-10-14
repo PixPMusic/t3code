@@ -1,7 +1,11 @@
 "use client";
 
 import { parseScopedThreadKey } from "@t3tools/client-runtime/environment";
-import { AuthPreviewOperateScope, FILL_PREVIEW_VIEWPORT } from "@t3tools/contracts";
+import {
+  AuthPreviewOperateScope,
+  FILL_PREVIEW_VIEWPORT,
+  type ScopedThreadRef,
+} from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { type ComponentProps, useEffect, useMemo, useRef, useState } from "react";
 
@@ -20,8 +24,10 @@ import { useBrowserDefaults } from "./browserDefaults";
 import { useBrowserPointerStore } from "./browserPointerStore";
 import { HostedBrowserWebview } from "./HostedBrowserWebview";
 import { openUrlInPreview } from "./openFileInPreview";
-import { rendersServerTabNatively } from "./previewRuntime";
+import { hostsServerTabProfile } from "./previewRuntime";
 import { previewRuntimeTabId } from "./previewRuntimeTabId";
+import { acquireDesktopTab } from "./desktopTabLifetime";
+import { usePreviewBridge } from "~/components/preview/usePreviewBridge";
 
 export function ElectronBrowserHost() {
   const { resolvedTheme } = useTheme();
@@ -31,13 +37,13 @@ export function ElectronBrowserHost() {
     () =>
       Object.entries(previewByThreadKey).flatMap(([threadKey, previewState]) => {
         const threadRef = parseScopedThreadKey(threadKey);
-        // Server tabs of other environments stream; this desktop's own server tabs render here.
+        // Local server tabs keep their desktop profile in isolated pages; remote ones run there.
         return threadRef
           ? Object.values(previewState.sessions)
               .filter(
                 (snapshot) =>
                   snapshot.runtime !== "server" ||
-                  rendersServerTabNatively(threadRef.environmentId, primaryEnvironmentId, snapshot),
+                  hostsServerTabProfile(threadRef.environmentId, primaryEnvironmentId, snapshot),
               )
               .map((snapshot) => ({
                 threadRef,
@@ -128,6 +134,18 @@ export function ElectronBrowserHost() {
     <div className="contents" data-electron-browser-host>
       {sessions.map(({ threadRef, snapshot, runtimeTabId, pictureInPicture, zoomFactor }) => {
         const url = snapshot.navStatus._tag === "Idle" ? null : snapshot.navStatus.url;
+        if (snapshot.runtime === "server") {
+          return (
+            <AuthorizedIsolatedBrowserTab
+              key={runtimeTabId}
+              threadRef={threadRef}
+              tabId={snapshot.tabId}
+              runtimeTabId={runtimeTabId}
+              url={url}
+              profileId={snapshot.profileId}
+            />
+          );
+        }
         return (
           <AuthorizedBrowserWebview
             key={runtimeTabId}
@@ -139,20 +157,52 @@ export function ElectronBrowserHost() {
             pictureInPicture={pictureInPicture}
             profileId={snapshot.profileId}
             zoomFactor={zoomFactor}
-            serverDriven={snapshot.runtime === "server"}
-            {...(snapshot.runtime === "server"
-              ? {
-                  serverRendering: {
-                    colorScheme: snapshot.colorScheme ?? "system",
-                    zoomFactor: snapshot.zoomFactor ?? 1,
-                  },
-                }
-              : {})}
           />
         );
       })}
     </div>
   );
+}
+
+function AuthorizedIsolatedBrowserTab(props: {
+  readonly threadRef: ScopedThreadRef;
+  readonly tabId: string;
+  readonly runtimeTabId: string;
+  readonly url: string | null;
+  readonly profileId: string | undefined;
+}) {
+  const canOperatePreview = useEnvironmentScope(
+    props.threadRef.environmentId,
+    AuthPreviewOperateScope,
+  );
+  const profileId = useTabProfileId(props.profileId);
+  const hydrated = useClientSettingsHydrated();
+  const { threadRef, tabId, runtimeTabId, url } = props;
+  usePreviewBridge({ threadRef, tabId, runtimeTabId, serverDriven: true });
+  // The initial URL belongs to creation; subsequent navigation is server-owned.
+  const initialUrl = useRef(url);
+  useEffect(() => {
+    if (!hydrated || !canOperatePreview) return;
+    const lease = acquireDesktopTab(
+      runtimeTabId,
+      { threadId: threadRef.threadId, tabId },
+      {
+        environmentId: threadRef.environmentId,
+        profileId,
+        ...(initialUrl.current === null ? {} : { url: initialUrl.current }),
+      },
+    );
+    return lease.release;
+  }, [
+    canOperatePreview,
+    hydrated,
+    profileId,
+    runtimeTabId,
+    tabId,
+    threadRef.environmentId,
+    threadRef.threadId,
+  ]);
+  return null;
 }
 
 function AuthorizedBrowserWebview(props: ComponentProps<typeof HostedBrowserWebview>) {

@@ -613,7 +613,7 @@ const make = Effect.gen(function* () {
   /** The CSS size the page lays out in: the viewport shrunk by the tab's zoom, as Chrome zooms. */
   const layoutSize = (tab: ServerTab) => {
     const size = tab.page.viewportSize();
-    if (!size || tab.desktop) return size;
+    if (!size) return size;
     return {
       width: Math.max(1, Math.round(size.width / tab.zoomFactor)),
       height: Math.max(1, Math.round(size.height / tab.zoomFactor)),
@@ -622,11 +622,10 @@ const make = Effect.gen(function* () {
 
   /**
    * Zooms a headless page as Chrome's zoom does: it lays out in fewer CSS
-   * pixels and draws each one larger, so frames keep their size. The desktop
-   * zooms the pages it renders itself.
+   * pixels and draws each one larger, so frames keep their size. This also
+   * sizes the isolated Electron pages the desktop supplies.
    */
   const applyZoom = async (tab: ServerTab) => {
-    if (tab.desktop) return;
     const size = tab.page.viewportSize();
     if (!size) return;
     if (tab.zoomFactor === 1) {
@@ -651,8 +650,6 @@ const make = Effect.gen(function* () {
 
   const applySetting = async (tab: ServerTab, setting: PreviewViewportSetting) => {
     tab.setting = setting;
-    // The desktop lays its webview out at the published setting itself.
-    if (tab.desktop) return;
     const size =
       fixedViewportSize(setting) ??
       [...tab.viewers]
@@ -665,7 +662,7 @@ const make = Effect.gen(function* () {
     broadcastViewport(tab);
   };
 
-  /** Applies a tab's published appearance and, for headless tabs, zoom. */
+  /** Applies a tab's published appearance and zoom to its isolated page. */
   const applyRendering = async (tab: ServerTab, snapshot: PreviewSessionSnapshot) => {
     const colorScheme = snapshot.colorScheme ?? "system";
     if (colorScheme !== tab.colorScheme) {
@@ -673,7 +670,7 @@ const make = Effect.gen(function* () {
       await tab.page.emulateMedia({ colorScheme: colorScheme === "system" ? null : colorScheme });
     }
     const zoomFactor = snapshot.zoomFactor ?? 1;
-    if (zoomFactor !== tab.zoomFactor && !tab.desktop) {
+    if (zoomFactor !== tab.zoomFactor) {
       tab.zoomFactor = zoomFactor;
       await applyZoom(tab);
       broadcastViewport(tab);
@@ -706,8 +703,8 @@ const make = Effect.gen(function* () {
   };
 
   /**
-   * With a desktop app attached, every tab of this server renders there, so a
-   * new tab waits for its `<webview>` instead of launching headless.
+   * The desktop supplies isolated pages from its existing browser profiles.
+   * Wait for one before launching a separate headless browser.
    */
   const desktopRenders = (snapshot: PreviewSessionSnapshot) =>
     desktopChannel.available
@@ -807,9 +804,7 @@ const make = Effect.gen(function* () {
       captureLock: Promise.resolve(),
       capturing: 0,
     };
-    if (!desktop) {
-      await page.setViewportSize(fixedViewportSize(tab.setting) ?? UNATTACHED_FILL_VIEWPORT);
-    }
+    await page.setViewportSize(fixedViewportSize(tab.setting) ?? UNATTACHED_FILL_VIEWPORT);
     await applyRendering(tab, snapshot);
     const isMainNavigation = (request: { isNavigationRequest(): boolean; frame(): unknown }) =>
       request.isNavigationRequest() && request.frame() === page.mainFrame();
@@ -1584,8 +1579,7 @@ const make = Effect.gen(function* () {
     (tab: ServerTab): ServerBrowserPage.PointerReporter =>
     async ({ x, y }, phase) => {
       const encoder = tab.recording?.encoder;
-      // A desktop-rendered tab is always on screen in the desktop app.
-      if (tab.viewers.size === 0 && !encoder && !tab.desktop) return;
+      if (tab.viewers.size === 0 && !encoder) return;
       const show = (next: "move" | "click") => {
         const sequence = ++pointerSequence;
         for (const viewer of tab.viewers)
@@ -2129,10 +2123,11 @@ const make = Effect.gen(function* () {
         const height = Math.min(Math.round(num(message.height)), 2160);
         if (width < 100 || height < 100) return;
         viewer.requestedSize = { width, height, order: ++viewerResizeOrder };
-        if (tab.setting._tag !== "fill" || tab.desktop) return;
+        if (tab.setting._tag !== "fill") return;
         const current = tab.page.viewportSize();
         if (current?.width === width && current.height === height) return;
         await tab.page.setViewportSize({ width, height });
+        await applyZoom(tab);
         broadcastViewport(tab);
         return;
       }

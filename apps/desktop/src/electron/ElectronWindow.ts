@@ -144,17 +144,26 @@ export const make = Effect.gen(function* () {
   yield* Effect.addFinalizer(() => Effect.sync(() => windowsForegroundFocus?.close()));
   const mainWindowRef = yield* Ref.make<Option.Option<Electron.BrowserWindow>>(Option.none());
 
-  const listWindows = Effect.try({
-    try: () => Electron.BrowserWindow.getAllWindows(),
-    catch: (cause) =>
-      new ElectronWindowOperationError({
-        operation: "list-windows",
-        platform,
-        windowId: null,
-        channel: null,
-        cause,
-      }),
-  }).pipe(Effect.orDie);
+  const listWindows = (includeOffscreen = false) =>
+    Effect.try({
+      // Streamed preview pages have native windows for their renderer lifetime,
+      // but must never be revealed or receive app broadcasts and appearance changes.
+      try: () =>
+        Electron.BrowserWindow.getAllWindows().filter(
+          (window) =>
+            includeOffscreen ||
+            window.isDestroyed() ||
+            window.webContents.getType() !== "offscreen",
+        ),
+      catch: (cause) =>
+        new ElectronWindowOperationError({
+          operation: "list-windows",
+          platform,
+          windowId: null,
+          channel: null,
+          cause,
+        }),
+    }).pipe(Effect.orDie);
 
   const isWindowDestroyed = (window: Electron.BrowserWindow) =>
     Effect.try({
@@ -183,7 +192,7 @@ export const make = Effect.gen(function* () {
       return main;
     }
 
-    const first = Option.fromNullishOr((yield* listWindows)[0] ?? null);
+    const first = Option.fromNullishOr((yield* listWindows())[0] ?? null);
     if (Option.isNone(first) || (yield* isWindowDestroyed(first.value))) {
       return Option.none<Electron.BrowserWindow>();
     }
@@ -329,7 +338,7 @@ export const make = Effect.gen(function* () {
       }).pipe(Effect.orDie),
     sendAll: (channel, ...args) =>
       Effect.gen(function* () {
-        for (const window of yield* listWindows) {
+        for (const window of yield* listWindows()) {
           if (yield* isWindowDestroyed(window)) {
             continue;
           }
@@ -348,7 +357,7 @@ export const make = Effect.gen(function* () {
       }),
     destroyAll: Effect.gen(function* () {
       let firstFailure: Cause.Cause<never> | undefined;
-      for (const window of yield* listWindows) {
+      for (const window of yield* listWindows(true)) {
         const exit = yield* Effect.exit(
           Effect.try({
             try: () => window.destroy(),
@@ -373,7 +382,7 @@ export const make = Effect.gen(function* () {
     syncAllAppearance: Effect.fn("desktop.electron.window.syncAllAppearance")(function* <E, R>(
       sync: (window: Electron.BrowserWindow) => Effect.Effect<void, E, R>,
     ) {
-      const windows = yield* listWindows;
+      const windows = yield* listWindows();
       for (const window of windows) {
         if (yield* isWindowDestroyed(window)) {
           continue;

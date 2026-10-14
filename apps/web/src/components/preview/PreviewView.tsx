@@ -75,7 +75,7 @@ import { revealInFileExplorerLabel } from "./fileExplorerLabel";
 import { shouldShowPreviewEmptyState } from "./previewEmptyStateLogic";
 import { Badge } from "~/components/ui/badge";
 import { BrowserSurfaceSlot } from "~/browser/BrowserSurfaceSlot";
-import { alternatePreviewRuntime, useRendersServerTabNatively } from "~/browser/previewRuntime";
+import { alternatePreviewRuntime, useHostsServerTabProfile } from "~/browser/previewRuntime";
 import { ServerBrowserSurface, type ServerBrowserHandle } from "~/browser/ServerBrowserSurface";
 import { cn } from "~/lib/utils";
 import { useBrowserSurfaceStore } from "~/browser/browserSurfaceStore";
@@ -203,10 +203,8 @@ export function PreviewView({
         : findActiveBrowserRecordingRuntimeTabId(threadRef, tabId)
       : null;
   const snapshot = tabId ? (previewState.sessions[tabId] ?? null) : null;
-  // Server tabs run in the environment's browser and stream to any client, except the
-  // desktop app's own server's tabs, which render here natively while the server drives them.
-  const nativeServerTab = useRendersServerTabNatively(threadRef.environmentId, snapshot);
-  const isServerTab = snapshot?.runtime === "server" && !nativeServerTab;
+  const desktopHostedServerTab = useHostsServerTabProfile(threadRef.environmentId, snapshot);
+  const isServerTab = snapshot?.runtime === "server";
   /** The server owns this tab's appearance, zoom, and size, whoever renders it. */
   const serverOwnsRendering = snapshot?.runtime === "server";
   const serverSurfaceRef = useRef<ServerBrowserHandle | null>(null);
@@ -516,7 +514,7 @@ export function PreviewView({
         resetZoom: handleResetZoom,
         clearCookies: () => void adjustServerTab({ clear: "cookies" }),
         clearCache: () => void adjustServerTab({ clear: "cache" }),
-        ...(nativeServerTab && previewBridge
+        ...(desktopHostedServerTab && previewBridge
           ? {
               openDevTools: desktopCall(previewBridge.openDevTools),
               toggleNativePictureInPicture: () => handleNativePictureInPicture(),
@@ -979,9 +977,12 @@ export function PreviewView({
         onRefresh={handleRefresh}
         onSubmit={(next) => void handleSubmitUrl(next)}
         onOpenInBrowser={tabId ? handleOpenInBrowser : undefined}
-        // Capture, annotation, and the more menu drive the desktop webview, so
-        // server tabs leave them out. Floating works for both.
-        onCapture={previewBridge && tabId && !isServerTab ? handleCapture : undefined}
+        // Local streamed pages keep the desktop's capture and annotation tools.
+        onCapture={
+          previewBridge && tabId && (!isServerTab || desktopHostedServerTab)
+            ? handleCapture
+            : undefined
+        }
         captureDisabled={!desktopOverlay || isUnreachable}
         recording={recordingRuntimeTabId !== null}
         onPictureInPicture={
@@ -991,12 +992,16 @@ export function PreviewView({
         pictureInPictureDisabled={
           isUnreachable || (!isServerTab && !desktopOverlay?.hasWebContents)
         }
-        onPickElement={previewBridge && tabId && !isServerTab ? handlePickElement : undefined}
+        onPickElement={
+          previewBridge && tabId && (!isServerTab || desktopHostedServerTab)
+            ? handlePickElement
+            : undefined
+        }
         pickActive={pickActive}
         // Disable when there's no tab (nothing to pick on) OR the page
         // failed to load (a React overlay covers the webview, so the
         // user wouldn't be able to actually click anything underneath).
-        pickDisabled={!tabId || isUnreachable}
+        pickDisabled={!tabId || isUnreachable || serverInputDisabled}
         pickDisabledReason={
           isUnreachable ? "Page didn't load — pick unavailable until the page renders" : undefined
         }
@@ -1113,9 +1118,12 @@ export function PreviewView({
           />
         ) : null}
         {snapshot && desktopOverlay ? (
-          <ZoomIndicator zoomFactor={desktopOverlay.zoomFactor} />
+          <ZoomIndicator
+            zoomFactor={serverOwnsRendering ? serverZoomFactor : desktopOverlay.zoomFactor}
+          />
         ) : null}
         {runtimeTabId &&
+        !isServerTab &&
         desktopOverlay &&
         !showEmptyState &&
         !isUnreachable &&

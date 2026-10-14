@@ -2,6 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import type * as Electron from "electron";
@@ -66,6 +67,7 @@ function makeBrowserWindow(input: { readonly id: number; readonly destroyed: boo
   return {
     id: input.id,
     isDestroyed: vi.fn(() => input.destroyed),
+    webContents: { getType: () => "window" },
   } as unknown as Electron.BrowserWindow;
 }
 
@@ -88,6 +90,41 @@ function makeWindowsRevealWindow() {
 }
 
 describe("ElectronWindow", () => {
+  it.effect(
+    "keeps offscreen previews out of app activation and broadcasts, and closes them on shutdown",
+    () =>
+      Effect.gen(function* () {
+        const preview = {
+          id: 2,
+          isDestroyed: () => false,
+          webContents: { getType: () => "offscreen", send: vi.fn() },
+          destroy: vi.fn(),
+        };
+        const main = {
+          id: 1,
+          isDestroyed: () => false,
+          webContents: { getType: () => "window", send: vi.fn() },
+          destroy: vi.fn(),
+        };
+        getAllWindowsMock.mockReturnValue([preview, main]);
+        const windows = yield* ElectronWindow.ElectronWindow;
+        assert.equal(Option.getOrNull(yield* windows.currentMainOrFirst)?.id, main.id);
+        yield* windows.sendAll("desktop:update", { ready: true });
+        assert.equal(preview.webContents.send.mock.calls.length, 0);
+        assert.deepEqual(main.webContents.send.mock.calls, [["desktop:update", { ready: true }]]);
+        const synced: number[] = [];
+        yield* windows.syncAllAppearance((window) =>
+          Effect.sync(() => {
+            synced.push(window.id);
+          }),
+        );
+        assert.deepEqual(synced, [1]);
+        yield* windows.destroyAll;
+        assert.equal(preview.destroy.mock.calls.length, 1);
+        assert.equal(main.destroy.mock.calls.length, 1);
+      }).pipe(Effect.provide(layerTest)),
+  );
+
   beforeEach(() => {
     activateWindowsForegroundMock.mockReset().mockResolvedValue(undefined);
     appFocusMock.mockReset();
@@ -481,6 +518,7 @@ describe("ElectronWindow", () => {
         id: 42,
         isDestroyed: vi.fn(() => false),
         webContents: {
+          getType: () => "window",
           send: vi.fn(() => {
             throw cause;
           }),
