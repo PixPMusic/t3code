@@ -30,6 +30,8 @@ export function ComposerInlineControl(props: {
   readonly icon?: ComponentProps<typeof SymbolView>["name"];
   readonly renderIcon?: (size: number) => ReactNode;
   readonly label: string;
+  /** Show only the icon and chevron; the label still names the control for accessibility. */
+  readonly iconOnly?: boolean;
   readonly maxWidth?: ViewStyle["maxWidth"];
   readonly onPress?: () => void;
   readonly selected?: boolean;
@@ -68,15 +70,17 @@ export function ComposerInlineControl(props: {
           type="monochrome"
         />
       ) : null}
-      <Text
-        className={cn(
-          "shrink text-sm font-t3-medium",
-          props.emphasized || props.selected ? "text-foreground" : "text-foreground-muted",
-        )}
-        numberOfLines={1}
-      >
-        {props.label}
-      </Text>
+      {props.iconOnly ? null : (
+        <Text
+          className={cn(
+            "shrink text-sm font-t3-medium",
+            props.emphasized || props.selected ? "text-foreground" : "text-foreground-muted",
+          )}
+          numberOfLines={1}
+        >
+          {props.label}
+        </Text>
+      )}
       {props.showChevron === false ? null : (
         <SymbolView
           name={props.chevronDirection === "right" ? "chevron.right" : "chevron.down"}

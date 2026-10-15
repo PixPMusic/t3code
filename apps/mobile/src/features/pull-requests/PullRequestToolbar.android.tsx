@@ -9,11 +9,14 @@ import { CompactBrandTitle } from "../../components/CompactBrandTitle";
 import { SearchField } from "../../components/ui/SearchField";
 import { WorkspaceConnectionTitle } from "../home/WorkspaceConnectionTitle";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
+import { AndroidAnchoredMenu } from "../../components/ui/AndroidAnchoredMenu";
+import { useAndroidWorkspaceFilters } from "../workspace/AndroidWorkspaceFilters";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 
 /** PR search shares the thread list's native Android header placement. */
 export function PullRequestToolbar(props: { readonly onRequestVisibility?: () => void }) {
   const navigation = useNavigation();
+  const filters = useAndroidWorkspaceFilters().pullRequests;
   const workspace = useWorkspaceTabs()!;
   const { dispatch, getScrollOffset, recordScrollOffset, isTabActive } = workspace;
   const homeFocused = useNavigationState((state) => state.routes[state.index]?.name === "Home");
@@ -94,6 +97,26 @@ export function PullRequestToolbar(props: { readonly onRequestVisibility?: () =>
           />
         ) : undefined
       }
+      trailing={
+        filters ? (
+          <AndroidAnchoredMenu
+            actions={filters.actions}
+            onPressAction={({ nativeEvent }) => filters.onSelect(nativeEvent.event)}
+          >
+            {(open) => (
+              <AndroidHeaderIconButton
+                accessibilityLabel="Filter pull requests"
+                icon={
+                  filters.customized
+                    ? "line.3.horizontal.decrease.circle.fill"
+                    : "line.3.horizontal.decrease.circle"
+                }
+                onPress={open}
+              />
+            )}
+          </AndroidAnchoredMenu>
+        ) : undefined
+      }
       actions={
         searching
           ? []
@@ -102,15 +125,6 @@ export function PullRequestToolbar(props: { readonly onRequestVisibility?: () =>
                 accessibilityLabel: "Search pull requests",
                 icon: "magnifyingglass",
                 onPress: openSearch,
-              },
-              {
-                accessibilityLabel: "Open settings",
-                icon: "gearshape",
-                onPress: () =>
-                  navigation.navigate("SettingsSheet", {
-                    screen: "SettingsContent",
-                    params: { screen: "Settings" },
-                  }),
               },
             ]
       }

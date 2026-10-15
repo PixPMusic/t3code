@@ -32,6 +32,7 @@ import { useResolveClassNames } from "uniwind";
 import { AppText as Text } from "./components/ui/AppText";
 import { getCompactBrandHeaderOptions } from "./components/CompactBrandTitle";
 import { WorkspaceRootScreen } from "./features/workspace/WorkspaceRootScreen";
+import { AndroidWorkspaceSettings } from "./features/workspace/AndroidWorkspaceSettings";
 import { AndroidWorkspaceTabsProvider } from "./features/workspace/AndroidWorkspaceTabsProvider";
 import {
   PullRequestRouteScreen,
@@ -557,7 +558,11 @@ const WORKSPACE_OVERLAY_ROUTES = new Set([
 ]);
 
 function workspaceLocationFromState(state: NavigationState) {
-  const routes = state.routes.filter((route) => !WORKSPACE_OVERLAY_ROUTES.has(route.name));
+  const routes = state.routes.filter(
+    (route) =>
+      !WORKSPACE_OVERLAY_ROUTES.has(route.name) ||
+      (Platform.OS === "android" && route.name === "SettingsSheet"),
+  );
   const effectiveState =
     routes.length > 0 && routes.length !== state.routes.length
       ? ({ ...state, routes, index: routes.length - 1 } as NavigationState)
@@ -613,7 +618,7 @@ function RootStackLayout(props: {
       <ThreadOutboxDrainWorker />
       <ShowcaseCaptureCoordinator pathname={pathname} />
       <ExistingThreadSettingsRouteProvider>
-        <AndroidWorkspaceTabsProvider>
+        <AndroidWorkspaceTabsProvider state={props.state}>
           <AdaptiveWorkspaceLayout
             pathname={workspaceLocation.pathname}
             workspaceRouteKey={workspaceLocation.routeKey}
@@ -897,6 +902,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
     }),
     SettingsSheet: createNativeStackScreen({
       screen: SettingsSheetStack,
+      layout: ({ children }) => <AndroidWorkspaceSettings>{children}</AndroidWorkspaceSettings>,
       linking: "settings",
       options: {
         ...NESTED_NAVIGATOR_OPTIONS,

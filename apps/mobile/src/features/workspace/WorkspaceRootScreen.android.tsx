@@ -21,13 +21,13 @@ export function WorkspaceRootScreen() {
   const context = useMemo(
     () => ({
       ...workspace,
-      bottomClearance: workspace.state.selectedTab === "threads" ? fabClearance + 16 : 16,
+      bottomClearance: workspace.state.selectedTab !== "pullRequests" ? fabClearance + 16 : 16,
     }),
     [workspace, fabClearance],
   );
 
   if (layout.usesSplitView) {
-    return workspace.state.selectedTab === "threads" ? (
+    return workspace.state.selectedTab !== "pullRequests" ? (
       <HomeRouteScreen />
     ) : (
       <>
@@ -50,7 +50,7 @@ export function WorkspaceRootScreen() {
         <NativeStackScreenOptions options={{ headerShown: false }} />
         <SafeAreaInsetsContext value={{ ...insets, bottom: 0 }}>
           <View className="flex-1">
-            {workspace.state.selectedTab === "threads" ? (
+            {workspace.state.selectedTab !== "pullRequests" ? (
               <HomeRouteScreen />
             ) : (
               <>

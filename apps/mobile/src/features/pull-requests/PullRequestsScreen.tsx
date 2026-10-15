@@ -275,6 +275,7 @@ export function PullRequestsScreen(
         ListHeaderComponent={
           <>
             <PullRequestListFilters
+              sidebar={sidebar}
               environments={environments.map((item) => ({
                 id: String(item.environmentId),
                 label: item.environmentLabel,

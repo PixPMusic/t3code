@@ -8,19 +8,16 @@ import {
   View,
   type LayoutChangeEvent,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MenuAction } from "@react-native-menu/menu";
 
 import { AndroidHeaderIconButton } from "../../components/ui/AndroidScreenHeader";
 import { CompactBrandTitle } from "../../components/CompactBrandTitle";
-import { FloatingActionButton } from "../../components/ui/FloatingActionButton";
 import { AndroidAnchoredMenu } from "../../components/ui/AndroidAnchoredMenu";
 import { Menu } from "../../components/ui/Menu";
 import { SearchField } from "../../components/ui/SearchField";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { WorkspaceConnectionTitle } from "./WorkspaceConnectionTitle";
-import { useWorkspaceState } from "../../state/workspace";
-import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
+import { useWorkspaceConnectionState } from "../../state/workspace";
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
 
 /** One toolbar height for the compact list and expanded sidebar, including search. */
@@ -30,22 +27,19 @@ export function ThreadListToolbar(props: {
   readonly filterActions: MenuAction[];
   readonly filterCustomized: boolean;
   readonly onFilterAction: NonNullable<ComponentProps<typeof Menu>["onPressAction"]>;
-  readonly onOpenSettings: () => void;
   readonly onOpenEnvironments: () => void;
   readonly sidebar?: boolean;
   readonly onLayout?: (event: LayoutChangeEvent) => void;
   readonly onRequestVisibility?: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const workspace = useWorkspaceTabs();
   const isTabActive = workspace?.isTabActive;
   const homeFocused = useNavigationState((state) => state.routes[state.index]?.name === "Home");
   const listFocused =
     homeFocused && (workspace === null || workspace.state.selectedTab === "threads");
-  const { fabSize } = useAndroidControlSizing();
   const { height: toolbarHeight, ...headerPadding } = useToolbarLayout();
-  const { state } = useWorkspaceState();
+  const connectionState = useWorkspaceConnectionState();
   const { onRequestVisibility, onSearchQueryChange } = props;
   const searchRef = useRef<TextInputInstance>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -95,6 +89,18 @@ export function ThreadListToolbar(props: {
       onChangeText={onSearchQueryChange}
     />
   );
+  // Filter stays trailing in every layout, so it never moves and still applies while searching.
+  const filterButton = connectionState.hasConnections ? (
+    <AndroidAnchoredMenu actions={props.filterActions} onPressAction={props.onFilterAction}>
+      {(open) => (
+        <AndroidHeaderIconButton
+          accessibilityLabel="Filter threads"
+          icon={filterIcon}
+          onPress={open}
+        />
+      )}
+    </AndroidAnchoredMenu>
+  ) : null;
 
   return (
     <>
@@ -114,6 +120,7 @@ export function ThreadListToolbar(props: {
                 onPress={closeSearch}
               />
               {searchField}
+              {filterButton}
             </>
           ) : (
             <>
@@ -129,32 +136,11 @@ export function ThreadListToolbar(props: {
                 icon="magnifyingglass"
                 onPress={openSearch}
               />
-              <AndroidHeaderIconButton
-                accessibilityLabel="Open settings"
-                icon="gearshape"
-                onPress={props.onOpenSettings}
-              />
+              {filterButton}
             </>
           )}
         </View>
       </View>
-      {state.hasConnections ? (
-        <View
-          className="absolute right-5 z-[5]"
-          style={{
-            bottom:
-              (props.sidebar ? Math.max(insets.bottom, 12) + 6 : Math.max(insets.bottom, 16) + 16) +
-              fabSize +
-              8,
-          }}
-        >
-          <AndroidAnchoredMenu actions={props.filterActions} onPressAction={props.onFilterAction}>
-            {(open) => (
-              <FloatingActionButton label="Filter threads" icon={filterIcon} onPress={open} />
-            )}
-          </AndroidAnchoredMenu>
-        </View>
-      ) : null}
     </>
   );
 }

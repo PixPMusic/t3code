@@ -1,7 +1,8 @@
 import { sortProjectsByGroupOrder } from "@t3tools/client-runtime/state/project-grouping";
 import { useMemo } from "react";
-import { ScrollView } from "react-native";
+import { Platform, ScrollView } from "react-native";
 import type { MenuProps } from "../../components/ui/Menu.types";
+import { useRegisterAndroidWorkspaceFilters } from "../workspace/AndroidWorkspaceFilters";
 import { ListFilterMenu } from "../workspace/ListFilterMenu";
 import { useProjects, useThreadShells } from "../../state/entities";
 import { useMobileProjectGroupingSettings } from "../../state/project-grouping";
@@ -57,6 +58,8 @@ function useProjectsInSidebarOrder<Project extends { id: string; environmentId: 
 }
 
 export function PullRequestListFilters(props: {
+  /** Android sidebar rows sit further in than full-width rows; the pills follow them. */
+  readonly sidebar?: boolean;
   readonly environments: readonly { id: string; label: string }[];
   readonly environmentId: string | null;
   readonly onEnvironmentChange: (id: string | null) => void;
@@ -221,20 +224,86 @@ export function PullRequestListFilters(props: {
   const authors = [
     ...new Set([...(author && author !== "me" ? [author] : []), ...props.authors]),
   ].slice(0, 60);
+  const allFilters: MenuProps["actions"] = [
+    {
+      id: "environment",
+      title: "Environment",
+      subactions: choices(
+        "environment",
+        Object.fromEntries([
+          ["", "All environments"],
+          ...props.environments.map((environment) => [environment.id, environment.label]),
+        ]),
+        props.environmentId ?? "",
+      ),
+    },
+    { id: "state", title: "State", subactions: choices("state", STATES, value.state) },
+    {
+      id: "involvement",
+      title: "Involvement",
+      subactions: choices("involvement", INVOLVEMENT, value.involvement),
+    },
+    {
+      id: "labels",
+      title: "Labels",
+      subactions: [
+        { id: id("labels", ""), title: "All labels", state: selectedLabels.length ? "off" : "on" },
+        ...labels.map((label) => ({
+          id: id("label", label),
+          title: label,
+          state: selectedLabelSet.has(label) ? ("on" as const) : ("off" as const),
+        })),
+      ],
+    },
+    {
+      id: "author",
+      title: "Author",
+      subactions: choices(
+        "author",
+        Object.fromEntries([
+          ["", "All authors"],
+          ["me", "Me"],
+          ...authors.map((login) => [login, login]),
+        ]),
+        author ?? "",
+      ),
+    },
+    ...more,
+  ];
+  useRegisterAndroidWorkspaceFilters(
+    "pullRequests",
+    allFilters,
+    select,
+    count > 0 || value.sort !== "updated",
+  );
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 2, paddingBottom: 10, gap: 8 }}
+      // Android draws the row inside the rounded list surface: clear its top corners and line the
+      // first pill up with the rows' content (sidebar rows: 8dp margin + 12dp padding; px-4).
+      contentContainerStyle={
+        Platform.OS === "android"
+          ? {
+              paddingHorizontal: props.sidebar ? 20 : 14,
+              paddingTop: 12,
+              paddingBottom: 10,
+              gap: 8,
+            }
+          : { paddingHorizontal: 16, paddingTop: 2, paddingBottom: 10, gap: 8 }
+      }
     >
-      <ListFilterMenu
-        label={count ? String(count) : "Filters"}
-        icon
-        active={count > 0}
-        accessibilityLabel={count ? `Filters, ${count} active` : "More filters"}
-        actions={more}
-        onSelect={select}
-      />
+      {/* Android's header filter button opens the full menu, so only the quick pills stay. */}
+      {Platform.OS === "android" ? null : (
+        <ListFilterMenu
+          label={count ? String(count) : "Filters"}
+          icon
+          active={count > 0}
+          accessibilityLabel={count ? `Filters, ${count} active` : "More filters"}
+          actions={more}
+          onSelect={select}
+        />
+      )}
       {props.environments.length > 1 ? (
         <ListFilterMenu
           label={

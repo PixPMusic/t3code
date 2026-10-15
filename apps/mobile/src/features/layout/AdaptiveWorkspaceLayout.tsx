@@ -23,6 +23,7 @@ import {
   type ReactNode,
 } from "react";
 import { Platform, useWindowDimensions, View } from "react-native";
+import { KeyboardController, useKeyboardState } from "react-native-keyboard-controller";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -59,11 +60,11 @@ import {
   useHardwareKeyboardCommand,
 } from "../keyboard/hardwareKeyboardCommands";
 import { AndroidHomeFabLayout } from "../home/AndroidHomeFab";
-import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import {
   AndroidWorkspaceNavigation,
   ANDROID_WORKSPACE_RAIL_WIDTH,
 } from "../workspace/AndroidWorkspaceNavigation";
+import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { AndroidWorkspaceSidebar } from "../workspace/AndroidWorkspaceSidebar";
 import { useAndroidWorkspaceSelection } from "../workspace/useAndroidWorkspaceSelection";
 import { HomeListOptionsProvider } from "../home/home-list-options";
@@ -94,6 +95,13 @@ interface AdaptiveWorkspaceContextValue {
   readonly toggleAuxiliaryPane: () => void;
   readonly togglePrimarySidebar: () => void;
   readonly setAuxiliaryPaneWidth: (width: number) => void;
+  /**
+   * Android split view while the thread composer has the soft keyboard: the
+   * sidebar steps aside and the thread header drops to one line.
+   */
+  readonly composerKeyboardActive: boolean;
+  /** The thread composer reports its focus so the layout can make room for typing. */
+  readonly setComposerEditing: (editing: boolean) => void;
 }
 
 const compactLayout = deriveLayout({ width: 0, height: 0 });
@@ -119,6 +127,8 @@ const AdaptiveWorkspaceContext = createContext<AdaptiveWorkspaceContextValue>({
   showAuxiliaryPane: () => undefined,
   toggleAuxiliaryPane: () => undefined,
   togglePrimarySidebar: () => undefined,
+  composerKeyboardActive: false,
+  setComposerEditing: () => undefined,
   setAuxiliaryPaneWidth: () => undefined,
 });
 
@@ -240,12 +250,27 @@ function AdaptiveWorkspaceLayoutContent(
   const windowDimensions = useWindowDimensions();
   const nativeMetrics = useNativeLayoutMetrics();
   const { width: viewportWidth, height } = nativeMetrics ?? windowDimensions;
-  const { scale: androidControlScale } = useAndroidControlSizing();
   const pathname = props.pathname;
   const navigation = useNavigation();
   const activeRoleOwner = useRef<symbol | null>(null);
   const [primarySidebarPreferredVisible, setPrimarySidebarPreferredVisible] = useState(true);
-  const showPrimarySidebar = pathname === "/" || primarySidebarPreferredVisible;
+  const workspace = useWorkspaceTabs();
+  const workspacePage =
+    Platform.OS === "android" &&
+    (pathname.startsWith("/settings") || workspace?.state.selectedTab === "settings");
+  const baseLayout = useMemo(
+    () => deriveLayout({ width: viewportWidth, height, nativeMetrics }),
+    [height, viewportWidth, nativeMetrics],
+  );
+  const [composerEditing, setComposerEditing] = useState(false);
+  const softKeyboardVisible = useKeyboardState((state) => state.isVisible);
+  // Keyed on the soft keyboard, not focus alone: a hardware keyboard leaves room
+  // for the sidebar, and Back closes the keyboard while the editor keeps focus.
+  const composerKeyboardActive =
+    Platform.OS === "android" && baseLayout.usesSplitView && composerEditing && softKeyboardVisible;
+  const showPrimarySidebar =
+    !workspacePage &&
+    (pathname === "/" || (primarySidebarPreferredVisible && !composerKeyboardActive));
   const [supplementaryPanePreferredVisible, setSupplementaryPanePreferredVisible] = useState(true);
   const [supplementaryPanePreferredWidth, setSupplementaryPanePreferredWidth] = useState<
     number | null
@@ -257,14 +282,10 @@ function AdaptiveWorkspaceLayoutContent(
   const [primarySidebarSearchQuery, setPrimarySidebarSearchQuery] = useState("");
   const [focusedAuxiliaryPaneRole, setFocusedAuxiliaryPaneRole] =
     useState<WorkspaceAuxiliaryPaneRole | null>(null);
-  const baseLayout = useMemo(
-    () => deriveLayout({ width: viewportWidth, height, nativeMetrics }),
-    [height, viewportWidth, nativeMetrics],
-  );
   const shouldRenderNavigationRail = Platform.OS === "android" && baseLayout.usesSplitView;
   const navigationRailWidth =
-    shouldRenderNavigationRail && showPrimarySidebar
-      ? ANDROID_WORKSPACE_RAIL_WIDTH * Math.max(1, androidControlScale)
+    shouldRenderNavigationRail && (showPrimarySidebar || workspacePage)
+      ? ANDROID_WORKSPACE_RAIL_WIDTH
       : 0;
   const [hinge, setHinge] = useState<VerticalHinge | null>(null);
   const [windowHinge, setWindowHinge] = useState<VerticalHinge | null>(null);
@@ -286,7 +307,7 @@ function AdaptiveWorkspaceLayoutContent(
     [baseLayout, hinge, viewportWidth, navigationRailWidth],
   );
   const width = viewportWidth - navigationRailWidth;
-  const shouldRenderPrimarySidebar = layout.usesSplitView;
+  const shouldRenderPrimarySidebar = layout.usesSplitView && !workspacePage;
   const fileInspector = useMemo(
     () =>
       deriveFileInspectorPaneLayout({
@@ -303,9 +324,10 @@ function AdaptiveWorkspaceLayoutContent(
   const auxiliaryPaneRole: WorkspaceAuxiliaryPaneRole =
     focusedAuxiliaryPaneRole ?? (/\/files(?:\/|$)/.test(pathname) ? "inspector" : "supplementary");
   const auxiliaryPanePreferredVisible =
-    auxiliaryPaneRole === "inspector"
+    !workspacePage &&
+    (auxiliaryPaneRole === "inspector"
       ? fileInspectorPreferredVisible
-      : supplementaryPanePreferredVisible;
+      : supplementaryPanePreferredVisible);
   const auxiliaryPanePreferredWidth =
     auxiliaryPaneRole === "inspector"
       ? fileInspectorPreferredWidth
@@ -381,19 +403,30 @@ function AdaptiveWorkspaceLayoutContent(
     if (pathname === "/") {
       return;
     }
+    // The sidebar returns with the keyboard; keep the user's preference intact.
+    if (composerKeyboardActive) {
+      void KeyboardController.dismiss();
+      return;
+    }
     if (!panes.primarySidebarVisible && panes.primarySidebarSuppressedByAuxiliary) {
       setFileInspectorPreferredVisible(false);
       setPrimarySidebarPreferredVisible(true);
       return;
     }
     setPrimarySidebarPreferredVisible((current) => !current);
-  }, [panes.primarySidebarSuppressedByAuxiliary, panes.primarySidebarVisible, pathname]);
+  }, [
+    composerKeyboardActive,
+    panes.primarySidebarSuppressedByAuxiliary,
+    panes.primarySidebarVisible,
+    pathname,
+  ]);
   const revealPrimarySidebar = useCallback(() => {
+    if (composerKeyboardActive) void KeyboardController.dismiss();
     if (panes.primarySidebarSuppressedByAuxiliary) {
       setFileInspectorPreferredVisible(false);
     }
     setPrimarySidebarPreferredVisible(true);
-  }, [panes.primarySidebarSuppressedByAuxiliary]);
+  }, [composerKeyboardActive, panes.primarySidebarSuppressedByAuxiliary]);
   const handleToggleSidebarCommand = useCallback(() => {
     togglePrimarySidebar();
     return true;
@@ -676,8 +709,11 @@ function AdaptiveWorkspaceLayoutContent(
       toggleAuxiliaryPane,
       togglePrimarySidebar,
       setAuxiliaryPaneWidth,
+      composerKeyboardActive,
+      setComposerEditing,
     }),
     [
+      composerKeyboardActive,
       activateAuxiliaryPaneRole,
       fileInspector,
       handleSelectThread,

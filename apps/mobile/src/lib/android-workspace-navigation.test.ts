@@ -2,6 +2,8 @@ import * as NodeModule from "node:module";
 import { describe, expect, it } from "vite-plus/test";
 import {
   androidWorkspaceNavigationState,
+  androidWorkspaceTabNavigationState,
+  androidWorkspaceTabFromNavigationState,
   type AndroidWorkspaceDestination,
 } from "./android-workspace-navigation";
 
@@ -182,5 +184,60 @@ describe("Android workspace navigation", () => {
     expect(names(state)).toEqual(["Home"]);
     expect(state.routes[0]?.key).toBe(previous.routes[0]?.key);
     expect(state.index).toBe(0);
+  });
+});
+
+describe("Android Settings tab", () => {
+  it("opens without stale chat or PR history", () => {
+    const tab = "settings";
+    const previous = legacyHistory();
+    const state = apply(
+      previous,
+      CommonActions.reset(androidWorkspaceTabNavigationState(previous, tab)),
+    );
+    expect(names(state)).toEqual(["Home", "SettingsSheet"]);
+    expect(state.routes[0]?.key).toBe(previous.routes[0]?.key);
+    expect(androidWorkspaceTabFromNavigationState(state, "threads")).toBe(tab);
+    const back = apply(state, StackActions.pop());
+    expect(names(back)).toEqual(["Home"]);
+    expect(androidWorkspaceTabFromNavigationState(back, tab)).toBe("threads");
+  });
+
+  it("keeps Settings selected when Usage is opened from its index", () => {
+    const state = apply(
+      router.getInitialState(options),
+      CommonActions.reset({
+        index: 1,
+        routes: [
+          { name: "Home" },
+          {
+            name: "SettingsSheet",
+            state: {
+              routes: [
+                {
+                  name: "SettingsContent",
+                  state: { index: 1, routes: [{ name: "Settings" }, { name: "SettingsUsage" }] },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    expect(androidWorkspaceTabFromNavigationState(state, "threads")).toBe("settings");
+  });
+
+  it("returns from nested Settings directly to the chosen list tab", () => {
+    const initial = router.getInitialState(options);
+    const settings = apply(
+      initial,
+      CommonActions.reset(androidWorkspaceTabNavigationState(initial, "settings")),
+    );
+    const list = apply(
+      settings,
+      CommonActions.reset(androidWorkspaceTabNavigationState(settings, "pullRequests")),
+    );
+    expect(names(list)).toEqual(["Home"]);
+    expect(androidWorkspaceTabFromNavigationState(list, "pullRequests")).toBe("pullRequests");
   });
 });
