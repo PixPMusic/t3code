@@ -503,38 +503,55 @@ function AdaptiveWorkspaceLayoutContent(
     target: contentTargetWidth,
     sidebarVisible: panes.primarySidebarVisible,
     width: contentTargetWidth,
+    listPaneTarget: layout.listPaneWidth,
+    listPaneFrom: layout.listPaneWidth,
     revision: 0,
   });
   if (
     Platform.OS === "android" &&
     (contentSizing.viewportWidth !== viewportWidth ||
       contentSizing.target !== contentTargetWidth ||
-      contentSizing.sidebarVisible !== panes.primarySidebarVisible)
+      contentSizing.sidebarVisible !== panes.primarySidebarVisible ||
+      contentSizing.listPaneTarget !== layout.listPaneWidth)
   ) {
+    const sameViewport = contentSizing.viewportWidth === viewportWidth;
     const openingSidebar =
-      Platform.OS === "android" &&
-      contentSizing.viewportWidth === viewportWidth &&
-      !contentSizing.sidebarVisible &&
+      sameViewport && !contentSizing.sidebarVisible && panes.primarySidebarVisible;
+    // A book-posture hinge resizes the visible list pane instead of revealing it.
+    const resizingSidebar =
+      sameViewport &&
+      contentSizing.sidebarVisible &&
       panes.primarySidebarVisible &&
+      contentSizing.listPaneTarget !== layout.listPaneWidth;
+    const keepWide =
+      (openingSidebar || resizingSidebar) &&
       contentSizing.width !== null &&
       contentTargetWidth !== null;
     setContentSizing({
       viewportWidth,
       target: contentTargetWidth,
       sidebarVisible: panes.primarySidebarVisible,
-      width: openingSidebar
+      // Clip the wide navigator while the sidebar opens or widens, then reflow once at the
+      // end. Narrowing it first exposes an empty strip before the sidebar arrives.
+      width: keepWide
         ? Math.max(contentSizing.width ?? 0, contentTargetWidth ?? 0)
         : contentTargetWidth,
+      listPaneTarget: layout.listPaneWidth,
+      // While a hinge resizes the list, its width follows the pane edge between these two.
+      listPaneFrom: resizingSidebar ? contentSizing.listPaneTarget : layout.listPaneWidth,
       revision: contentSizing.revision + 1,
     });
   }
   const settleContentWidth = useCallback((revision: number) => {
     setContentSizing((current) =>
-      current.revision !== revision || current.width === current.target
+      current.revision !== revision ||
+      (current.width === current.target && current.listPaneFrom === current.listPaneTarget)
         ? current
-        : { ...current, width: current.target },
+        : { ...current, width: current.target, listPaneFrom: current.listPaneTarget },
     );
   }, []);
+  const listPaneFloor = Math.min(contentSizing.listPaneFrom ?? 0, layout.listPaneWidth ?? 0);
+  const listPaneCeiling = Math.max(contentSizing.listPaneFrom ?? 0, layout.listPaneWidth ?? 0);
   const contentSettledWidth = Platform.OS === "android" ? contentSizing.width : contentTargetWidth;
   const contentRevision = contentSizing.revision;
 
@@ -563,6 +580,15 @@ function AdaptiveWorkspaceLayoutContent(
     contentRevision,
   ]);
   const railAnimatedStyle = useAnimatedStyle(() => ({ width: renderedRailWidth.value }));
+  // Showing or hiding the sidebar clips a fixed-width list. A hinge resize instead tracks the
+  // animated edge, so the header actions slide with it rather than jumping or being covered.
+  const listPaneGap = layout.listPaneGap ?? 0;
+  const listPaneAnimatedStyle = useAnimatedStyle(() => ({
+    width: Math.min(
+      listPaneCeiling,
+      Math.max(listPaneFloor, renderedSidebarWidth.value - listPaneGap),
+    ),
+  }));
   const sidebarAnimatedStyle = useAnimatedStyle(() => ({
     // Fading a UIKit glass ancestor can leave remounted header effects missing.
     opacity: Platform.OS === "ios" ? 1 : Math.min(1, renderedSidebarWidth.value / 80),
@@ -717,7 +743,7 @@ function AdaptiveWorkspaceLayoutContent(
                 pointerEvents={panes.primarySidebarVisible ? "auto" : "none"}
                 style={sidebarAnimatedStyle}
               >
-                <View className="flex-1" style={{ width: layout.listPaneWidth }}>
+                <Animated.View className="flex-1" style={listPaneAnimatedStyle}>
                   <RenderErrorBoundary
                     renderFallback={(fallback) => (
                       <RenderFailureView
@@ -748,7 +774,7 @@ function AdaptiveWorkspaceLayoutContent(
                       </AndroidHomeFabLayout>
                     </AndroidWorkspaceSidebar>
                   </RenderErrorBoundary>
-                </View>
+                </Animated.View>
               </Animated.View>
             ) : null}
             <View
