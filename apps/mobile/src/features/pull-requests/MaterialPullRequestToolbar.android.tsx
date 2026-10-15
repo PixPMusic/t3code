@@ -6,11 +6,14 @@ import { CompactBrandTitle } from "../../components/CompactBrandTitle";
 import { MaterialSearchField } from "../../components/MaterialSearchField";
 import { WorkspaceConnectionTitle } from "../home/WorkspaceConnectionTitle";
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
+import { AndroidAnchoredMenu } from "../../components/AndroidAnchoredMenu";
+import { useAndroidWorkspaceFilters } from "../workspace/AndroidWorkspaceFilters";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 
 /** PR search shares the thread list's native Android header placement. */
 export function MaterialPullRequestToolbar(props: { readonly onRequestVisibility?: () => void }) {
   const navigation = useNavigation();
+  const filters = useAndroidWorkspaceFilters().pullRequests;
   const workspace = useWorkspaceTabs()!;
   const { dispatch, getScrollOffset, recordScrollOffset, isTabActive } = workspace;
   const homeFocused = useNavigationState((state) => state.routes[state.index]?.name === "Home");
@@ -91,6 +94,22 @@ export function MaterialPullRequestToolbar(props: { readonly onRequestVisibility
           />
         ) : undefined
       }
+      trailing={
+        filters ? (
+          <AndroidAnchoredMenu
+            actions={filters.actions}
+            onPressAction={({ nativeEvent }) => filters.onSelect(nativeEvent.event)}
+          >
+            {(open) => (
+              <AndroidHeaderIconButton
+                accessibilityLabel="Filter pull requests"
+                icon="line.3.horizontal.decrease"
+                onPress={open}
+              />
+            )}
+          </AndroidAnchoredMenu>
+        ) : undefined
+      }
       actions={
         searching
           ? []
@@ -99,15 +118,6 @@ export function MaterialPullRequestToolbar(props: { readonly onRequestVisibility
                 accessibilityLabel: "Search pull requests",
                 icon: "magnifyingglass",
                 onPress: openSearch,
-              },
-              {
-                accessibilityLabel: "Open settings",
-                icon: "gearshape",
-                onPress: () =>
-                  navigation.navigate("SettingsSheet", {
-                    screen: "SettingsContent",
-                    params: { screen: "Settings" },
-                  }),
               },
             ]
       }

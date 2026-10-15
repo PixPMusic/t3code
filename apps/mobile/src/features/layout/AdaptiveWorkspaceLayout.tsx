@@ -57,11 +57,11 @@ import {
   useHardwareKeyboardCommand,
 } from "../keyboard/hardwareKeyboardCommands";
 import { AndroidHomeFabLayout } from "../home/AndroidHomeFab";
-import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import {
   AndroidWorkspaceNavigation,
   ANDROID_WORKSPACE_RAIL_WIDTH,
 } from "../workspace/AndroidWorkspaceNavigation";
+import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { AndroidWorkspaceSidebar } from "../workspace/AndroidWorkspaceSidebar";
 import { useAndroidWorkspaceSelection } from "../workspace/useAndroidWorkspaceSelection";
 import { HomeListOptionsProvider } from "../home/home-list-options";
@@ -257,12 +257,15 @@ function AdaptiveWorkspaceLayoutContent(
   const windowDimensions = useWindowDimensions();
   const nativeMetrics = useNativeLayoutMetrics();
   const { width: viewportWidth, height } = nativeMetrics ?? windowDimensions;
-  const { scale: androidControlScale } = useAndroidControlSizing();
   const pathname = props.pathname;
   const navigation = useNavigation();
   const activeRoleOwner = useRef<symbol | null>(null);
   const [primarySidebarPreferredVisible, setPrimarySidebarPreferredVisible] = useState(true);
-  const showPrimarySidebar = pathname === "/" || primarySidebarPreferredVisible;
+  const workspace = useWorkspaceTabs();
+  const workspacePage =
+    Platform.OS === "android" &&
+    (pathname.startsWith("/settings") || workspace?.state.selectedTab === "settings");
+  const showPrimarySidebar = !workspacePage && (pathname === "/" || primarySidebarPreferredVisible);
   const [supplementaryPanePreferredVisible, setSupplementaryPanePreferredVisible] = useState(true);
   const [supplementaryPanePreferredWidth, setSupplementaryPanePreferredWidth] = useState<
     number | null
@@ -283,14 +286,14 @@ function AdaptiveWorkspaceLayoutContent(
   // navigator must use the remaining viewport rather than clipping behind it.
   const shouldRenderNavigationRail = Platform.OS === "android" && layout.usesSplitView;
   const navigationRailWidth =
-    shouldRenderNavigationRail && showPrimarySidebar
-      ? ANDROID_WORKSPACE_RAIL_WIDTH * Math.max(1, androidControlScale)
+    shouldRenderNavigationRail && (showPrimarySidebar || workspacePage)
+      ? ANDROID_WORKSPACE_RAIL_WIDTH
       : 0;
   const width = viewportWidth - navigationRailWidth;
   // In split layouts the sidebar IS the thread list — it renders on every
   // route, including Home (which shows an empty-detail pane instead of the
   // compact list).
-  const shouldRenderPrimarySidebar = layout.usesSplitView;
+  const shouldRenderPrimarySidebar = layout.usesSplitView && !workspacePage;
   const fileInspector = useMemo(
     () =>
       deriveFileInspectorPaneLayout({
@@ -307,9 +310,10 @@ function AdaptiveWorkspaceLayoutContent(
   const auxiliaryPaneRole: WorkspaceAuxiliaryPaneRole =
     focusedAuxiliaryPaneRole ?? (/\/files(?:\/|$)/.test(pathname) ? "inspector" : "supplementary");
   const auxiliaryPanePreferredVisible =
-    auxiliaryPaneRole === "inspector"
+    !workspacePage &&
+    (auxiliaryPaneRole === "inspector"
       ? fileInspectorPreferredVisible
-      : supplementaryPanePreferredVisible;
+      : supplementaryPanePreferredVisible);
   const auxiliaryPanePreferredWidth =
     auxiliaryPaneRole === "inspector"
       ? fileInspectorPreferredWidth

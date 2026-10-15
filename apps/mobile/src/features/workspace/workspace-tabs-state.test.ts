@@ -37,6 +37,19 @@ describe("workspace root navigation", () => {
     });
   });
 
+  it("preserves both list searches while visiting Settings", () => {
+    let state = workspaceTabsReducer(initialWorkspaceTabsState(), {
+      type: "query",
+      tab: "threads",
+      query: "chat",
+    });
+    state = workspaceTabsReducer(state, { type: "query", tab: "pullRequests", query: "review" });
+    state = workspaceTabsReducer(state, { type: "select", tab: "settings" });
+    state = workspaceTabsReducer(state, { type: "select", tab: "pullRequests" });
+    expect(state.tabs.threads.query).toBe("chat");
+    expect(state.tabs.pullRequests.query).toBe("review");
+  });
+
   it("clear keeps search active without losing the position cancel restores", () => {
     let state = initialWorkspaceTabsState();
     state = workspaceTabsReducer(state, { type: "scroll", tab: "threads", offset: 500 });

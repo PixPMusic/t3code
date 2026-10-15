@@ -2,6 +2,7 @@ import { sortProjectsByGroupOrder } from "@t3tools/client-runtime/state/project-
 import { useMemo } from "react";
 import { ScrollView } from "react-native";
 import type { ControlPillMenuProps } from "../../components/ControlPillMenu.types";
+import { useRegisterAndroidWorkspaceFilters } from "../workspace/AndroidWorkspaceFilters";
 import { ListFilterMenu } from "../workspace/ListFilterMenu";
 import { useProjects, useThreadShells } from "../../state/entities";
 import { useMobileProjectGroupingSettings } from "../../state/project-grouping";
@@ -222,6 +223,53 @@ export function PullRequestListFilters(props: {
   const authors = [
     ...new Set([...(author && author !== "me" ? [author] : []), ...props.authors]),
   ].slice(0, 60);
+  const allFilters: ControlPillMenuProps["actions"] = [
+    {
+      id: "environment",
+      title: "Environment",
+      subactions: choices(
+        "environment",
+        Object.fromEntries([
+          ["", "All environments"],
+          ...props.environments.map((environment) => [environment.id, environment.label]),
+        ]),
+        props.environmentId ?? "",
+      ),
+    },
+    { id: "state", title: "State", subactions: choices("state", STATES, value.state) },
+    {
+      id: "involvement",
+      title: "Involvement",
+      subactions: choices("involvement", INVOLVEMENT, value.involvement),
+    },
+    {
+      id: "labels",
+      title: "Labels",
+      subactions: [
+        { id: id("labels", ""), title: "All labels", state: selectedLabels.length ? "off" : "on" },
+        ...labels.map((label) => ({
+          id: id("label", label),
+          title: label,
+          state: selectedLabelSet.has(label) ? ("on" as const) : ("off" as const),
+        })),
+      ],
+    },
+    {
+      id: "author",
+      title: "Author",
+      subactions: choices(
+        "author",
+        Object.fromEntries([
+          ["", "All authors"],
+          ["me", "Me"],
+          ...authors.map((login) => [login, login]),
+        ]),
+        author ?? "",
+      ),
+    },
+    ...more,
+  ];
+  useRegisterAndroidWorkspaceFilters("pullRequests", allFilters, select);
   return (
     <ScrollView
       horizontal
