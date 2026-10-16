@@ -4,7 +4,6 @@ import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import type { WorkspaceTab } from "./workspace-tabs-state";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
 
-/** Wide iPad navigation belongs to the sidebar, leaving the detail's header unobstructed. */
 export function WorkspaceSidebarTabs() {
   const workspace = useWorkspaceTabs()!;
   const selectTab = useSelectWorkspaceTab();

@@ -13,7 +13,6 @@ export function useSidebarWorkspaceTabs(): "picker" | "toolbar" | null {
   return (metrics?.verticalBarEdge ?? "none") === "none" ? "toolbar" : null;
 }
 
-/** Compact iOS windows use UIKit tabs; split windows keep them in the sidebar. */
 export function useSystemWorkspaceTabBar() {
   const sidebarTabs = useSidebarWorkspaceTabs();
   return Platform.OS === "ios" && sidebarTabs === null;

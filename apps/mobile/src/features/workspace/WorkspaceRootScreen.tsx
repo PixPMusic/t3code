@@ -32,7 +32,6 @@ const TAB_TITLES = {
   pullRequests: "Pull requests",
 };
 
-/** Brand and connection status occupy the same leading slot in both roots. */
 function WorkspaceRootTitle(props: {
   readonly maxWidth: number;
   readonly onOpenEnvironments: () => void;
@@ -100,7 +99,7 @@ function WorkspaceRootContent() {
   return (
     <WorkspaceTabsContext value={context}>
       <View
-        className="flex-1 bg-screen"
+        className={sidebarPicker ? "flex-1 bg-drawer" : "flex-1 bg-screen"}
         style={sidebarPicker ? { paddingTop: insets.top } : undefined}
       >
         {Platform.OS === "ios" ? (
@@ -139,7 +138,6 @@ function WorkspaceRootContent() {
           />
         )}
         {sidebarPicker ? <WorkspaceSidebarTabs /> : null}
-        {/* The pinned picker already clears the navigation bar; lists must not inset it again. */}
         <SafeAreaInsetsContext value={sidebarPicker ? { ...insets, top: 0 } : insets}>
           {state.selectedTab === "threads" ? <HomeRouteScreen /> : <PullRequestsScreen />}
         </SafeAreaInsetsContext>
@@ -152,7 +150,6 @@ function WorkspaceRootContent() {
   );
 }
 
-/** Keep workspace state mounted as the native columns expand and collapse. */
 export function WorkspaceRootScreen() {
   const { layout } = useAdaptiveWorkspaceLayout();
   const workspace = useWorkspaceTabs();
