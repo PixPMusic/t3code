@@ -12,6 +12,7 @@ import { PullRequestToolbar } from "../pull-requests/PullRequestToolbar.android"
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { AndroidWorkspaceNavigation } from "./AndroidWorkspaceNavigation";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
+import { WorkspaceTabTransition } from "./WorkspaceTabTransition";
 
 export function WorkspaceRootScreen() {
   const { layout } = useAdaptiveWorkspaceLayout();
@@ -26,21 +27,28 @@ export function WorkspaceRootScreen() {
     [workspace, fabClearance],
   );
 
+  const tab = workspace.state.selectedTab;
+  // Settings covers Home, which stays blank so the outgoing tab fades straight
+  // into Settings instead of flashing Chats.
   if (layout.usesSplitView) {
-    return workspace.state.selectedTab !== "pullRequests" ? (
-      <HomeRouteScreen />
-    ) : (
-      <>
-        <NativeStackScreenOptions options={{ headerShown: false }} />
-        <AndroidScreenHeader title="Pull requests" />
-        <View className="flex-1 items-center justify-center px-10">
-          <EmptyState
-            title="Select a pull request"
-            detail="Choose a pull request from the sidebar to review it."
-            variant="plain"
-          />
-        </View>
-      </>
+    return (
+      <WorkspaceTabTransition tab={tab}>
+        {tab === "settings" ? null : tab === "threads" ? (
+          <HomeRouteScreen />
+        ) : (
+          <>
+            <NativeStackScreenOptions options={{ headerShown: false }} />
+            <AndroidScreenHeader title="Pull requests" />
+            <View className="flex-1 items-center justify-center px-10">
+              <EmptyState
+                title="Select a pull request"
+                detail="Choose a pull request from the sidebar to review it."
+                variant="plain"
+              />
+            </View>
+          </>
+        )}
+      </WorkspaceTabTransition>
     );
   }
 
@@ -49,8 +57,8 @@ export function WorkspaceRootScreen() {
       <View className="flex-1 bg-header">
         <NativeStackScreenOptions options={{ headerShown: false }} />
         <SafeAreaInsetsContext value={{ ...insets, bottom: 0 }}>
-          <View className="flex-1">
-            {workspace.state.selectedTab !== "pullRequests" ? (
+          <WorkspaceTabTransition tab={tab}>
+            {tab === "settings" ? null : tab === "threads" ? (
               <HomeRouteScreen />
             ) : (
               <>
@@ -60,7 +68,7 @@ export function WorkspaceRootScreen() {
                 </ScreenContent>
               </>
             )}
-          </View>
+          </WorkspaceTabTransition>
         </SafeAreaInsetsContext>
         <AndroidWorkspaceNavigation />
       </View>

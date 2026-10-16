@@ -908,6 +908,8 @@ const RootStackConfig = createWorkspaceStackNavigator({
         ...NESTED_NAVIGATOR_OPTIONS,
         gestureEnabled: true,
         headerShown: false,
+        // Android opens Settings as a top-level tab, so it fades rather than pushing.
+        ...(Platform.OS === "android" ? { animation: "fade" as const } : null),
       },
     }),
     SettingsLegal: createNativeStackScreen({
