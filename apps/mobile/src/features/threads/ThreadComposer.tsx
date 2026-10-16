@@ -38,6 +38,7 @@ import {
 import { Keyboard, Platform, Pressable, View, type ViewStyle } from "react-native";
 import { composerImageGallery } from "../../lib/composerImageGallery";
 import { filePreviewGallery } from "../../lib/filePreviewGallery";
+import { modelLabelBesideIcon } from "../../lib/modelLabel";
 import { FilePreviewModal, type FilePreviewSource } from "../../components/FilePreviewModal";
 import {
   composerAttachmentUploadBlockReason,
@@ -210,8 +211,8 @@ const composerHeightTransition: LayoutAnimationFunction = (values) => {
     },
   };
 };
-// Widest the model picker gets in the one-row composer before its name truncates.
-const INLINE_MODEL_CONTROL_MAX_WIDTH = 168;
+// Share of the one-row composer the draft keeps; a long model name truncates first.
+const INLINE_EDITOR_MIN_WIDTH = "40%";
 // The one-row editor's horizontal padding plus native text insets.
 const INLINE_TEXT_SLACK = 16;
 export const COMPOSER_LAYOUT_TRANSITION =
@@ -788,8 +789,9 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
 
   // The card's toolbar and the one-row composer share this picker. It shrinks to
   // the provider icon once the draft has text, so the draft keeps the width.
-  // In the one-row composer a long model name truncates, so the draft and Send keep their room.
-  const renderModelControl = (maxWidth: ViewStyle["maxWidth"]) => (
+  // The one-row composer drops brand words the provider icon already shows.
+  const modelLabel = currentModelOption?.label ?? currentModelSelection.model;
+  const renderModelControl = (inline: boolean) => (
     <View className="min-w-0 shrink">
       <ComposerInlineControl
         accessibilityLabel="Model and reasoning settings"
@@ -801,9 +803,9 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             size={size}
           />
         )}
-        label={currentModelOption?.label ?? currentModelSelection.model}
+        label={inline ? modelLabelBesideIcon(modelLabel) : modelLabel}
         iconOnly={props.draftMessage.length > 0}
-        maxWidth={maxWidth}
+        maxWidth="100%"
         onPress={openSettings}
       />
     </View>
@@ -916,6 +918,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             {usesCard ? editingAttachments : null}
             <Animated.View
               className={usesCard ? "px-[14px]" : "min-w-0 flex-1 px-[4px]"}
+              style={usesCard ? undefined : { minWidth: INLINE_EDITOR_MIN_WIDTH }}
               layout={COMPOSER_LAYOUT_TRANSITION}
               onLayout={
                 !usesCard
@@ -1077,7 +1080,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             ) : null}
             {!usesCard ? (
               <View className="min-w-0 shrink flex-row items-center">
-                {renderModelControl(INLINE_MODEL_CONTROL_MAX_WIDTH)}
+                {renderModelControl(true)}
                 <ComposerDictationStartAction
                   state={voiceInput.state}
                   isAvailable={voiceInput.isAvailable}
@@ -1152,7 +1155,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                       onPickMedia={props.onPickDraftMedia}
                       onPickFiles={props.onPickDraftFiles}
                     />
-                    {renderModelControl("100%")}
+                    {renderModelControl(false)}
                   </View>
                 )}
                 <View className="shrink-0 flex-row items-center">
