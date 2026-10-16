@@ -1,9 +1,11 @@
 import * as NodeModule from "node:module";
 import { describe, expect, it } from "vite-plus/test";
 import {
-  androidWorkspaceNavigationState,
   androidWorkspaceTabNavigationState,
   androidWorkspaceTabFromNavigationState,
+} from "../features/workspace/android-workspace-tabs";
+import {
+  androidWorkspaceNavigationState,
   type AndroidWorkspaceDestination,
 } from "./android-workspace-navigation";
 

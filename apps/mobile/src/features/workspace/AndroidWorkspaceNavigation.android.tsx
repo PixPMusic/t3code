@@ -1,6 +1,6 @@
 import { requireNativeView } from "expo";
 import { CommonActions, useNavigation } from "@react-navigation/native";
-import { androidWorkspaceTabNavigationState } from "../../lib/android-workspace-navigation";
+import { androidWorkspaceTabNavigationState } from "./android-workspace-tabs";
 import {
   Keyboard,
   processColor,

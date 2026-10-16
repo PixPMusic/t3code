@@ -1,7 +1,7 @@
 import type { NavigationState } from "@react-navigation/native";
 import { createContext, use, useLayoutEffect, type ReactNode } from "react";
 import { Platform } from "react-native";
-import { androidWorkspaceTabFromNavigationState } from "../../lib/android-workspace-navigation";
+import { androidWorkspaceTabFromNavigationState } from "./android-workspace-tabs";
 import { WorkspaceTabsProvider, useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { AndroidWorkspaceFiltersProvider } from "./AndroidWorkspaceFilters";
 
