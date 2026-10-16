@@ -210,6 +210,8 @@ const composerHeightTransition: LayoutAnimationFunction = (values) => {
     },
   };
 };
+// Widest the model picker gets in the one-row composer before its name truncates.
+const INLINE_MODEL_CONTROL_MAX_WIDTH = 168;
 // The one-row editor's horizontal padding plus native text insets.
 const INLINE_TEXT_SLACK = 16;
 export const COMPOSER_LAYOUT_TRANSITION =
@@ -786,7 +788,8 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
 
   // The card's toolbar and the one-row composer share this picker. It shrinks to
   // the provider icon once the draft has text, so the draft keeps the width.
-  const modelControl = (
+  // In the one-row composer a long model name truncates, so the draft and Send keep their room.
+  const renderModelControl = (maxWidth: ViewStyle["maxWidth"]) => (
     <View className="min-w-0 shrink">
       <ComposerInlineControl
         accessibilityLabel="Model and reasoning settings"
@@ -800,7 +803,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
         )}
         label={currentModelOption?.label ?? currentModelSelection.model}
         iconOnly={props.draftMessage.length > 0}
-        maxWidth="100%"
+        maxWidth={maxWidth}
         onPress={openSettings}
       />
     </View>
@@ -1073,8 +1076,8 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
               </View>
             ) : null}
             {!usesCard ? (
-              <View className="flex-row items-center">
-                {modelControl}
+              <View className="min-w-0 shrink flex-row items-center">
+                {renderModelControl(INLINE_MODEL_CONTROL_MAX_WIDTH)}
                 <ComposerDictationStartAction
                   state={voiceInput.state}
                   isAvailable={voiceInput.isAvailable}
@@ -1149,7 +1152,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                       onPickMedia={props.onPickDraftMedia}
                       onPickFiles={props.onPickDraftFiles}
                     />
-                    {modelControl}
+                    {renderModelControl("100%")}
                   </View>
                 )}
                 <View className="shrink-0 flex-row items-center">
