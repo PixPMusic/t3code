@@ -31,9 +31,13 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   const fabStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: chromeHidden ? -chromeBottomInset * chromeHidden.value : 0 }],
   }));
+  // Where the phone chrome hides on scroll, the FAB follows its state so the two never disagree.
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      chromeScroll?.(event);
+      if (chromeScroll) {
+        chromeScroll(event);
+        return;
+      }
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
       const next = updateFabScroll(
         scrollState.current,
@@ -56,7 +60,7 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
           <NewThreadButton
             key={`${appearance.baseFontSize}:${fontScale}:${layoutWidth}`}
             extended
-            expanded={expanded}
+            expanded={chrome ? chrome.expanded : expanded}
             onPress={props.onStartNewTask}
             className="absolute"
             style={{ right: 16, bottom: insets.bottom + 16 }}
