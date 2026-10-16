@@ -60,6 +60,7 @@ function WorkspaceRootContent() {
   const nativeMetrics = useNativeLayoutMetrics();
   const systemTabBar = useSystemWorkspaceTabBar();
   const sidebarTabs = useSidebarWorkspaceTabs();
+  const sidebarPicker = sidebarTabs === "picker";
   const sidebarNavigation =
     primaryColumn !== null &&
     (layout.usesSplitView ||
@@ -100,7 +101,7 @@ function WorkspaceRootContent() {
     <WorkspaceTabsContext value={context}>
       <View
         className="flex-1 bg-screen"
-        style={sidebarTabs ? { paddingTop: insets.top } : undefined}
+        style={sidebarPicker ? { paddingTop: insets.top } : undefined}
       >
         {Platform.OS === "ios" ? (
           <NativeStackScreenOptions
@@ -137,9 +138,9 @@ function WorkspaceRootContent() {
             ]}
           />
         )}
-        {sidebarTabs ? <WorkspaceSidebarTabs /> : null}
+        {sidebarPicker ? <WorkspaceSidebarTabs /> : null}
         {/* The pinned picker already clears the navigation bar; lists must not inset it again. */}
-        <SafeAreaInsetsContext value={sidebarTabs ? { ...insets, top: 0 } : insets}>
+        <SafeAreaInsetsContext value={sidebarPicker ? { ...insets, top: 0 } : insets}>
           {state.selectedTab === "threads" ? <HomeRouteScreen /> : <PullRequestsScreen />}
         </SafeAreaInsetsContext>
         <WorkspaceToolbar
