@@ -5,6 +5,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NewThreadButton } from "../../components/NewThreadButton";
 import type { AndroidHomeFabLayout as SharedAndroidHomeFabLayout } from "./AndroidHomeFab.shared";
@@ -12,6 +13,7 @@ import { useWorkspaceState } from "../../state/workspace";
 import { FabScrollContext } from "./FabScrollContext";
 import { updateFabScroll } from "./fab-scroll";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
+import { useCompactWorkspaceChrome } from "../workspace/CompactWorkspaceChrome";
 
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
   const insets = useSafeAreaInsets();
@@ -21,16 +23,28 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   const { state } = useWorkspaceState();
   const [expanded, setExpanded] = useState(true);
   const scrollState = useRef({ anchor: 0, expanded: true });
-  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const next = updateFabScroll(
-      scrollState.current,
-      contentOffset.y,
-      contentSize.height - layoutMeasurement.height,
-    );
-    if (next.expanded !== scrollState.current.expanded) setExpanded(next.expanded);
-    scrollState.current = next;
-  }, []);
+  const chrome = useCompactWorkspaceChrome();
+  const chromeScroll = chrome?.onScroll;
+  const chromeHidden = chrome?.hidden;
+  const chromeBottomInset = chrome?.bottomInset ?? 0;
+  // With the bottom bar gone, the FAB rises out of the gesture area.
+  const fabStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: chromeHidden ? -chromeBottomInset * chromeHidden.value : 0 }],
+  }));
+  const onScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      chromeScroll?.(event);
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const next = updateFabScroll(
+        scrollState.current,
+        contentOffset.y,
+        contentSize.height - layoutMeasurement.height,
+      );
+      if (next.expanded !== scrollState.current.expanded) setExpanded(next.expanded);
+      scrollState.current = next;
+    },
+    [chromeScroll],
+  );
 
   // Remount only the FAB when its font or pane changes to clear the cached expanded width.
   // It keeps Material's 16dp corner margin; the bottom bar already consumes the gesture inset.
@@ -38,14 +52,16 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
     <View className="flex-1" onLayout={(event) => setLayoutWidth(event.nativeEvent.layout.width)}>
       <FabScrollContext value={onScroll}>{props.children}</FabScrollContext>
       {!props.disabled && !props.sidebar && state.hasConnections && layoutWidth !== null ? (
-        <NewThreadButton
-          key={`${appearance.baseFontSize}:${fontScale}:${layoutWidth}`}
-          extended
-          expanded={expanded}
-          onPress={props.onStartNewTask}
-          className="absolute"
-          style={{ right: 16, bottom: insets.bottom + 16 }}
-        />
+        <Animated.View pointerEvents="box-none" className="absolute inset-0" style={fabStyle}>
+          <NewThreadButton
+            key={`${appearance.baseFontSize}:${fontScale}:${layoutWidth}`}
+            extended
+            expanded={expanded}
+            onPress={props.onStartNewTask}
+            className="absolute"
+            style={{ right: 16, bottom: insets.bottom + 16 }}
+          />
+        </Animated.View>
       ) : null}
     </View>
   );

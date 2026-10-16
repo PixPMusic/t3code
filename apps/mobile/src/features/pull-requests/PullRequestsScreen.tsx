@@ -39,6 +39,7 @@ import {
 import { useDebouncedValue } from "../../state/queries";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { useAndroidWorkspaceSelection } from "../workspace/useAndroidWorkspaceSelection";
+import { useCompactWorkspaceChrome } from "../workspace/CompactWorkspaceChrome";
 
 function PullRequestScrollView(props: ScrollViewProps) {
   const insets = useSafeAreaInsets();
@@ -145,6 +146,7 @@ export function PullRequestsScreen(
     result.updateEntry,
   );
   const sidebar = props.sidebar === true || primaryColumn !== null;
+  const chromeScroll = useCompactWorkspaceChrome()?.onScroll;
   const selectedKey = props.selectedPullRequestKey ?? primaryColumn?.selectedPullRequestKey;
   const connectedKey = connectedTargets.map((target) => target.environmentId).join("\n");
   const entries = useMemo(
@@ -254,6 +256,7 @@ export function PullRequestsScreen(
           paddingBottom: Math.max(insets.bottom, workspace.bottomClearance),
         }}
         onScroll={(event) => {
+          chromeScroll?.(event);
           workspace.recordScrollOffset(
             "pullRequests",
             Math.max(

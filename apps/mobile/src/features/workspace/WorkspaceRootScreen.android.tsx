@@ -13,6 +13,11 @@ import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { AndroidWorkspaceNavigation } from "./AndroidWorkspaceNavigation";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { WorkspaceTabTransition } from "./WorkspaceTabTransition";
+import {
+  CompactWorkspaceBottomBar,
+  CompactWorkspaceChromeProvider,
+  CompactWorkspaceHeader,
+} from "./CompactWorkspaceChrome";
 
 export function WorkspaceRootScreen() {
   const { layout } = useAdaptiveWorkspaceLayout();
@@ -54,24 +59,30 @@ export function WorkspaceRootScreen() {
 
   return (
     <WorkspaceTabsContext value={context}>
-      <View className="flex-1 bg-header">
-        <NativeStackScreenOptions options={{ headerShown: false }} />
-        <SafeAreaInsetsContext value={{ ...insets, bottom: 0 }}>
-          <WorkspaceTabTransition tab={tab}>
-            {tab === "settings" ? null : tab === "threads" ? (
-              <HomeRouteScreen />
-            ) : (
-              <>
-                <PullRequestToolbar />
-                <ScreenContent>
-                  <PullRequestsScreen />
-                </ScreenContent>
-              </>
-            )}
-          </WorkspaceTabTransition>
-        </SafeAreaInsetsContext>
-        <AndroidWorkspaceNavigation />
-      </View>
+      <CompactWorkspaceChromeProvider resetKey={tab} bottomInset={insets.bottom}>
+        <View className="flex-1 bg-header">
+          <NativeStackScreenOptions options={{ headerShown: false }} />
+          <SafeAreaInsetsContext value={{ ...insets, bottom: 0 }}>
+            <WorkspaceTabTransition tab={tab}>
+              {tab === "settings" ? null : tab === "threads" ? (
+                <HomeRouteScreen />
+              ) : (
+                <>
+                  <CompactWorkspaceHeader>
+                    <PullRequestToolbar />
+                  </CompactWorkspaceHeader>
+                  <ScreenContent>
+                    <PullRequestsScreen />
+                  </ScreenContent>
+                </>
+              )}
+            </WorkspaceTabTransition>
+          </SafeAreaInsetsContext>
+          <CompactWorkspaceBottomBar>
+            <AndroidWorkspaceNavigation />
+          </CompactWorkspaceBottomBar>
+        </View>
+      </CompactWorkspaceChromeProvider>
     </WorkspaceTabsContext>
   );
 }
