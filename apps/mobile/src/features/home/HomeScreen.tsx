@@ -313,11 +313,9 @@ export function HomeScreen(props: HomeScreenProps) {
   }, []);
 
   const chrome = useCompactWorkspaceChrome();
-  const chromeDragBegin = chrome?.onScrollBeginDrag;
   const handleScrollBeginDrag = useCallback(() => {
     openSwipeableRef.current?.close();
-    chromeDragBegin?.();
-  }, [chromeDragBegin]);
+  }, []);
   const onFabScroll = useFabScroll();
   const listRef = useRef<LegendListRef>(null);
   const searchMode = workspace?.state.tabs.threads.searchMode;
@@ -373,7 +371,6 @@ export function HomeScreen(props: HomeScreenProps) {
   const { swipeEnabled, scrollGateHandlers } = useSwipeableScrollGate({
     onScroll: handleListScroll,
     onScrollBeginDrag: handleScrollBeginDrag,
-    onScrollEndDrag: chrome?.onScrollEndDrag,
   });
 
   const projectScopes = useMemo(
@@ -971,7 +968,10 @@ export function HomeScreen(props: HomeScreenProps) {
       <View className="flex-1 bg-header">
         <View
           className="flex-1 items-center justify-center overflow-hidden rounded-t-[28px] bg-screen px-4"
-          style={{ paddingBottom: insets.bottom }}
+          style={{
+            paddingTop: chrome?.headerHeight,
+            paddingBottom: insets.bottom + (chrome?.barHeight ?? 0),
+          }}
         >
           {v2ListEmpty}
         </View>
@@ -1034,12 +1034,14 @@ export function HomeScreen(props: HomeScreenProps) {
               contentContainerStyle={{
                 paddingLeft: (contentSideInsets?.left ?? 0) + (primaryColumn ? 8 : 0),
                 paddingRight: (contentSideInsets?.right ?? 0) + (primaryColumn ? 8 : 0),
+                paddingTop: chrome?.headerHeight,
                 paddingBottom:
                   Platform.OS === "ios"
                     ? iosBottomClearance
                     : (workspace?.bottomClearance ??
-                      Math.max(insets.bottom, 16) +
-                        (Platform.OS === "android" ? fabClearance : 88)),
+                        Math.max(insets.bottom, 16) +
+                          (Platform.OS === "android" ? fabClearance : 88)) +
+                      (chrome?.barHeight ?? 0),
               }}
             />
           </GestureDetector>

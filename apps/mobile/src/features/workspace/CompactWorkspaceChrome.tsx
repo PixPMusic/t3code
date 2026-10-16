@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import { View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -17,20 +17,27 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { updateFabScroll } from "../home/fab-scroll";
 
 const CHROME_TIMING = { duration: 220, easing: Easing.bezier(0.2, 0, 0, 1) };
+// Matches the list surface's rounded-t-[28px].
+const SURFACE_RADIUS = 28;
 
 interface CompactWorkspaceChrome {
   /** 0 while the header and bottom bar show, 1 once they have scrolled away. */
   readonly hidden: SharedValue<number>;
   /** Whether the chrome is showing; the New thread FAB extends and shrinks with it. */
   readonly expanded: boolean;
+  /** Lists pad their content by these so nothing starts under the floating bars. */
+  readonly headerHeight: number;
+  readonly barHeight: number;
+  readonly barHeightValue: SharedValue<number>;
   /** The window's bottom inset, which the content no longer sees under the bottom bar. */
   readonly bottomInset: number;
   readonly onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  readonly onScrollBeginDrag: () => void;
-  readonly onScrollEndDrag: () => void;
+  readonly setHeaderHeight: (height: number) => void;
+  readonly setBarHeight: (height: number) => void;
 }
 
 const CompactWorkspaceChromeContext = createContext<CompactWorkspaceChrome | null>(null);
@@ -38,9 +45,9 @@ const CompactWorkspaceChromeContext = createContext<CompactWorkspaceChrome | nul
 /**
  * Phone lists hide their header and the bottom bar while scrolling down and bring
  * them back on the first scroll up, on the same cue that collapses the New thread FAB.
- * The bars only move while no finger is on the list: moving them changes the list's
- * layout, and under a dragging finger that reads as a scroll the other way and flips
- * them straight back. Changing `resetKey` (the selected tab) shows the chrome again.
+ * Both bars float over a list that never moves: a list that shifted under a dragging
+ * finger would read the shift as a scroll the other way and flip the bars back.
+ * Changing `resetKey` (the selected tab) shows the chrome again.
  */
 export function CompactWorkspaceChromeProvider(props: {
   readonly resetKey: string;
@@ -48,25 +55,23 @@ export function CompactWorkspaceChromeProvider(props: {
   readonly children: ReactNode;
 }) {
   const hidden = useSharedValue(0);
+  const barHeightValue = useSharedValue(0);
   const [expanded, setExpanded] = useState(true);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [barHeight, setBarHeightState] = useState(0);
   const scrollState = useRef({ anchor: 0, expanded: true });
-  const dragging = useRef(false);
-  const shown = useRef(true);
-  const show = useCallback(
-    (next: boolean) => {
-      if (shown.current === next) return;
-      shown.current = next;
-      hidden.value = withTiming(next ? 0 : 1, CHROME_TIMING);
-    },
-    [hidden],
-  );
   useEffect(() => {
     scrollState.current = { anchor: 0, expanded: true };
-    dragging.current = false;
-    shown.current = true;
     hidden.value = withTiming(0, CHROME_TIMING);
     setExpanded(true);
   }, [hidden, props.resetKey]);
+  const setBarHeight = useCallback(
+    (height: number) => {
+      barHeightValue.value = height;
+      setBarHeightState(height);
+    },
+    [barHeightValue],
+  );
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -75,28 +80,26 @@ export function CompactWorkspaceChromeProvider(props: {
         contentOffset.y,
         contentSize.height - layoutMeasurement.height,
       );
-      if (next.expanded !== scrollState.current.expanded) setExpanded(next.expanded);
+      if (next.expanded !== scrollState.current.expanded) {
+        hidden.value = withTiming(next.expanded ? 0 : 1, CHROME_TIMING);
+        setExpanded(next.expanded);
+      }
       scrollState.current = next;
-      if (!dragging.current) show(next.expanded);
     },
-    [show],
+    [hidden],
   );
-  const onScrollBeginDrag = useCallback(() => {
-    dragging.current = true;
-  }, []);
-  const onScrollEndDrag = useCallback(() => {
-    dragging.current = false;
-    show(scrollState.current.expanded);
-  }, [show]);
   return (
     <CompactWorkspaceChromeContext
       value={{
         hidden,
         expanded,
+        headerHeight,
+        barHeight,
+        barHeightValue,
         bottomInset: props.bottomInset,
         onScroll,
-        onScrollBeginDrag,
-        onScrollEndDrag,
+        setHeaderHeight,
+        setBarHeight,
       }}
     >
       {props.children}
@@ -108,65 +111,95 @@ export function useCompactWorkspaceChrome() {
   return use(CompactWorkspaceChromeContext);
 }
 
+/** Paints the header colour outside one rounded top corner of the list surface. */
+function SurfaceCorner(props: { readonly side: "left" | "right"; readonly color: string }) {
+  const band = 16;
+  return (
+    <View style={{ width: SURFACE_RADIUS, height: SURFACE_RADIUS, overflow: "hidden" }}>
+      <View
+        style={{
+          position: "absolute",
+          top: -band,
+          [props.side]: -band,
+          width: 2 * (SURFACE_RADIUS + band),
+          height: 2 * (SURFACE_RADIUS + band),
+          borderRadius: SURFACE_RADIUS + band,
+          borderWidth: band,
+          borderColor: props.color,
+        }}
+      />
+    </View>
+  );
+}
+
 /**
- * Slides a list header up behind the status bar as the chrome hides, so the list's
- * rounded top pushes it off screen. The status bar strip itself stays in place. The
- * header is laid out absolutely so it keeps its natural height while clipped.
+ * Floats a list header over the list, with the list surface's rounded top corners
+ * along its bottom edge. As the chrome hides, the header slides up behind the status
+ * bar strip and the corners come to rest right under it.
  */
 export function CompactWorkspaceHeader(props: { readonly children: ReactNode }) {
   const chrome = useCompactWorkspaceChrome();
   const insets = useSafeAreaInsets();
   const { scale } = useAndroidControlSizing();
-  const measured = useSharedValue(0);
+  const { themeVariables } = useAppearancePreferences();
   const hidden = chrome?.hidden;
-  const clipStyle = useAnimatedStyle(() => ({
-    height: measured.value * (1 - (hidden?.value ?? 0)),
-  }));
-  const contentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: hidden ? -measured.value * hidden.value : 0 }],
+  const headerHeight = chrome?.headerHeight ?? 0;
+  const slideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: hidden ? -headerHeight * hidden.value : 0 }],
   }));
   if (!chrome) return props.children;
   // Toolbars pad by max(top inset, 12dp); the strip keeps the part above that 12dp.
   const statusStrip = Math.max(0, insets.top - 12 * scale);
+  const headerColor = themeVariables["--color-header"];
   return (
     <>
-      <Animated.View className="bg-header" style={{ height: statusStrip }} />
-      <Animated.View className="overflow-hidden bg-header" style={clipStyle}>
-        <Animated.View
-          className="absolute inset-x-0 top-0"
-          style={contentStyle}
-          onLayout={(event) => {
-            measured.value = event.nativeEvent.layout.height;
-          }}
-        >
-          <SafeAreaInsetsContext value={{ ...insets, top: 0 }}>
-            {props.children}
-          </SafeAreaInsetsContext>
+      <View className="bg-header" style={{ height: statusStrip }} />
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: "absolute",
+          top: statusStrip,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          overflow: "hidden",
+          height: headerHeight > 0 ? headerHeight + SURFACE_RADIUS : undefined,
+        }}
+      >
+        <Animated.View pointerEvents="box-none" style={slideStyle}>
+          <View
+            className="bg-header"
+            onLayout={(event) => chrome.setHeaderHeight(event.nativeEvent.layout.height)}
+          >
+            <SafeAreaInsetsContext value={{ ...insets, top: 0 }}>
+              {props.children}
+            </SafeAreaInsetsContext>
+          </View>
+          <View pointerEvents="none" className="flex-row justify-between">
+            <SurfaceCorner side="left" color={headerColor} />
+            <SurfaceCorner side="right" color={headerColor} />
+          </View>
         </Animated.View>
-      </Animated.View>
+      </View>
     </>
   );
 }
 
-/** Lets the bottom bar drop off the bottom of the screen as the chrome hides. */
+/** Floats the bottom bar over the list and drops it off the bottom as the chrome hides. */
 export function CompactWorkspaceBottomBar(props: { readonly children: ReactNode }) {
   const chrome = useCompactWorkspaceChrome();
-  const measured = useSharedValue(0);
   const hidden = chrome?.hidden;
-  const clipStyle = useAnimatedStyle(() => ({
-    height: measured.value * (1 - (hidden?.value ?? 0)),
+  const barHeight = chrome?.barHeightValue;
+  const slideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: hidden && barHeight ? barHeight.value * hidden.value : 0 }],
   }));
   if (!chrome) return props.children;
   return (
-    <Animated.View className="overflow-hidden" style={clipStyle}>
-      <Animated.View
-        className="absolute inset-x-0 top-0"
-        onLayout={(event) => {
-          measured.value = event.nativeEvent.layout.height;
-        }}
-      >
-        {props.children}
-      </Animated.View>
+    <Animated.View
+      style={[{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 10 }, slideStyle]}
+      onLayout={(event) => chrome.setBarHeight(event.nativeEvent.layout.height)}
+    >
+      {props.children}
     </Animated.View>
   );
 }

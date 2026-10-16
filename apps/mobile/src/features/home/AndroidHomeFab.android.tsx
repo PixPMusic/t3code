@@ -27,10 +27,18 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   const chromeScroll = chrome?.onScroll;
   const chromeHidden = chrome?.hidden;
   const chromeBottomInset = chrome?.bottomInset ?? 0;
-  // With the bottom bar gone, the FAB rises out of the gesture area.
-  const fabStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: chromeHidden ? -chromeBottomInset * chromeHidden.value : 0 }],
-  }));
+  const chromeBarHeight = chrome?.barHeightValue;
+  // The list runs under the floating bottom bar: the FAB sits above the bar, then just
+  // above the gesture area once the bar has dropped away.
+  const fabStyle = useAnimatedStyle(() => {
+    if (!chromeHidden || !chromeBarHeight) return { transform: [{ translateY: 0 }] };
+    const hidden = chromeHidden.value;
+    return {
+      transform: [
+        { translateY: -(chromeBarHeight.value * (1 - hidden) + chromeBottomInset * hidden) },
+      ],
+    };
+  });
   // Where the phone chrome hides on scroll, the FAB follows its state so the two never disagree.
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {

@@ -234,7 +234,7 @@ export function PullRequestsScreen(
             refreshing={result.refreshing}
             onRefresh={() => void result.onRefresh()}
             // The list already accounts for the navigation header in its content inset.
-            progressViewOffset={Platform.OS === "ios" ? 60 : undefined}
+            progressViewOffset={Platform.OS === "ios" ? 60 : chrome?.headerHeight}
           />
         }
         alwaysBounceVertical
@@ -254,10 +254,10 @@ export function PullRequestsScreen(
         }
         contentInsetStartAdjustment={Platform.OS === "ios" ? insets.top : 0}
         contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom, workspace.bottomClearance),
+          paddingTop: chrome?.headerHeight,
+          paddingBottom:
+            Math.max(insets.bottom, workspace.bottomClearance) + (chrome?.barHeight ?? 0),
         }}
-        onScrollBeginDrag={chrome?.onScrollBeginDrag}
-        onScrollEndDrag={chrome?.onScrollEndDrag}
         onScroll={(event) => {
           chromeScroll?.(event);
           workspace.recordScrollOffset(
