@@ -8,7 +8,7 @@ import {
   Text,
 } from "@expo/ui/jetpack-compose";
 import { defaultMinSize, padding, size, width } from "@expo/ui/jetpack-compose/modifiers";
-import { View } from "react-native";
+import { Pressable } from "react-native";
 import { resolveScaledTextRole } from "../../lib/appearancePreferences";
 
 import { useAndroidControlSizing } from "./useAndroidControlSizing";
@@ -16,15 +16,22 @@ import { useAppearancePreferences } from "../../features/settings/appearance/App
 import type { MenuPopupProps } from "./MenuPopup";
 import { isAppSymbolName, SymbolView, type AppSymbolName } from "./AppSymbol";
 
+// The glyph is a React Native view hosted in the Compose row, and it takes the
+// touches over its area, so it runs the row's action itself; otherwise tapping the
+// icon (a submenu's Back arrow, say) did nothing.
 function MenuIcon(props: {
   readonly name: AppSymbolName;
+  readonly onPress?: () => void;
   readonly destructive?: boolean;
   readonly disabled?: boolean;
 }) {
   const { iconSize } = useAndroidControlSizing();
   return (
     <RNHostView matchContents modifiers={[size(iconSize, iconSize)]}>
-      <View
+      <Pressable
+        accessible={false}
+        disabled={props.disabled || !props.onPress}
+        onPress={props.onPress}
         style={{ width: iconSize, height: iconSize }}
         importantForAccessibility="no-hide-descendants"
       >
@@ -40,7 +47,7 @@ function MenuIcon(props: {
                 : "accent-foreground"
           }
         />
-      </View>
+      </Pressable>
     </RNHostView>
   );
 }
@@ -60,7 +67,7 @@ export function MenuPopup(props: MenuPopupProps) {
       {props.parent ? (
         <DropdownMenuItem onClick={props.onBack} modifiers={itemModifiers}>
           <DropdownMenuItem.LeadingIcon>
-            <MenuIcon name="arrow.left" />
+            <MenuIcon name="arrow.left" onPress={props.onBack} />
           </DropdownMenuItem.LeadingIcon>
           <DropdownMenuItem.Text>
             <Text color={foreground} style={{ typography: "bodyLarge", ...body }}>
@@ -88,6 +95,7 @@ export function MenuPopup(props: MenuPopupProps) {
             <DropdownMenuItem.LeadingIcon>
               <MenuIcon
                 name={action.image}
+                onPress={() => props.onPress(action)}
                 destructive={action.attributes?.destructive}
                 disabled={action.attributes?.disabled}
               />
@@ -116,11 +124,19 @@ export function MenuPopup(props: MenuPopupProps) {
           </DropdownMenuItem.Text>
           {(action.subactions?.length ?? 0) > 0 ? (
             <DropdownMenuItem.TrailingIcon>
-              <MenuIcon name="chevron.right" disabled={action.attributes?.disabled} />
+              <MenuIcon
+                name="chevron.right"
+                onPress={() => props.onPress(action)}
+                disabled={action.attributes?.disabled}
+              />
             </DropdownMenuItem.TrailingIcon>
           ) : action.state === "on" ? (
             <DropdownMenuItem.TrailingIcon>
-              <MenuIcon name="checkmark" disabled={action.attributes?.disabled} />
+              <MenuIcon
+                name="checkmark"
+                onPress={() => props.onPress(action)}
+                disabled={action.attributes?.disabled}
+              />
             </DropdownMenuItem.TrailingIcon>
           ) : null}
         </DropdownMenuItem>
