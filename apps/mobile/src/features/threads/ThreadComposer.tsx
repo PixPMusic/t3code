@@ -213,8 +213,8 @@ const composerHeightTransition: LayoutAnimationFunction = (values) => {
 };
 // Share of the one-row composer the draft keeps; a long model name truncates first.
 const INLINE_EDITOR_MIN_WIDTH = "40%";
-// The one-row editor's horizontal padding plus native text insets.
-const INLINE_TEXT_SLACK = 16;
+// The one-row editor's horizontal padding plus room for the caret.
+const INLINE_TEXT_SLACK = 10;
 export const COMPOSER_LAYOUT_TRANSITION =
   Platform.OS === "android" ? undefined : composerHeightTransition;
 
@@ -488,14 +488,20 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   // The composer stays on one row, with the model picker in it, until the draft
   // would wrap. Then the draft stacks above the controls, and returns to the row
   // once it fits again. The draft is measured as one line against the row's text
-  // area, less a few points of slack for the native editor's own insets.
-  const [inlineEditorWidth, setInlineEditorWidth] = useState(0);
+  // area. The row's width is tracked in both layouts, so a draft that stacked in a
+  // narrow pane returns to the row when the pane widens again.
+  const [editorBox, setEditorBox] = useState({ width: 0, x: 0, card: false });
+  const [inlineLeadingWidth, setInlineLeadingWidth] = useState(0);
+  const [inlineTrailingWidth, setInlineTrailingWidth] = useState(0);
   const [draftLineWidth, setDraftLineWidth] = useState(0);
+  const rowWidth = editorBox.card
+    ? editorBox.width
+    : editorBox.x + editorBox.width + inlineTrailingWidth;
+  const inlineTextWidth = rowWidth - inlineLeadingWidth - inlineTrailingWidth - INLINE_TEXT_SLACK;
   const measuresDraft = isExpanded && props.draftMessage.length > 0;
   const draftOverflowsRow =
     measuresDraft &&
-    (props.draftMessage.includes("\n") ||
-      (inlineEditorWidth > 0 && draftLineWidth > inlineEditorWidth - INLINE_TEXT_SLACK));
+    (props.draftMessage.includes("\n") || (rowWidth > 0 && draftLineWidth > inlineTextWidth));
   const usesCard = isExpanded && draftOverflowsRow;
   // The one-row composer grows with its text up to the card's limit, then scrolls.
   const [draftTextHeight, setDraftTextHeight] = useState(0);
@@ -920,11 +926,11 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
               className={usesCard ? "px-[14px]" : "min-w-0 flex-1 px-[4px]"}
               style={usesCard ? undefined : { minWidth: INLINE_EDITOR_MIN_WIDTH }}
               layout={COMPOSER_LAYOUT_TRANSITION}
-              onLayout={
-                !usesCard
-                  ? (event) => setInlineEditorWidth(event.nativeEvent.layout.width)
-                  : undefined
-              }
+              onLayout={(event) => {
+                const { width, x } = event.nativeEvent.layout;
+                setEditorBox({ width, x, card: usesCard });
+                if (!usesCard) setInlineLeadingWidth(x);
+              }}
             >
               <ComposerEditor
                 draftKey={composerDraftKey}
@@ -1079,7 +1085,10 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
               </View>
             ) : null}
             {!usesCard ? (
-              <View className="min-w-0 shrink flex-row items-center">
+              <View
+                className="min-w-0 shrink flex-row items-center"
+                onLayout={(event) => setInlineTrailingWidth(event.nativeEvent.layout.width)}
+              >
                 {renderModelControl(true)}
                 <ComposerDictationStartAction
                   state={voiceInput.state}
