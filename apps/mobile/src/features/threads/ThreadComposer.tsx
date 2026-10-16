@@ -210,6 +210,8 @@ const composerHeightTransition: LayoutAnimationFunction = (values) => {
     },
   };
 };
+// The one-row editor's horizontal padding plus native text insets.
+const INLINE_TEXT_SLACK = 16;
 export const COMPOSER_LAYOUT_TRANSITION =
   Platform.OS === "android" ? undefined : composerHeightTransition;
 
@@ -479,12 +481,19 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   );
   const isVoiceInputPresented = voicePresentation.statusLabel !== null;
   const isExpanded = isFocused || settingsSheetPresentation.keepsComposerExpanded;
-  const { layout, setComposerEditing } = useAdaptiveWorkspaceLayout();
-  // Wide Android layouts keep the focused composer on one row, so the soft
-  // keyboard leaves room for the feed. The model picker stays in that row,
-  // focused or not.
-  const staysInline = Platform.OS === "android" && layout.usesSplitView;
-  const usesCard = isExpanded && !staysInline;
+  const { setComposerEditing } = useAdaptiveWorkspaceLayout();
+  // The composer stays on one row, with the model picker in it, until the draft
+  // would wrap. Then the draft stacks above the controls, and returns to the row
+  // once it fits again. The draft is measured as one line against the row's text
+  // area, less a few points of slack for the native editor's own insets.
+  const [inlineEditorWidth, setInlineEditorWidth] = useState(0);
+  const [draftLineWidth, setDraftLineWidth] = useState(0);
+  const measuresDraft = isExpanded && props.draftMessage.length > 0;
+  const draftOverflowsRow =
+    measuresDraft &&
+    (props.draftMessage.includes("\n") ||
+      (inlineEditorWidth > 0 && draftLineWidth > inlineEditorWidth - INLINE_TEXT_SLACK));
+  const usesCard = isExpanded && draftOverflowsRow;
   // The one-row composer grows with its text up to the card's limit, then scrolls.
   const [draftTextHeight, setDraftTextHeight] = useState(0);
   const inlineEditorHeight = Math.min(160, Math.max(36, Math.ceil(draftTextHeight)));
@@ -553,10 +562,9 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   const onEditorFocusChange = props.onEditorFocusChange;
   const handleFocus = useCallback(() => {
     setIsFocused(true);
-    onExpandedChange?.(!staysInline);
     onEditorFocusChange?.(true);
     setComposerEditing(true);
-  }, [onEditorFocusChange, onExpandedChange, setComposerEditing, staysInline]);
+  }, [onEditorFocusChange, setComposerEditing]);
 
   const handleBlur = useCallback(() => {
     setIsFocused(false);
@@ -776,8 +784,8 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     </>
   );
 
-  // The card's toolbar and the one-row composer share this picker. On Android it
-  // shrinks to the provider icon once the draft has text, so the draft keeps the width.
+  // The card's toolbar and the one-row composer share this picker. It shrinks to
+  // the provider icon once the draft has text, so the draft keeps the width.
   const modelControl = (
     <View className="min-w-0 shrink">
       <ComposerInlineControl
@@ -791,7 +799,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
           />
         )}
         label={currentModelOption?.label ?? currentModelSelection.model}
-        iconOnly={Platform.OS === "android" && props.draftMessage.length > 0}
+        iconOnly={props.draftMessage.length > 0}
         maxWidth="100%"
         onPress={openSettings}
       />
@@ -869,7 +877,6 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             usesCard
               ? {
                   borderRadius: 26,
-                  minHeight: 140,
                   overflow: "hidden" as const,
                   paddingBottom: 6,
                   paddingTop: 14,
@@ -907,6 +914,11 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             <Animated.View
               className={usesCard ? "px-[14px]" : "min-w-0 flex-1 px-[4px]"}
               layout={COMPOSER_LAYOUT_TRANSITION}
+              onLayout={
+                !usesCard
+                  ? (event) => setInlineEditorWidth(event.nativeEvent.layout.width)
+                  : undefined
+              }
             >
               <ComposerEditor
                 draftKey={composerDraftKey}
@@ -1019,13 +1031,14 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                 }
                 scrollEnabled={isExpanded}
                 singleLineCentered={!usesCard && (!isExpanded || inlineEditorHeight <= 36)}
-                onContentHeightChange={staysInline ? setDraftTextHeight : undefined}
+                onContentHeightChange={setDraftTextHeight}
                 contentInsetVertical={usesCard || Platform.OS === "android" ? 0 : 6}
                 style={
                   usesCard
                     ? {
-                        minHeight: 72,
-                        maxHeight: 160,
+                        // A stacked draft shows two to four lines, then scrolls.
+                        minHeight: bodyText.lineHeight * 2 + 8,
+                        maxHeight: bodyText.lineHeight * 4 + 8,
                         paddingVertical: 4,
                       }
                     : { height: isExpanded ? inlineEditorHeight : 36 }
@@ -1061,7 +1074,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             ) : null}
             {!usesCard ? (
               <View className="flex-row items-center">
-                {isExpanded || staysInline ? modelControl : null}
+                {modelControl}
                 <ComposerDictationStartAction
                   state={voiceInput.state}
                   isAvailable={voiceInput.isAvailable}
@@ -1168,6 +1181,23 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
               </ComposerToolbarRow>
             </ComposerDictationToolbar>
           </Animated.View>
+          {measuresDraft ? (
+            // Measures the draft as one line; past 240 characters it overflows any row.
+            <View
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={{ position: "absolute", left: 0, top: 0, width: 10000, opacity: 0 }}
+            >
+              <Text
+                numberOfLines={1}
+                style={bodyText}
+                onTextLayout={(event) => setDraftLineWidth(event.nativeEvent.lines[0]?.width ?? 0)}
+              >
+                {props.draftMessage.slice(0, 240)}
+              </Text>
+            </View>
+          ) : null}
         </ComposerSurface>
 
         {props.connectionState === "connected" && !props.canOperateThread ? (
