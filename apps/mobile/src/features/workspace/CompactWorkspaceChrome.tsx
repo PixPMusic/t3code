@@ -36,6 +36,7 @@ interface CompactWorkspaceChrome {
   /** The window's bottom inset, which the content no longer sees under the bottom bar. */
   readonly bottomInset: number;
   readonly onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  readonly onScrollBeginDrag: () => void;
   readonly setHeaderHeight: (height: number) => void;
   readonly setBarHeight: (height: number) => void;
 }
@@ -47,7 +48,9 @@ const CompactWorkspaceChromeContext = createContext<CompactWorkspaceChrome | nul
  * them back on the first scroll up, on the same cue that collapses the New thread FAB.
  * Both bars float over a list that never moves: a list that shifted under a dragging
  * finger would read the shift as a scroll the other way and flip the bars back.
- * Changing `resetKey` (the selected tab) shows the chrome again.
+ * Changing `resetKey` (the selected tab) shows the chrome again. Until the list is
+ * dragged after that, scroll events only move the anchor, so restoring a tab's saved
+ * position doesn't read as a scroll down and hide the bars.
  */
 export function CompactWorkspaceChromeProvider(props: {
   readonly resetKey: string;
@@ -60,8 +63,10 @@ export function CompactWorkspaceChromeProvider(props: {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [barHeight, setBarHeightState] = useState(0);
   const scrollState = useRef({ anchor: 0, expanded: true });
+  const dragged = useRef(false);
   useEffect(() => {
     scrollState.current = { anchor: 0, expanded: true };
+    dragged.current = false;
     hidden.value = withTiming(0, CHROME_TIMING);
     setExpanded(true);
   }, [hidden, props.resetKey]);
@@ -75,6 +80,10 @@ export function CompactWorkspaceChromeProvider(props: {
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      if (!dragged.current) {
+        scrollState.current = { anchor: Math.max(0, contentOffset.y), expanded: true };
+        return;
+      }
       const next = updateFabScroll(
         scrollState.current,
         contentOffset.y,
@@ -88,6 +97,9 @@ export function CompactWorkspaceChromeProvider(props: {
     },
     [hidden],
   );
+  const onScrollBeginDrag = useCallback(() => {
+    dragged.current = true;
+  }, []);
   return (
     <CompactWorkspaceChromeContext
       value={{
@@ -98,6 +110,7 @@ export function CompactWorkspaceChromeProvider(props: {
         barHeightValue,
         bottomInset: props.bottomInset,
         onScroll,
+        onScrollBeginDrag,
         setHeaderHeight,
         setBarHeight,
       }}

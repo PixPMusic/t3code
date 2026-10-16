@@ -12,6 +12,8 @@ export function NativeAppBar(props: {
   readonly actions?: ReactElement;
   /** Shorter bar for a one-row title; Compose centers the fixed-height bar inside it. */
   readonly singleLine?: boolean;
+  /** Use the shared list toolbar height instead of Material's 64dp minimum. */
+  readonly listToolbar?: boolean;
 }) {
   const { colors } = useControlTheme();
   const layout = useToolbarLayout(false, props.singleLine);
@@ -21,7 +23,9 @@ export function NativeAppBar(props: {
         applyWindowInsets={false}
         modifiers={[
           fillMaxWidth(),
-          height(props.singleLine ? layout.height : Math.max(64, layout.height)),
+          height(
+            props.singleLine || props.listToolbar ? layout.height : Math.max(64, layout.height),
+          ),
         ]}
         colors={{
           containerColor: colors["--color-header"],

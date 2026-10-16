@@ -313,9 +313,11 @@ export function HomeScreen(props: HomeScreenProps) {
   }, []);
 
   const chrome = useCompactWorkspaceChrome();
+  const chromeDragBegin = chrome?.onScrollBeginDrag;
   const handleScrollBeginDrag = useCallback(() => {
     openSwipeableRef.current?.close();
-  }, []);
+    chromeDragBegin?.();
+  }, [chromeDragBegin]);
   const onFabScroll = useFabScroll();
   const listRef = useRef<LegendListRef>(null);
   const searchMode = workspace?.state.tabs.threads.searchMode;
