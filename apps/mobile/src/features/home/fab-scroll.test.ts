@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  updateChromeScroll,
-  updateFabScroll,
-  type ChromeScrollState,
-  type FabScrollState,
-} from "./fab-scroll";
+import { updateFabScroll, type FabScrollState } from "./fab-scroll";
 
 describe("Material FAB scroll direction", () => {
   const initial: FabScrollState = { anchor: 0, expanded: true };
@@ -41,31 +36,5 @@ describe("Material FAB scroll direction", () => {
     const collapsed = updateFabScroll(initial, 80, 500);
     expect(updateFabScroll(collapsed, 5, 500).expanded).toBe(true);
     expect(updateFabScroll(collapsed, 80, -20)).toEqual(initial);
-  });
-});
-
-describe("Hiding chrome scroll direction", () => {
-  const initial: ChromeScrollState = { anchor: 0, expanded: true, settleUntil: 0 };
-
-  it("ignores the jump its own transition causes during a slow drag", () => {
-    const hidden = updateChromeScroll(initial, 80, 500, 1_000, 260, 0);
-    expect(hidden.expanded).toBe(false);
-    // The header leaving moves the list up under the finger, so the offset falls back.
-    const shifted = updateChromeScroll(hidden, 20, 500, 1_100, 260, 0);
-    expect(shifted.expanded).toBe(false);
-    // Once settled, continuing the same drag keeps the chrome hidden.
-    expect(updateChromeScroll(shifted, 30, 500, 1_300, 260, 0).expanded).toBe(false);
-  });
-
-  it("keeps the chrome until the list is scrolled past the header", () => {
-    const near = updateChromeScroll(initial, 80, 500, 1_000, 260, 150);
-    expect(near.expanded).toBe(true);
-    expect(updateChromeScroll(near, 180, 500, 1_050, 260, 150).expanded).toBe(false);
-  });
-
-  it("still shows the chrome on a real scroll up after it settles", () => {
-    const hidden = updateChromeScroll(initial, 200, 500, 1_000, 260, 0);
-    const settled = updateChromeScroll(hidden, 220, 500, 1_300, 260, 0);
-    expect(updateChromeScroll(settled, 190, 500, 1_400, 260, 0).expanded).toBe(true);
   });
 });

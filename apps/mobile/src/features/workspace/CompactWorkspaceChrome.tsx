@@ -17,12 +17,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
-import { updateChromeScroll } from "../home/fab-scroll";
+import { updateFabScroll } from "../home/fab-scroll";
 
 const CHROME_TIMING = { duration: 220, easing: Easing.bezier(0.2, 0, 0, 1) };
-const CHROME_SETTLE_MS = CHROME_TIMING.duration + 60;
-// Comfortably more than the list header, so hiding it never shifts the list back to the top.
-const CHROME_MIN_HIDE_OFFSET = 160;
 
 interface CompactWorkspaceChrome {
   /** 0 while the header and bottom bar show, 1 once they have scrolled away. */
@@ -32,6 +29,8 @@ interface CompactWorkspaceChrome {
   /** The window's bottom inset, which the content no longer sees under the bottom bar. */
   readonly bottomInset: number;
   readonly onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  readonly onScrollBeginDrag: () => void;
+  readonly onScrollEndDrag: () => void;
 }
 
 const CompactWorkspaceChromeContext = createContext<CompactWorkspaceChrome | null>(null);
@@ -39,7 +38,9 @@ const CompactWorkspaceChromeContext = createContext<CompactWorkspaceChrome | nul
 /**
  * Phone lists hide their header and the bottom bar while scrolling down and bring
  * them back on the first scroll up, on the same cue that collapses the New thread FAB.
- * Changing `resetKey` (the selected tab) shows the chrome again.
+ * The bars only move while no finger is on the list: moving them changes the list's
+ * layout, and under a dragging finger that reads as a scroll the other way and flips
+ * them straight back. Changing `resetKey` (the selected tab) shows the chrome again.
  */
 export function CompactWorkspaceChromeProvider(props: {
   readonly resetKey: string;
@@ -48,34 +49,55 @@ export function CompactWorkspaceChromeProvider(props: {
 }) {
   const hidden = useSharedValue(0);
   const [expanded, setExpanded] = useState(true);
-  const scrollState = useRef({ anchor: 0, expanded: true, settleUntil: 0 });
+  const scrollState = useRef({ anchor: 0, expanded: true });
+  const dragging = useRef(false);
+  const shown = useRef(true);
+  const show = useCallback(
+    (next: boolean) => {
+      if (shown.current === next) return;
+      shown.current = next;
+      hidden.value = withTiming(next ? 0 : 1, CHROME_TIMING);
+    },
+    [hidden],
+  );
   useEffect(() => {
-    scrollState.current = { anchor: 0, expanded: true, settleUntil: 0 };
+    scrollState.current = { anchor: 0, expanded: true };
+    dragging.current = false;
+    shown.current = true;
     hidden.value = withTiming(0, CHROME_TIMING);
     setExpanded(true);
   }, [hidden, props.resetKey]);
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      const next = updateChromeScroll(
+      const next = updateFabScroll(
         scrollState.current,
         contentOffset.y,
         contentSize.height - layoutMeasurement.height,
-        Date.now(),
-        CHROME_SETTLE_MS,
-        CHROME_MIN_HIDE_OFFSET,
       );
-      if (next.expanded !== scrollState.current.expanded) {
-        hidden.value = withTiming(next.expanded ? 0 : 1, CHROME_TIMING);
-        setExpanded(next.expanded);
-      }
+      if (next.expanded !== scrollState.current.expanded) setExpanded(next.expanded);
       scrollState.current = next;
+      if (!dragging.current) show(next.expanded);
     },
-    [hidden],
+    [show],
   );
+  const onScrollBeginDrag = useCallback(() => {
+    dragging.current = true;
+  }, []);
+  const onScrollEndDrag = useCallback(() => {
+    dragging.current = false;
+    show(scrollState.current.expanded);
+  }, [show]);
   return (
     <CompactWorkspaceChromeContext
-      value={{ hidden, expanded, bottomInset: props.bottomInset, onScroll }}
+      value={{
+        hidden,
+        expanded,
+        bottomInset: props.bottomInset,
+        onScroll,
+        onScrollBeginDrag,
+        onScrollEndDrag,
+      }}
     >
       {props.children}
     </CompactWorkspaceChromeContext>

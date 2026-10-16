@@ -149,6 +149,7 @@ export function SwipeableScrollGateProvider(props: {
 export function useSwipeableScrollGate(options?: {
   readonly onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   readonly onScrollBeginDrag?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  readonly onScrollEndDrag?: () => void;
 }) {
   const [gateActive, setGateActive] = useState(false);
   const gateActiveRef = useRef(false);
@@ -157,6 +158,7 @@ export function useSwipeableScrollGate(options?: {
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const externalOnScroll = options?.onScroll;
   const externalOnScrollBeginDrag = options?.onScrollBeginDrag;
+  const externalOnScrollEndDrag = options?.onScrollEndDrag;
 
   const update = useCallback((next: boolean) => {
     if (gateActiveRef.current !== next) {
@@ -198,7 +200,8 @@ export function useSwipeableScrollGate(options?: {
     draggingRef.current = false;
     clearSettle();
     settleTimerRef.current = setTimeout(() => update(false), 160);
-  }, [clearSettle, update]);
+    externalOnScrollEndDrag?.();
+  }, [clearSettle, update, externalOnScrollEndDrag]);
   const onMomentumScrollBegin = useCallback(() => {
     clearSettle();
   }, [clearSettle]);

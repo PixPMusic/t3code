@@ -146,7 +146,8 @@ export function PullRequestsScreen(
     result.updateEntry,
   );
   const sidebar = props.sidebar === true || primaryColumn !== null;
-  const chromeScroll = useCompactWorkspaceChrome()?.onScroll;
+  const chrome = useCompactWorkspaceChrome();
+  const chromeScroll = chrome?.onScroll;
   const selectedKey = props.selectedPullRequestKey ?? primaryColumn?.selectedPullRequestKey;
   const connectedKey = connectedTargets.map((target) => target.environmentId).join("\n");
   const entries = useMemo(
@@ -255,6 +256,8 @@ export function PullRequestsScreen(
         contentContainerStyle={{
           paddingBottom: Math.max(insets.bottom, workspace.bottomClearance),
         }}
+        onScrollBeginDrag={chrome?.onScrollBeginDrag}
+        onScrollEndDrag={chrome?.onScrollEndDrag}
         onScroll={(event) => {
           chromeScroll?.(event);
           workspace.recordScrollOffset(
