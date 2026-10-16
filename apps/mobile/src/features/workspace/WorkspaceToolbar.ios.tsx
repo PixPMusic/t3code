@@ -11,6 +11,7 @@ import { NativeWorkspaceTabActivityContext } from "../../native/v5-workspace-con
 import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
+import { useSidebarWorkspaceTabs } from "./useSystemWorkspaceTabBar";
 
 /** Root actions stay in the header; UIKit owns the bottom compose button. */
 export function WorkspaceToolbar(props: {
@@ -20,8 +21,10 @@ export function WorkspaceToolbar(props: {
   const workspace = useWorkspaceTabs()!;
   const navigation = useNavigation();
   const metrics = useNativeLayoutMetrics();
+  const sidebarTabs = useSidebarWorkspaceTabs();
   const nativeToolbarCompose =
-    Platform.OS === "ios" && (Platform.isPad || (metrics?.verticalBarEdge ?? "none") !== "none");
+    Platform.OS === "ios" &&
+    (Platform.isPad || sidebarTabs || (metrics?.verticalBarEdge ?? "none") !== "none");
   const { isTabActive } = workspace;
   const tabActive = use(NativeWorkspaceTabActivityContext)?.active ?? true;
   const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
