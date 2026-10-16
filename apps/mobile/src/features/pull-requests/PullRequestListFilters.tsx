@@ -274,7 +274,7 @@ export function PullRequestListFilters(props: {
     "pullRequests",
     allFilters,
     select,
-    count > 0 || value.sort !== "updated",
+    count > 0 || value.sort !== "updated" || props.environmentId !== null,
   );
   return (
     <ScrollView
