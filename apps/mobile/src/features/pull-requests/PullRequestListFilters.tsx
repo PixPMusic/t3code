@@ -97,6 +97,8 @@ export function PullRequestListFilters(props: {
         break;
       case "reset":
         props.onChange(DEFAULT_PR_LIST_CONTROLS);
+        // The Android header menu also holds the environment, so its reset clears that too.
+        if (next === "environment") props.onEnvironmentChange(null);
         break;
       case "state":
         props.onChange({ ...value, state: next as PullRequestListControls["state"] });
@@ -214,12 +216,17 @@ export function PullRequestListFilters(props: {
       ),
     },
     { id: "sort", title: SORTS[value.sort], subactions: choices("sort", SORTS, value.sort) },
-    {
-      id: id("reset", ""),
-      title: "Reset filters",
-      attributes: { disabled: count === 0 && value.sort === "updated" },
-    },
   ];
+  const reset = (withEnvironment: boolean): MenuProps["actions"][number] => ({
+    id: id("reset", withEnvironment ? "environment" : ""),
+    title: "Reset filters",
+    attributes: {
+      disabled:
+        count === 0 &&
+        value.sort === "updated" &&
+        (!withEnvironment || props.environmentId === null),
+    },
+  });
   const labels = [...new Set([...selectedLabels, ...props.labels])].slice(0, 60);
   const authors = [
     ...new Set([...(author && author !== "me" ? [author] : []), ...props.authors]),
@@ -269,6 +276,7 @@ export function PullRequestListFilters(props: {
       ),
     },
     ...more,
+    reset(true),
   ];
   useRegisterAndroidWorkspaceFilters(
     "pullRequests",
@@ -300,7 +308,7 @@ export function PullRequestListFilters(props: {
           icon
           active={count > 0}
           accessibilityLabel={count ? `Filters, ${count} active` : "More filters"}
-          actions={more}
+          actions={[...more, reset(false)]}
           onSelect={select}
         />
       )}
