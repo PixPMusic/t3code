@@ -1,5 +1,5 @@
 import { requireNativeView } from "expo";
-import { CommonActions, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { androidWorkspaceNavigationState } from "../../lib/android-workspace-navigation";
 import {
   Keyboard,
@@ -16,6 +16,7 @@ import { androidWorkspaceNavigationColors } from "./android-workspace-navigation
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import type { WorkspaceTab } from "./workspace-tabs-state";
+import { resetAndroidWorkspace } from "./useAndroidWorkspaceSelection";
 
 export const ANDROID_WORKSPACE_RAIL_WIDTH = 80;
 
@@ -81,9 +82,7 @@ export function AndroidWorkspaceNavigation(props: {
           const tab = event.nativeEvent.tab;
           if (tab !== workspace.state.selectedTab) {
             workspace.dispatch({ type: "select", tab });
-            navigation.dispatch((state) =>
-              CommonActions.reset(androidWorkspaceNavigationState(state)),
-            );
+            resetAndroidWorkspace(navigation, (state) => androidWorkspaceNavigationState(state));
           }
           props.onSelect?.();
         }}
