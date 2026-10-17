@@ -28,6 +28,7 @@ export function Sheet(props: SheetProps) {
       isOpen={isOpen}
       detents={formSheetDetents(0.5, 0.9)}
       prefersGrabberVisible
+      prefersHorizontalBars={props.prefersHorizontalBars}
       nativeContainerStyle={containerStyle}
       onDismiss={props.onClose}
       onNativeDismiss={props.onClose}
