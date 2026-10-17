@@ -1,7 +1,8 @@
 import { Platform } from "react-native";
 
-export const FORM_SHEET_PRESENTATION_OPTIONS = {
+export const HORIZONTAL_FORM_SHEET_OPTIONS = {
   presentation: "formSheet" as const,
+  sheetPrefersHorizontalBars: true,
 };
 
 export function formSheetDetents(initialDetent: number, androidExpandedDetent = 0.92) {
