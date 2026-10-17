@@ -5,6 +5,7 @@ import { useResolveClassNames } from "uniwind";
 
 import { nativeHeaderScrollEdgeEffects } from "../../native/StackHeader";
 import { NativeHeader, NativeScreen } from "../../native/ThemedScreenStack";
+import { formSheetDetents } from "../../native/sheet-surface";
 
 const HEADER_SCROLL_EDGE_EFFECTS = nativeHeaderScrollEdgeEffects(Platform.OS, Platform.Version);
 
@@ -21,7 +22,7 @@ export function Sheet(props: SheetProps) {
   return (
     <FormSheet
       isOpen={isOpen}
-      detents={[0.5, 0.9]}
+      detents={formSheetDetents(0.5, 0.9)}
       prefersGrabberVisible
       nativeContainerStyle={containerStyle}
       onDismiss={props.onClose}
