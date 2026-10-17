@@ -136,7 +136,7 @@ export function McpAppFullscreenScreen({ route }: McpAppFullscreenScreenProps) {
           </Pressable>
         </View>
       )}
-      <ScreenContent>
+      <ScreenContent background="screen">
         <View
           className="flex-1"
           style={{ paddingBottom: insets.bottom }}

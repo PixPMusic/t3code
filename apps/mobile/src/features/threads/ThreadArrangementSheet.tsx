@@ -399,7 +399,7 @@ export function ThreadArrangementSheet(props: { onClose: () => void }) {
               </Pressable>
             </View>
           )}
-          <ScreenContent>
+          <ScreenContent background="screen">
             <Text className="px-5 pb-3 text-sm text-foreground-muted android:pt-3">
               Drag to reorder, pin, or settle. Changes save when you drop.
             </Text>
