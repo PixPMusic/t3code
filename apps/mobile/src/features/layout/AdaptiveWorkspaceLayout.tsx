@@ -539,6 +539,8 @@ function AdaptiveWorkspaceLayoutContent(
     listPaneFloor: layout.listPaneWidth,
     listPaneCeiling: layout.listPaneWidth,
     revision: 0,
+    // Counts settles that moved a pane edge, so open overlays re-measure their anchors.
+    settled: 0,
   });
   if (
     Platform.OS === "android" &&
@@ -568,6 +570,7 @@ function AdaptiveWorkspaceLayoutContent(
         ? Math.max(listPaneSizing.listPaneCeiling ?? 0, layout.listPaneWidth ?? 0)
         : layout.listPaneWidth,
       revision: listPaneSizing.revision + 1,
+      settled: listPaneSizing.settled,
     });
   }
   const settleListPane = (revision: number) => {
@@ -580,12 +583,18 @@ function AdaptiveWorkspaceLayoutContent(
             ...current,
             listPaneFloor: current.listPaneTarget,
             listPaneCeiling: current.listPaneTarget,
+            settled: current.settled + 1,
           },
     );
   };
   const listPaneFloor = listPaneSizing.listPaneFloor ?? 0;
   const listPaneCeiling = listPaneSizing.listPaneCeiling ?? 0;
   const listPaneRevision = listPaneSizing.revision;
+  const panesSettled = listPaneSizing.settled;
+  const windowHingeContext = useMemo(
+    () => ({ hinge: windowHinge, panesSettled }),
+    [windowHinge, panesSettled],
+  );
   // Android lays the content out at its new width as soon as a pane toggles, then holds it
   // against the edge that stays put while the other one slides, so nothing reflows after the
   // panes land. A sliding sidebar uncovers the strip it is about to fill, or covers the content
@@ -766,7 +775,7 @@ function AdaptiveWorkspaceLayoutContent(
       savedFilters={props.savedThreadListFilters}
     >
       <AdaptiveWorkspaceContext.Provider value={contextValue}>
-        <WindowHingeContext value={windowHinge}>
+        <WindowHingeContext value={windowHingeContext}>
           <View
             testID="adaptive-workspace-layout"
             className={Platform.OS === "android" ? "flex-1 flex-row bg-header" : "flex-1 flex-row"}
