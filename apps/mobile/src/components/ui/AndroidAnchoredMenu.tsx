@@ -77,6 +77,7 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
   const remeasureAnchor = useEffectEvent(() => {
     if (anchor !== null) measureAnchor(anchor.keyboardWasVisible);
   });
+  // Only a pane settle triggers this; the effect event reads the current anchor and hinge.
   useEffect(() => remeasureAnchor(), [panesSettled]);
 
   const measureOverlay = useCallback(() => {
