@@ -24,7 +24,7 @@ import { useWorkspaceState } from "../../state/workspace";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
-import { ANDROID_HOME_FAB_MARGIN, androidHomeFabBottom } from "./android-home-fab-position";
+import { androidHomeFabPosition } from "./AndroidHomeFab.shared";
 
 /** One toolbar height for the compact list and expanded sidebar, including search. */
 export function ThreadListToolbar(props: {
@@ -47,6 +47,7 @@ export function ThreadListToolbar(props: {
   const listFocused =
     homeFocused && (workspace === null || workspace.state.selectedTab === "threads");
   const { fabSize } = useAndroidControlSizing();
+  const fab = androidHomeFabPosition(insets.bottom, props.sidebar);
   const { height: toolbarHeight, ...headerPadding } = useToolbarLayout();
   const { state } = useWorkspaceState();
   const { onRequestVisibility, onSearchQueryChange } = props;
@@ -152,10 +153,7 @@ export function ThreadListToolbar(props: {
       {state.hasConnections ? (
         <View
           className="absolute z-[5]"
-          style={{
-            right: ANDROID_HOME_FAB_MARGIN,
-            bottom: androidHomeFabBottom(insets.bottom, props.sidebar) + fabSize + 8,
-          }}
+          style={{ right: fab.right, bottom: fab.bottom + fabSize + 8 }}
         >
           <AndroidAnchoredMenu actions={props.filterActions} onPressAction={props.onFilterAction}>
             {(open) => (
