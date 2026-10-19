@@ -902,8 +902,8 @@ const RootStackConfig = createWorkspaceStackNavigator({
       screen: ThreadPullRequestsSheet,
       linking: `${THREAD_LINKING_PREFIX}/pull-requests`,
       options: {
-        ...FORM_SHEET_PRESENTATION_OPTIONS,
-        sheetAllowedDetents: [0.55, 0.92],
+        ...HORIZONTAL_FORM_SHEET_OPTIONS,
+        sheetAllowedDetents: formSheetDetents(0.55),
         sheetGrabberVisible: true,
       },
     }),
@@ -1009,6 +1009,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
       ),
       options: {
         ...NESTED_NAVIGATOR_OPTIONS,
+        sheetPrefersHorizontalBars: true,
         gestureEnabled: true,
         headerShown: false,
       },
@@ -1066,8 +1067,7 @@ export const RootStack = RootStackConfig.with(function AdaptiveRootStack({ Navig
         return usesWorkspaceFlowScreens
           ? { presentation: "card" }
           : {
-              ...HORIZONTAL_FORM_SHEET_OPTIONS,
-              sheetPrefersHorizontalBars: route.name !== "SettingsSheet",
+              presentation: "formSheet",
               sheetAllowedDetents: [1],
               sheetGrabberVisible: true,
             };

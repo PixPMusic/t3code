@@ -22,7 +22,7 @@ export function Sheet(props: SheetProps) {
   return (
     <FormSheet
       isOpen={isOpen}
-      detents={formSheetDetents(0.5, 0.9)}
+      detents={props.prefersHorizontalBars ? formSheetDetents(0.5, 0.9) : [0.5, 0.9]}
       prefersGrabberVisible
       prefersHorizontalBars={props.prefersHorizontalBars}
       nativeContainerStyle={containerStyle}
