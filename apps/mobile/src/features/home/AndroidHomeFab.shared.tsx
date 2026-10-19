@@ -10,9 +10,9 @@ export function AndroidHomeFabLayout(props: {
 }
 
 /**
- * Where the New thread FAB sits; the filter button stacks on top of it from the same
- * origin so the two cannot drift apart. In dp rather than a rem class so Material's
- * 16dp margin does not grow with the app's text size.
+ * The filter button stacks on the New thread FAB from this same origin so the two
+ * cannot drift apart. In dp rather than a rem class so Material's 16dp margin does
+ * not grow with the app's text size.
  */
 export function androidHomeFabPosition(safeAreaBottom: number, sidebar: boolean | undefined) {
   return {
