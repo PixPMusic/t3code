@@ -144,6 +144,7 @@ import { serverEnvironment } from "../../state/server";
 import { fileRoutePathSegments } from "../files/filePath";
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import { androidWorkspaceRootState } from "../../lib/android-workspace-navigation";
 import { newTaskSubmitNavigationAction } from "./new-task-submit-navigation";
 
 const COMPOSER_POPOVER_ENTERING = FadeInDown.duration(180).reduceMotion(ReduceMotion.System);
@@ -1341,7 +1342,7 @@ export function NewTaskDraftScreen(props: {
       workspaceDispatch?.({ type: "select", tab: "threads" });
     setSubmitNavigationAction(
       newTaskSubmitNavigationAction({
-        state: (navigation.getParent() ?? navigation).getState(),
+        state: androidWorkspaceRootState(navigation) ?? navigation.getState(),
         params: {
           environmentId: String(message.environmentId),
           threadId: String(message.threadId),

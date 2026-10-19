@@ -10,8 +10,11 @@ export function newTaskSubmitNavigationAction(input: {
 }) {
   if (input.queued) return CommonActions.goBack();
   if (input.android)
-    return CommonActions.reset(
-      androidWorkspaceNavigationState(input.state, { name: "Thread", params: input.params }),
-    );
+    return {
+      ...CommonActions.reset(
+        androidWorkspaceNavigationState(input.state, { name: "Thread", params: input.params }),
+      ),
+      target: input.state.key,
+    };
   return StackActions.replace("Thread", input.params);
 }

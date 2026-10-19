@@ -55,6 +55,14 @@ export function androidWorkspaceNavigationState(
   };
 }
 
+export function androidWorkspaceRootState(
+  navigation: Pick<WorkspaceNavigation, "getParent" | "getState" | "getRootState">,
+) {
+  let root = navigation;
+  for (let parent = root.getParent(); parent; parent = root.getParent()) root = parent;
+  return root.getRootState?.() ?? root.getState();
+}
+
 /**
  * Resets the root stack to a workspace list or detail. Always reads and targets the root
  * navigator: the sidebar and rail render in the root layout, where `useNavigation()` is the
@@ -66,9 +74,7 @@ export function resetAndroidWorkspace(
   destination?: AndroidWorkspaceDestination,
   reviewers?: ReactNavigation.RootParamList["PullRequestReviewers"],
 ) {
-  let root = navigation;
-  for (let parent = root.getParent(); parent; parent = root.getParent()) root = parent;
-  const state = root.getRootState?.() ?? root.getState();
+  const state = androidWorkspaceRootState(navigation);
   if (!state) return;
   // Same shape as `CommonActions.reset`, which would pull React Native into node tests.
   navigation.dispatch({
