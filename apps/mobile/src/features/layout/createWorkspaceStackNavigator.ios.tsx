@@ -25,7 +25,7 @@ import { View } from "react-native";
 import { Split, type SplitHostCommands } from "react-native-screens";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { scopedThreadKey } from "../../lib/scopedEntities";
-import { WorkspaceTabsProvider } from "../workspace/WorkspaceTabsContext";
+import { useWorkspaceTabs, WorkspaceTabsProvider } from "../workspace/WorkspaceTabsContext";
 import { WorkspaceNativeTabs } from "../workspace/WorkspaceNativeTabs.ios";
 import { useNativeLayoutMetrics } from "../../native/native-layout-metrics";
 
@@ -127,6 +127,7 @@ function WorkspaceColumns(
 ) {
   const { layout, panes, togglePrimarySidebar, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
   const inspector = use(NativeWorkspaceInspectorContext);
+  const workspace = useWorkspaceTabs();
   const hostRef = useRef<SplitHostCommands>(null);
   const activeDetailKey = props.detail.at(-1)?.key;
   const compactColumn = activeDetailKey ? "secondary" : "primary";
@@ -178,12 +179,10 @@ function WorkspaceColumns(
 
   const primary = props.descriptors[props.primary.key];
   if (!primary) return null;
-  const sidebarFilter = primary.options
-    .unstable_headerRightItems?.({ canGoBack: false, tintColor: primary.options.headerTintColor })
-    .find(
-      (item): item is NativeStackHeaderItemMenu =>
-        item.type === "menu" && item.identifier === "home-filter",
-    );
+  const sidebarFilter =
+    workspace?.state.selectedTab === "threads"
+      ? (primary.options as AppNativeStackNavigationOptions).nativeSidebarFilter
+      : undefined;
   return (
     <Split.Host
       ref={hostRef}

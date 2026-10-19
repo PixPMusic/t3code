@@ -148,25 +148,14 @@ export function V5StackHeader(props: {
   const deviceType = useDeviceType();
   const searchRef = useRef<SearchBarCommands>(null);
   const usesDuoToolbarRail =
-    Platform.OS === "ios" &&
-    !Platform.isPad &&
-    nativeMetrics?.hasHinge === true &&
-    nativeMetrics.horizontalSizeClass === "regular" &&
-    nativeMetrics.verticalBarEdge !== "none";
+    deviceType === "duo-unfolded" && (nativeMetrics?.verticalBarEdge ?? "none") !== "none";
   const itemProps = { tintColor: options.headerTintColor, canGoBack: props.canGoBack };
   const leading = convertItems(options.unstable_headerLeftItems?.(itemProps) ?? [], "leading");
   const trailingItems = [
     ...(options.unstable_headerCenterItems?.() ?? []),
     ...(options.unstable_headerRightItems?.(itemProps) ?? []),
-  ].filter(
-    (item) =>
-      !usesDuoToolbarRail ||
-      !props.primary ||
-      item.type === "spacing" ||
-      item.identifier !== "home-filter",
-  );
-  // The primary column owns filter state; the expanded Duo exposes its menu
-  // alongside Compose in the detail column's vertical toolbar.
+  ];
+  // Keep the sidebar's filter actions when UIKit moves the menu to the detail rail.
   if (usesDuoToolbarRail && !props.primary && props.sidebarFilter) {
     trailingItems.push({ ...props.sidebarFilter, axisBehavior: "verticalPreferred" });
   }
