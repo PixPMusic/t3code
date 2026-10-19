@@ -169,9 +169,8 @@ const GLASS_HEADER_OPTIONS: AppScreenOptions = {
   unstable_navigationItemStyle: NATIVE_LIQUID_GLASS_SUPPORTED ? "editor" : undefined,
 };
 
-// Android thread and PR screens render their own Material toolbar. Hide the
-// native header up front: one that is only hidden after mount can leave a
-// freshly swapped-in detail screen measured short by the toolbar's height.
+// Hiding Android's native header after mount can leave detail panes measured short.
+// These screens render their own Material toolbar, so hide it from the first layout.
 const DETAIL_HEADER_OPTIONS: AppScreenOptions = {
   ...GLASS_HEADER_OPTIONS,
   headerShown: Platform.OS !== "android",
