@@ -25,7 +25,7 @@ import { View } from "react-native";
 import { Split, type SplitHostCommands } from "react-native-screens";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { scopedThreadKey } from "../../lib/scopedEntities";
-import { useWorkspaceTabs, WorkspaceTabsProvider } from "../workspace/WorkspaceTabsContext";
+import { WorkspaceTabsProvider } from "../workspace/WorkspaceTabsContext";
 import { WorkspaceNativeTabs } from "../workspace/WorkspaceNativeTabs.ios";
 import { useNativeLayoutMetrics } from "../../native/native-layout-metrics";
 
@@ -127,7 +127,6 @@ function WorkspaceColumns(
 ) {
   const { layout, panes, togglePrimarySidebar, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
   const inspector = use(NativeWorkspaceInspectorContext);
-  const workspace = useWorkspaceTabs();
   const hostRef = useRef<SplitHostCommands>(null);
   const activeDetailKey = props.detail.at(-1)?.key;
   const compactColumn = activeDetailKey ? "secondary" : "primary";
@@ -179,10 +178,7 @@ function WorkspaceColumns(
 
   const primary = props.descriptors[props.primary.key];
   if (!primary) return null;
-  const sidebarFilter =
-    workspace?.state.selectedTab === "threads"
-      ? (primary.options as AppNativeStackNavigationOptions).nativeSidebarFilter
-      : undefined;
+  const sidebarFilter = (primary.options as AppNativeStackNavigationOptions).nativeSidebarFilter;
   return (
     <Split.Host
       ref={hostRef}

@@ -157,7 +157,11 @@ export function V5StackHeader(props: {
   ];
   // Keep the sidebar's filter actions when UIKit moves the menu to the detail rail.
   if (usesDuoToolbarRail && !props.primary && props.sidebarFilter) {
-    trailingItems.push({ ...props.sidebarFilter, axisBehavior: "verticalPreferred" });
+    trailingItems.push({
+      ...props.sidebarFilter,
+      identifier: "home-filter",
+      axisBehavior: "verticalPreferred",
+    });
   }
   const trailing = convertItems(trailingItems, "trailing");
   const toolbar = options.unstable_headerToolbarItems?.() ?? [];
