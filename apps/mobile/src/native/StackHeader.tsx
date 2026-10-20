@@ -4,7 +4,7 @@ import type {
   NativeStackNavigationOptions,
   NativeStackNavigationProp,
 } from "@react-navigation/native-stack";
-import { use, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { isValidElement, use, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { NativeWorkspaceTabActivityContext } from "./v5-workspace-context";
 import type { ColorValue } from "react-native";
 
@@ -55,7 +55,7 @@ function normalizeScreenOptions(
   return normalized as NativeStackNavigationOptions;
 }
 
-function optionsSignature(value: unknown, seen = new WeakSet<object>()): string {
+export function optionsSignature(value: unknown, seen = new WeakSet<object>()): string {
   if (value === null) return "null";
   switch (typeof value) {
     case "boolean":
@@ -77,6 +77,14 @@ function optionsSignature(value: unknown, seen = new WeakSet<object>()): string 
       const object = value as object;
       if (seen.has(object)) return "[circular]";
       seen.add(object);
+      // Custom header items carry React elements. In development an element's
+      // _owner links the whole fiber tree, which reaches context defaults whose
+      // getters throw outside a navigator, so compare what renders instead.
+      if (isValidElement(value)) {
+        const type = value.type as string | { displayName?: string; name?: string };
+        const typeName = typeof type === "string" ? type : (type.displayName ?? type.name);
+        return `element:${typeName}:${String(value.key)}:${optionsSignature(value.props, seen)}`;
+      }
       if (Array.isArray(value)) {
         return `[${value.map((entry) => optionsSignature(entry, seen)).join(",")}]`;
       }
