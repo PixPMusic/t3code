@@ -210,6 +210,15 @@ const LEGAL_DOCUMENT_HEADER_OPTIONS: AppScreenOptions = {
 
 const NESTED_NAVIGATOR_OPTIONS = { nativeContentInsetHorizontally: false, headerShown: false };
 
+// Thread settings keep the Duo's vertical bar so cancel, search, filter and confirm sit in the
+// rail. The picker stack spans the sheet so its header reaches the rail, and insets its content.
+const THREAD_SETTINGS_SHEET_OPTIONS = {
+  presentation: "formSheet" as const,
+  sheetAllowedDetents: [1],
+  sheetGrabberVisible: true,
+  nativeContentInsetHorizontally: false,
+};
+
 const SettingsContentStack = createV5SheetStackNavigator({
   initialRouteName: "Settings",
   screenOptions: {
@@ -368,9 +377,7 @@ const SettingsContentStack = createV5SheetStackNavigator({
         ...(Platform.OS === "android"
           ? { presentation: "card" as const }
           : {
-              ...HORIZONTAL_FORM_SHEET_OPTIONS,
-              sheetAllowedDetents: [1],
-              sheetGrabberVisible: true,
+              ...THREAD_SETTINGS_SHEET_OPTIONS,
             }),
       },
     }),
@@ -513,9 +520,7 @@ const NewTaskSheetStack = createNativeStackNavigator({
         ...(Platform.OS === "android"
           ? { presentation: "card" as const }
           : {
-              ...HORIZONTAL_FORM_SHEET_OPTIONS,
-              sheetAllowedDetents: [1],
-              sheetGrabberVisible: true,
+              ...THREAD_SETTINGS_SHEET_OPTIONS,
             }),
       },
     }),
@@ -856,9 +861,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
         ...(Platform.OS === "android"
           ? { presentation: "card" as const }
           : {
-              ...HORIZONTAL_FORM_SHEET_OPTIONS,
-              sheetAllowedDetents: [1],
-              sheetGrabberVisible: true,
+              ...THREAD_SETTINGS_SHEET_OPTIONS,
             }),
       },
     }),

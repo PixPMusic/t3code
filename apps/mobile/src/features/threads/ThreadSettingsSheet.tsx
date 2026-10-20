@@ -85,6 +85,7 @@ import {
   createNativeMailSearchToolbarItem,
   NATIVE_MAIL_SEARCH_TOOLBAR_CONTENT_INSET,
 } from "../layout/native-mail-search-toolbar";
+import { useNativeLayoutMetrics } from "../../native/native-layout-metrics";
 import { useNativeMailSearchToolbar } from "../../native/use-native-mail-search-toolbar";
 import { ModelRow, ChoiceRow } from "./ThreadSettingsRows";
 import {
@@ -847,7 +848,7 @@ function ThreadSettingsOptionsItem(props: {
         .get(session.environmentId)
         ?.providers.find((provider) => provider.instanceId === session.providerInstanceId) ?? null)
     : null;
-  const usesNativeMailSearchToolbar = useNativeMailSearchToolbar();
+  const usesNativeMailSearchToolbar = useThreadSettingsMailSearchToolbar();
   const bottomToolbarInset = usesNativeMailSearchToolbar
     ? NATIVE_MAIL_SEARCH_TOOLBAR_CONTENT_INSET
     : 0;
@@ -1211,11 +1212,17 @@ function useThreadSettingsPickerPresentation() {
   return value;
 }
 
+// With a Duo vertical bar, filter and search join cancel and confirm in the rail.
+function useThreadSettingsMailSearchToolbar() {
+  const metrics = useNativeLayoutMetrics();
+  return useNativeMailSearchToolbar() && (metrics?.verticalBarEdge ?? "none") === "none";
+}
+
 function ThreadSettingsModelsScreen() {
   const session = useThreadSettingsSession();
   const presentation = useThreadSettingsPickerPresentation();
   const navigation = useNavigation<NativeStackNavigationProp<ThreadSettingsPickerStackParams>>();
-  const usesNativeMailSearchToolbar = useNativeMailSearchToolbar();
+  const usesNativeMailSearchToolbar = useThreadSettingsMailSearchToolbar();
   const hasCustomCatalogFilter = session.providerFilter !== null || session.showLegacy;
   const commitAndClose = useEffectEvent(() => {
     if (!session.commitPendingModel()) return;
