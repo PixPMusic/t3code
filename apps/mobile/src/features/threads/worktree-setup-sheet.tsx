@@ -9,7 +9,7 @@ export interface WorktreeSetupSheetProps {
 
 export function WorktreeSetupSheet({ children, onClose }: WorktreeSetupSheetProps) {
   return (
-    <Sheet prefersHorizontalBars title="Worktree setup" onClose={onClose}>
+    <Sheet title="Worktree setup" onClose={onClose}>
       {children}
     </Sheet>
   );

@@ -22,9 +22,10 @@ export function Sheet(props: SheetProps) {
   return (
     <FormSheet
       isOpen={isOpen}
-      detents={props.prefersHorizontalBars ? formSheetDetents(0.5, 0.9) : [0.5, 0.9]}
+      detents={formSheetDetents(0.5, 0.9)}
       prefersGrabberVisible
-      prefersHorizontalBars={props.prefersHorizontalBars}
+      // The header holds the close button, so the Duo needs no rail inside this sheet.
+      prefersHorizontalBars
       nativeContainerStyle={containerStyle}
       onDismiss={props.onClose}
       onNativeDismiss={props.onClose}
