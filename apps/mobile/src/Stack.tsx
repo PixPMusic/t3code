@@ -893,6 +893,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
       screen: GitOverviewSheet,
       linking: `${THREAD_LINKING_PREFIX}/git`,
       options: {
+        ...(Platform.OS === "ios" ? SHEET_GLASS_HEADER_OPTIONS : undefined),
         ...HORIZONTAL_FORM_SHEET_OPTIONS,
         sheetAllowedDetents: formSheetDetents(0.55),
         sheetGrabberVisible: true,
@@ -902,6 +903,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
       screen: ThreadPullRequestsSheet,
       linking: `${THREAD_LINKING_PREFIX}/pull-requests`,
       options: {
+        ...(Platform.OS === "ios" ? SHEET_GLASS_HEADER_OPTIONS : undefined),
         ...HORIZONTAL_FORM_SHEET_OPTIONS,
         sheetAllowedDetents: formSheetDetents(0.55),
         sheetGrabberVisible: true,
@@ -921,6 +923,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
       screen: GitBranchesSheet,
       linking: `${THREAD_LINKING_PREFIX}/git/branches`,
       options: {
+        ...(Platform.OS === "ios" ? SHEET_GLASS_HEADER_OPTIONS : undefined),
         ...HORIZONTAL_FORM_SHEET_OPTIONS,
         sheetAllowedDetents: formSheetDetents(0.55),
         sheetGrabberVisible: true,
@@ -931,7 +934,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
       linking: `${THREAD_LINKING_PREFIX}/git-confirm`,
       options: {
         ...HORIZONTAL_FORM_SHEET_OPTIONS,
-        sheetAllowedDetents: [0.45, 0.7],
+        sheetAllowedDetents: [0.55, 0.7],
         sheetGrabberVisible: true,
       },
     }),
