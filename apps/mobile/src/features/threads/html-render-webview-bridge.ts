@@ -5,7 +5,31 @@ export const HTML_RENDER_INLINE_SCRIPT = `(function () {
   function report() {
     pending = false;
     var body = document.body;
-    var contentHeight = Math.ceil(root.scrollHeight > root.clientHeight ? root.scrollHeight : root.getBoundingClientRect().height);
+    var contentHeight = root.scrollHeight > root.clientHeight ? root.scrollHeight : root.getBoundingClientRect().height;
+    // Once the viewport fits, scrollHeight is floored at the viewport and cannot
+    // distinguish positioned overflow from empty space left after a collapse.
+    if (body && contentHeight < root.scrollHeight && root.scrollHeight <= root.clientHeight) {
+      var range;
+      function bottom(element, clip) {
+        var style = window.getComputedStyle(element);
+        if (style.display === "none" || style.position === "fixed") return 0;
+        var edge = element.getBoundingClientRect().bottom + window.scrollY;
+        var value = Math.min(clip, edge);
+        // Internal scrollers and clipped descendants must not grow the page.
+        var childClip = style.overflowY === "visible" ? clip : value;
+        for (var child = element.firstChild; child; child = child.nextSibling) {
+          if (child.nodeType === 1) value = Math.max(value, bottom(child, childClip));
+          else if (child.nodeType === 3 && child.textContent.trim()) {
+            if (!range) range = document.createRange();
+            range.selectNode(child);
+            value = Math.max(value, Math.min(childClip, range.getBoundingClientRect().bottom + window.scrollY));
+          }
+        }
+        return value;
+      }
+      contentHeight = Math.min(root.scrollHeight, Math.max(contentHeight, bottom(body, Infinity)));
+    }
+    contentHeight = Math.ceil(contentHeight);
     if (!Number.isFinite(contentHeight) || contentHeight <= 0) return;
     var x = Math.max(root.scrollWidth, body ? body.scrollWidth : 0) > window.innerWidth + 1;
     var y = Math.max(root.scrollHeight, body ? body.scrollHeight : 0) > window.innerHeight + 1;

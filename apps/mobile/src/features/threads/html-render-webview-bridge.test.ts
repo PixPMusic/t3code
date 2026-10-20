@@ -14,7 +14,22 @@ function runBridge(height = 240.25) {
     scrollWidth: 320,
     getBoundingClientRect: () => ({ height: root.height }),
   };
-  const body = { scrollHeight: height, scrollWidth: 320 };
+  const positioned = {
+    nodeType: 1,
+    bottom: 0,
+    firstChild: null,
+    nextSibling: null,
+    style: { display: "block", position: "absolute", overflowY: "visible" },
+    getBoundingClientRect: () => ({ bottom: positioned.bottom }),
+  };
+  const text = { nodeType: 3, textContent: "Overflow text", bottom: 900, nextSibling: null };
+  const body = {
+    scrollHeight: height,
+    scrollWidth: 320,
+    firstChild: positioned as typeof positioned | typeof text | null,
+    style: { display: "block", position: "static", overflowY: "visible" },
+    getBoundingClientRect: () => ({ bottom: root.height }),
+  };
   const frames: Array<() => void> = [];
   const windowEvents = new Map<string, () => void>();
   const documentEvents = new Map<string, () => void>();
@@ -39,6 +54,8 @@ function runBridge(height = 240.25) {
   const window = {
     innerWidth: 320,
     innerHeight: 400,
+    scrollY: 0,
+    getComputedStyle: (element: typeof body | typeof positioned) => element.style,
     ResizeObserver,
     MutationObserver,
     ReactNativeWebView: { postMessage },
@@ -48,6 +65,15 @@ function runBridge(height = 240.25) {
   const document = {
     documentElement: root,
     body,
+    createRange: () => {
+      let selected = text;
+      return {
+        selectNode: (node: typeof text) => {
+          selected = node;
+        },
+        getBoundingClientRect: () => ({ bottom: selected.bottom }),
+      };
+    },
     addEventListener: vi.fn((name: string, callback: () => void) =>
       documentEvents.set(name, callback),
     ),
@@ -65,6 +91,8 @@ function runBridge(height = 240.25) {
   return {
     root,
     body,
+    positioned,
+    text,
     window,
     document,
     fontReady,
@@ -106,6 +134,63 @@ describe("HTML render inline bridge", () => {
     bridge.resize();
     bridge.flushFrame();
     expect(bridge.messages().at(-1)).toEqual({ contentHeight: 181, x: false, y: false });
+  });
+
+  it("keeps positioned overflow fitted after the viewport grows, then shrinks when removed", () => {
+    const bridge = runBridge(100);
+    bridge.positioned.bottom = 900;
+    bridge.root.scrollHeight = 900;
+    bridge.mutate();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)).toEqual({ contentHeight: 900, x: false, y: true });
+
+    bridge.root.clientHeight = 900;
+    bridge.window.innerHeight = 900;
+    bridge.windowEvent("resize");
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)).toEqual({ contentHeight: 900, x: false, y: false });
+    bridge.resize();
+    bridge.flushFrame();
+    expect(bridge.messages()).toHaveLength(3);
+
+    bridge.body.firstChild = null;
+    bridge.mutate();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)).toEqual({ contentHeight: 100, x: false, y: false });
+  });
+
+  it.each(["auto", "hidden", "clip"])(
+    "does not fit content clipped by an overflow:%s container",
+    (overflowY) => {
+      const bridge = runBridge(100);
+      bridge.root.scrollHeight = bridge.root.clientHeight = 900;
+      bridge.positioned.bottom = 1500;
+      bridge.body.style.overflowY = overflowY;
+      bridge.resize();
+      bridge.flushFrame();
+      expect(bridge.messages().at(-1)?.contentHeight).toBe(100);
+    },
+  );
+
+  it("measures text overflow independently of its element's fixed box height", () => {
+    const bridge = runBridge(100);
+    bridge.body.firstChild = bridge.text;
+    bridge.root.scrollHeight = bridge.root.clientHeight = 900;
+    bridge.resize();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(900);
+  });
+
+  it.each([
+    { display: "none", position: "absolute" },
+    { display: "block", position: "fixed" },
+  ])("does not fit hidden or viewport-fixed elements: %o", (style) => {
+    const bridge = runBridge(100);
+    bridge.positioned.bottom = 1500;
+    Object.assign(bridge.positioned.style, style);
+    bridge.resize();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(100);
   });
 
   it("remeasures wrapping when the viewport width changes", () => {
