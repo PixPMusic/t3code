@@ -191,6 +191,7 @@ export function ThreadHtmlRender(props: {
   const [attempt, setAttempt] = useState(0);
   const retried = useRef(false);
   const handleLoadError = () => {
+    setContentHeight(undefined);
     if (retried.current) {
       setFailed(true);
       return;
