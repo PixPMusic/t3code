@@ -61,6 +61,16 @@ function setup() {
 }
 
 describe("restoring V2 settings", () => {
+  it("restores automatic compaction suggestions to Auto", async () => {
+    setup();
+    state.settings = { ...DEFAULT_UNIFIED_SETTINGS, automaticCompactionSuggestions: "disabled" };
+    await using screen = await renderRestore();
+
+    expect(screen.restore.changedSettingLabels).toEqual(["Automatic compaction suggestions"]);
+    await act(() => screen.restore.restoreDefaults());
+    expect(state.update.mock.calls[0]?.[0].automaticCompactionSuggestions).toBe("on");
+  });
+
   it.each([
     ["persistComposerContextStrip", "Composer context"],
     ["autoResumeLimitedThreads", "Auto-resume limited threads"],

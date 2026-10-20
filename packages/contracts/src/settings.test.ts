@@ -727,6 +727,24 @@ describe("ClientSettings follow-up behavior", () => {
   });
 });
 
+describe("ClientSettings automatic compaction suggestions", () => {
+  it("preserves the current default and validates all three modes", () => {
+    expect(decodeClientSettings({}).automaticCompactionSuggestions).toBe("on");
+    for (const automaticCompactionSuggestions of ["on", "off", "disabled"]) {
+      expect(
+        decodeClientSettings({ automaticCompactionSuggestions }).automaticCompactionSuggestions,
+      ).toBe(automaticCompactionSuggestions);
+      expect(
+        decodeClientSettingsPatch({ automaticCompactionSuggestions })
+          .automaticCompactionSuggestions,
+      ).toBe(automaticCompactionSuggestions);
+    }
+    expect(() =>
+      decodeClientSettingsPatch({ automaticCompactionSuggestions: "invalid" }),
+    ).toThrow();
+  });
+});
+
 describe("ClientSettings composer collapse", () => {
   it("collapses on scroll by default and accepts opting out", () => {
     expect(decodeClientSettings({}).composerCollapseOnScroll).toBe(true);

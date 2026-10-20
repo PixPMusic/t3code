@@ -440,6 +440,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["queue steer running turn send default behavior composer"],
   },
   {
+    id: "automatic-compaction-suggestions",
+    title: "Automatic compaction suggestions",
+    to: "/settings/general",
+    searchTerms: ["claude compact context cache expired full history resume auto suggest hide"],
+  },
+  {
     id: "provider-update-checks",
     title: "Provider update checks",
     to: "/settings/general",

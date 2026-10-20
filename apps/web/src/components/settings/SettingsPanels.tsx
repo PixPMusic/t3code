@@ -619,6 +619,10 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.followUpBehavior !== DEFAULT_UNIFIED_SETTINGS.followUpBehavior
       ? ["Follow-up behavior"]
       : []),
+    ...(settings.automaticCompactionSuggestions !==
+    DEFAULT_UNIFIED_SETTINGS.automaticCompactionSuggestions
+      ? ["Automatic compaction suggestions"]
+      : []),
     ...(settings.contextWindowMeterEnabled !== DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled
       ? ["Context window indicator"]
       : []),
@@ -735,6 +739,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       composerRichTextEnabled: DEFAULT_UNIFIED_SETTINGS.composerRichTextEnabled,
       sendShortcut: DEFAULT_UNIFIED_SETTINGS.sendShortcut,
       followUpBehavior: DEFAULT_UNIFIED_SETTINGS.followUpBehavior,
+      automaticCompactionSuggestions: DEFAULT_UNIFIED_SETTINGS.automaticCompactionSuggestions,
       contextWindowMeterEnabled: DEFAULT_UNIFIED_SETTINGS.contextWindowMeterEnabled,
       environmentIdentificationMode: DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode,
       glassOpacity: DEFAULT_UNIFIED_SETTINGS.glassOpacity,
@@ -2826,6 +2831,54 @@ export function GeneralSettingsPanel() {
               <SelectPopup align="end" alignItemWithTrigger={false}>
                 <SelectItem value="queue">Queue</SelectItem>
                 <SelectItem value="steer">Steer</SelectItem>
+              </SelectPopup>
+            </Select>
+          }
+        />
+
+        <SettingsRow
+          {...searchableSetting("automatic-compaction-suggestions")}
+          description="When a large Claude thread's prompt cache expires, Auto selects Compact before sending, Suggest keeps full history until you select Compact, and Hide removes the chip."
+          resetAction={
+            settings.automaticCompactionSuggestions !==
+            DEFAULT_UNIFIED_SETTINGS.automaticCompactionSuggestions ? (
+              <SettingResetButton
+                label="automatic compaction suggestions"
+                onClick={() =>
+                  updateSettings({
+                    automaticCompactionSuggestions:
+                      DEFAULT_UNIFIED_SETTINGS.automaticCompactionSuggestions,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Select
+              value={settings.automaticCompactionSuggestions}
+              onValueChange={(value) => {
+                if (value === "on" || value === "off" || value === "disabled") {
+                  updateSettings({ automaticCompactionSuggestions: value });
+                }
+              }}
+            >
+              <SelectTrigger
+                size="sm"
+                className="w-auto min-w-0"
+                aria-label="Automatic compaction suggestions"
+              >
+                <SelectValue>
+                  {settings.automaticCompactionSuggestions === "on"
+                    ? "Auto"
+                    : settings.automaticCompactionSuggestions === "off"
+                      ? "Suggest"
+                      : "Hide"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup align="end" alignItemWithTrigger={false}>
+                <SelectItem value="on">Auto</SelectItem>
+                <SelectItem value="off">Suggest</SelectItem>
+                <SelectItem value="disabled">Hide</SelectItem>
               </SelectPopup>
             </Select>
           }
