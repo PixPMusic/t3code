@@ -220,6 +220,7 @@ export const updatePrimaryCloudPreferences: (input: {
 export const unlinkPrimaryEnvironmentFromCloud: (input: {
   readonly target: CloudLinkTarget;
   readonly clerkToken: string | null;
+  readonly expectedCloudUserId?: string;
 }) => Effect.Effect<
   void,
   CloudEnvironmentLinkError,
@@ -227,10 +228,23 @@ export const unlinkPrimaryEnvironmentFromCloud: (input: {
 > = Effect.fn("linkEnvironment.unlinkPrimaryEnvironmentFromCloud")(function* (input: {
   readonly target: CloudLinkTarget;
   readonly clerkToken: string | null;
+  readonly expectedCloudUserId?: string;
 }) {
   const client = yield* makeEnvironmentHttpApiClient(input.target.httpBaseUrl);
+  if (input.expectedCloudUserId !== undefined) {
+    const state = yield* client.connect
+      .linkState({ headers: {} })
+      .pipe(Effect.mapError(environmentApiError("Could not read environment cloud link state.")));
+    if (state.cloudUserId !== input.expectedCloudUserId) return;
+  }
   yield* client.connect
-    .unlink({ headers: {} })
+    .unlink({
+      headers: {},
+      query:
+        input.expectedCloudUserId === undefined
+          ? {}
+          : { expectedCloudUserId: input.expectedCloudUserId },
+    })
     .pipe(Effect.mapError(environmentApiError("Could not unlink the environment from cloud.")));
 
   const configuredRelayUrl = relayUrl();
