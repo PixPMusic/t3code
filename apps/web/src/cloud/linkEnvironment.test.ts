@@ -25,7 +25,11 @@ import { ManagedRelay } from "@t3tools/client-runtime/relay";
 import { layerRemoteHttpClient } from "@t3tools/client-runtime/rpc";
 import { __resetDesktopPrimaryAuthForTests } from "../environments/primary/desktopAuth";
 
-import { readPrimaryCloudLinkState, type CloudLinkTarget } from "./linkEnvironment";
+import {
+  readPrimaryCloudLinkState,
+  unlinkPrimaryEnvironmentFromCloud,
+  type CloudLinkTarget,
+} from "./linkEnvironment";
 
 const TARGET: CloudLinkTarget = {
   environmentId: "environment-1",
@@ -144,6 +148,71 @@ afterEach(() => {
 });
 
 describe("web cloud link environment client", () => {
+  it.effect("unlinks the departing account locally before deregistering it from the relay", () =>
+    Effect.gen(function* () {
+      const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+        const request = input instanceof Request ? input : new Request(input);
+        return Promise.resolve(
+          Response.json(
+            request.url.endsWith("/api/connect/link-state")
+              ? {
+                  linked: true,
+                  cloudUserId: "user-1",
+                  relayUrl: "https://relay.example.test",
+                  relayIssuer: "https://relay.example.test",
+                  publishAgentActivity: false,
+                }
+              : { ok: true, endpointRuntimeStatus: { status: "disabled" } },
+          ),
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      vi.stubGlobal("window", { location: { origin: "http://127.0.0.1:3000" } });
+
+      yield* withServices(
+        unlinkPrimaryEnvironmentFromCloud({
+          target: TARGET,
+          clerkToken: "clerk-token",
+          expectedCloudUserId: "user-1",
+        }),
+      );
+
+      const requests = fetchMock.mock.calls.map(([input, init]) => new Request(input, init));
+      expect(requests.map((request) => [request.method, new URL(request.url).pathname])).toEqual([
+        ["GET", "/api/connect/link-state"],
+        ["POST", "/api/connect/unlink"],
+        ["DELETE", "/v1/client/environment-links/environment-1"],
+      ]);
+      expect(new URL(requests[1]!.url).searchParams.get("expectedCloudUserId")).toBe("user-1");
+      expect(requests[2]!.headers.get("authorization")).toBe("Bearer clerk-token");
+    }),
+  );
+
+  it.effect("leaves a host linked to another account untouched", () =>
+    Effect.gen(function* () {
+      const fetchMock = vi.fn().mockResolvedValue(
+        Response.json({
+          linked: true,
+          cloudUserId: "other-user",
+          relayUrl: "https://relay.example.test",
+          relayIssuer: "https://relay.example.test",
+          publishAgentActivity: false,
+        }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      vi.stubGlobal("window", { location: { origin: "http://127.0.0.1:3000" } });
+
+      yield* withServices(
+        unlinkPrimaryEnvironmentFromCloud({
+          target: TARGET,
+          clerkToken: "clerk-token",
+          expectedCloudUserId: "user-1",
+        }),
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    }),
+  );
   it.effect("uses desktop bearer auth for primary cloud link state", () =>
     Effect.gen(function* () {
       const fetchMock = vi.fn().mockResolvedValue(
