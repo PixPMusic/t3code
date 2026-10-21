@@ -26,7 +26,6 @@ import {
   SERVICE_RESTART_PENDING_FILE,
   SERVICE_STATE_FILE,
   compareExactServiceVersions,
-  isExactServiceVersion,
   parseServiceState,
   serviceStateActiveVersion,
   serviceStateHasPendingUpdate,
@@ -618,16 +617,6 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
         );
       }),
     ).pipe(Effect.mapError((cause) => new BootServiceInstallError({ cause })));
-  const readOptional = Effect.fn("cloud.boot_service.read_optional")(function* (filePath: string) {
-    return yield* fs.readFileString(filePath).pipe(
-      Effect.asSome,
-      Effect.catchIf(
-        (error) => error.reason._tag === "NotFound",
-        () => Effect.succeed(Option.none<string>()),
-      ),
-      Effect.mapError((cause) => new BootServiceInstallError({ cause })),
-    );
-  });
   const plan: BootServicePlan = {
     program: [runtimePaths.entryPath, "__service-launcher"],
     baseDir: input.baseDir,
@@ -842,23 +831,13 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
       ]);
       return { ...plan, handedOff: true };
     }
-    const previousUnit =
-      installed && start
-        ? yield* fs
-            .readFileString(unitPath)
-            .pipe(Effect.mapError((cause) => new BootServiceInstallError({ cause })))
-        : undefined;
-    let stopAttempted = false;
-    let activationStarted = false;
-    let activated = false;
-    let previousFiles: ReadonlyArray<readonly [string, Option.Option<string>]> | undefined;
+    if (installed && start) {
+      yield* runSteps(manager.stop);
+    }
+
     yield* Effect.gen(function* () {
-      if (installed && start) {
-        stopAttempted = true;
-        yield* runSteps(manager.stop);
-      }
-      const previousStateText = installed ? yield* readOptional(statePath) : Option.none<string>();
       if (installed) {
+        const previousStateText = yield* fs.readFileString(statePath).pipe(Effect.option);
         if (Option.isSome(previousStateText)) {
           if (serviceStateHasPendingUpdate(previousStateText.value)) {
             return yield* new BootServiceUpdatePendingError();
@@ -878,38 +857,22 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
           }
         }
       }
-      if (previousUnit !== undefined) {
-        // The launcher can finish a remote update while stopping. Snapshot its
-        // final state, including the update's database association, only now.
-        const previousMarker = yield* readOptional(restartPendingPath);
-        previousFiles = [
-          [statePath, previousStateText],
-          [unitPath, Option.some(previousUnit)],
-          [restartPendingPath, previousMarker],
-        ];
-      }
       yield* fs
         .makeDirectory(path.dirname(unitPath), { recursive: true })
         .pipe(Effect.mapError((cause) => new BootServiceInstallError({ cause })));
       // Files can match the new version even when activation fails; keep that install retryable.
-      yield* writeDurably(restartPendingPath, `${input.cliVersion}\n`);
-      const previousState = Option.isSome(previousStateText)
-        ? parseServiceState(previousStateText.value)
-        : undefined;
+      yield* fs.writeFileString(restartPendingPath, `${input.cliVersion}\n`, { mode: 0o600 });
       yield* writeDurably(
         statePath,
-        // A launcher refresh must keep the committed update's rollback runtime.
-        previousState?.activeVersion === input.cliVersion && Option.isSome(previousStateText)
-          ? previousStateText.value
-          : // @effect-diagnostics-next-line preferSchemaOverJson:off - fixed launcher-owned document.
-            `${JSON.stringify(
-              {
-                protocol: SERVICE_LAUNCHER_PROTOCOL,
-                activeVersion: input.cliVersion,
-              } satisfies ServiceState,
-              null,
-              2,
-            )}\n`,
+        // @effect-diagnostics-next-line preferSchemaOverJson:off - fixed launcher-owned document.
+        `${JSON.stringify(
+          {
+            protocol: SERVICE_LAUNCHER_PROTOCOL,
+            activeVersion: input.cliVersion,
+          } satisfies ServiceState,
+          null,
+          2,
+        )}\n`,
       );
       if (!start && installed) {
         // The launcher only writes this file while a remote update is in
@@ -926,58 +889,16 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
       yield* writeDurably(unitPath, manager.render(plan));
 
       if (start) {
-        activationStarted = true;
         yield* runSteps(manager.activate);
-        // The new server may migrate its database as soon as it starts; a
-        // marker-cleanup failure must not switch back to the previous runtime.
-        activated = true;
         yield* fs.remove(restartPendingPath, { force: true });
       }
     }).pipe(
       Effect.mapError((cause) =>
         cause._tag === "PlatformError" ? new BootServiceInstallError({ cause }) : cause,
       ),
-      Effect.onExit((exit) => {
-        if (Exit.isSuccess(exit) || !stopAttempted || activated) return Effect.void;
-        return Effect.gen(function* () {
-          if (previousFiles !== undefined) {
-            // Activation may have started a child even if its command failed.
-            // Stop it before restoring the state it would otherwise overwrite.
-            if (activationStarted) yield* runSteps(manager.stop);
-            for (const [filePath, contents] of previousFiles) {
-              if (Option.isSome(contents)) yield* writeDurably(filePath, contents.value);
-              else yield* fs.remove(filePath, { force: true });
-            }
-            // systemd may already have loaded the replacement definition.
-            if (activationStarted && previousUnit !== manager.render(plan)) {
-              yield* runSteps(manager.finalize);
-            }
-          }
-          // A failed restore must leave the service stopped, never boot a mix
-          // of the previous launcher and the replacement's selected state.
-          yield* runSteps(manager.restart).pipe(
-            Effect.tapError(() => {
-              const previousHome =
-                previousUnit === undefined ? undefined : bootServiceBaseDirOf(previousUnit);
-              const previousProgram =
-                previousUnit === undefined ? undefined : bootServiceProgramOf(previousUnit);
-              const previousVersion =
-                previousProgram === undefined ? "" : path.basename(path.dirname(previousProgram));
-              return previousHome !== undefined &&
-                path.resolve(previousHome) === path.resolve(input.baseDir) &&
-                isExactServiceVersion(previousVersion)
-                ? writeDurably(restartPendingPath, `${previousVersion}\n`)
-                : Effect.void;
-            }),
-          );
-        }).pipe(
-          Effect.mapError((cause) =>
-            cause._tag === "PlatformError" ? new BootServiceInstallError({ cause }) : cause,
-          ),
-          Effect.tapError(logFailure),
-          Effect.ignore,
-        );
-      }),
+      Effect.tapError(() =>
+        installed && start ? runSteps(manager.restart).pipe(Effect.ignore) : Effect.void,
+      ),
     );
     return plan;
   });
