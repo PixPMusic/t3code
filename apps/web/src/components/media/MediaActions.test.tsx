@@ -19,6 +19,7 @@ function deferred<T>() {
 
 const state = vi.hoisted(() => ({
   sessions: new Map<string, Pick<AuthSessionState, "authenticated" | "scopes">>(),
+  connection: vi.fn(),
   mint: vi.fn(),
   download: vi.fn(),
   png: vi.fn(),
@@ -43,7 +44,7 @@ vi.mock("../../state/assets", () => ({ assetEnvironment: { createUrl: {} } }));
 vi.mock("../../state/use-atom-query-runner", () => ({ useAtomQueryRunner: () => state.mint }));
 vi.mock("../../state/session", () => ({
   environmentSession: { sessionStateAtom: (environmentId: string) => environmentId },
-  readPreparedConnection: () => ({ httpBaseUrl: "https://host.test" }),
+  readPreparedConnection: (environmentId: string) => state.connection(environmentId),
 }));
 vi.mock("../../state/query", () => ({
   useEnvironmentQuery: (environmentId: string) => ({
@@ -122,6 +123,7 @@ function openMenu(source: MediaActionSource) {
 beforeEach(() => {
   state.sessions.clear();
   state.sessions.set(environmentId, denied);
+  state.connection.mockReset().mockReturnValue({ httpBaseUrl: "https://host.test" });
   state.mint
     .mockReset()
     .mockResolvedValue(AsyncResult.success({ relativeUrl: "/api/assets/image.png", expiresAt: 1 }));
@@ -240,6 +242,40 @@ it("remints GitHub media before using its public display URL", async () => {
   expect(fetch).toHaveBeenCalledExactlyOnceWith("https://host.test/api/assets/image.png");
   const [item] = state.clipboard.mock.calls[0]![0];
   expect(await item.items["image/png"]).toEqual(png);
+});
+
+it("copies a readable public GitHub image while its environment is disconnected", async () => {
+  const { readMediaPng } = await vi.importActual<typeof import("./mediaContent")>("./mediaContent");
+  state.png.mockImplementation(readMediaPng);
+  state.connection.mockReturnValue(null);
+  const png = new Blob(["public GitHub image"], { type: "image/png" });
+  using fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(png));
+  const url = "https://raw.githubusercontent.com/example/repo/main/image.png";
+
+  await useMediaActions({
+    kind: "image",
+    name: "image.png",
+    src: url,
+    environmentId,
+    asset: { environmentId, resource: { _tag: "github-media", cwd: "/repo", url } },
+  }).copyImage();
+
+  expect(state.mint).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledExactlyOnceWith(url);
+  const [item] = state.clipboard.mock.calls[0]![0];
+  expect(await item.items["image/png"]).toEqual(png);
+});
+
+it("does not bypass host-file assets through their display URL when disconnected", async () => {
+  state.connection.mockReturnValue(null);
+  state.sessions.set(environmentId, granted);
+  const source = { ...hostSource(), src: "https://images.example.com/image.png" };
+
+  await expect(useMediaActions(source).copyImage()).rejects.toThrow("Reconnect");
+  await expect(useMediaActions(source).save()).rejects.toThrow("Reconnect");
+  expect(state.mint).not.toHaveBeenCalled();
+  expect(state.png).not.toHaveBeenCalled();
+  expect(state.download).not.toHaveBeenCalled();
 });
 
 it.each(["workspace-file", "media-file"] as const)(

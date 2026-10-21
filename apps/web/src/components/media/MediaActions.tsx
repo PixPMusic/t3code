@@ -87,7 +87,10 @@ export function useMediaActions(source: MediaActionSource) {
     }
     const { environmentId, resource } = asset;
     const connection = readPreparedConnection(environmentId);
-    if (!connection) throw new Error("Reconnect to this environment and try again.");
+    if (!connection) {
+      if (resource._tag === "github-media") return resource.url;
+      throw new Error("Reconnect to this environment and try again.");
+    }
     const result = await createAssetUrl({ environmentId, input: { resource } });
     if (result._tag === "Failure") {
       if (resource._tag === "github-media") return resource.url;
