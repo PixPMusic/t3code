@@ -78,7 +78,8 @@ export function useMediaActions(source: MediaActionSource) {
     reportFailure: false,
     refresh: true,
   });
-  const actionUrl = async (asset = source.asset) => {
+  const sourceAsset = source.asset;
+  const actionUrl = async (asset = sourceAsset) => {
     assertCanReadMedia();
     if (!asset) {
       if (!source.src) throw new Error("This media is unavailable. Try reopening the preview.");
