@@ -54,10 +54,13 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
   const { hinge: windowHinge, panesSettled } = use(WindowHingeContext);
   const anchorRef = useRef<ViewInstance>(null);
   const overlayRef = useRef<ViewInstance>(null);
+  const measuringAnchor = useRef(false);
+  const remeasurePending = useRef(false);
 
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const keyboardHeight = useKeyboardState((state) => state.height);
   const close = useCallback(() => {
+    remeasurePending.current = false;
     setAnchor(null);
     setPath([]);
     setOverlay(null);
@@ -66,7 +69,9 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
 
   const measureAnchor = useCallback(
     (keyboardWasVisible: boolean) => {
+      measuringAnchor.current = true;
       anchorRef.current?.measureInWindow((x, y, width, height) => {
+        measuringAnchor.current = false;
         setAnchor({ x, y, width, height, hinge: windowHinge, keyboardWasVisible });
       });
     },
@@ -76,9 +81,17 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
 
   const remeasureAnchor = useEffectEvent(() => {
     if (anchor !== null) measureAnchor(anchor.keyboardWasVisible);
+    // A menu opened just before the panes settled is still measuring against the old hinge.
+    else if (measuringAnchor.current) remeasurePending.current = true;
   });
   // Only a pane settle triggers this; the effect event reads the current anchor and hinge.
   useEffect(() => remeasureAnchor(), [panesSettled]);
+  const flushPendingRemeasure = useEffectEvent(() => {
+    if (anchor === null || !remeasurePending.current) return;
+    remeasurePending.current = false;
+    measureAnchor(anchor.keyboardWasVisible);
+  });
+  useEffect(() => flushPendingRemeasure(), [anchor]);
 
   const measureOverlay = useCallback(() => {
     overlayRef.current?.measureInWindow((x, y, width, height) => {
