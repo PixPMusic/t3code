@@ -848,10 +848,8 @@ function ThreadSettingsOptionsItem(props: {
         .get(session.environmentId)
         ?.providers.find((provider) => provider.instanceId === session.providerInstanceId) ?? null)
     : null;
-  const usesNativeMailSearchToolbar = useThreadSettingsMailSearchToolbar();
-  const bottomToolbarInset = usesNativeMailSearchToolbar
-    ? NATIVE_MAIL_SEARCH_TOOLBAR_CONTENT_INSET
-    : 0;
+  // Both iOS search layouts float a bottom toolbar over the list's last rows.
+  const bottomToolbarInset = Platform.OS === "ios" ? NATIVE_MAIL_SEARCH_TOOLBAR_CONTENT_INSET : 0;
 
   return (
     <View style={{ paddingBottom: insets.bottom + bottomToolbarInset + 12 }}>
@@ -1342,6 +1340,7 @@ function ThreadSettingsModelsScreen() {
           headerSearchBarOptions:
             Platform.OS === "ios" && !usesNativeMailSearchToolbar
               ? {
+                  allowToolbarIntegration: true,
                   autoCapitalize: "none",
                   hideNavigationBar: false,
                   obscureBackground: false,
@@ -1385,7 +1384,6 @@ function ThreadSettingsModelsScreen() {
                 ? "line.3.horizontal.decrease.circle.fill"
                 : "line.3.horizontal.decrease.circle"
             }
-            separateBackground
             title="Model filters"
           >
             <Toolbar.Menu title="Provider">
@@ -1421,6 +1419,7 @@ function ThreadSettingsModelsScreen() {
               </Toolbar.MenuAction>
             ) : null}
           </Toolbar.Menu>
+          <Toolbar.SearchBarSlot />
         </Toolbar>
       ) : null}
     </>
@@ -1451,6 +1450,9 @@ function ThreadSettingsChoiceScreen() {
   );
 }
 
+// Filter and search share the sheet's toolbar, below cancel and confirm in the Duo rail.
+const BOTTOM_TOOLBAR_OPTIONS = { nativeKeepsBottomToolbar: true };
+
 function ThreadSettingsPickerNavigator(props: ThreadSettingsPickerPresentation) {
   const theme = useUniwindTheme();
   const solidSheetBackground = theme["--color-sheet-solid"];
@@ -1465,6 +1467,7 @@ function ThreadSettingsPickerNavigator(props: ThreadSettingsPickerPresentation) 
         initialRouteName="ThreadSettingsModels"
         screenOptions={{
           animation: Platform.OS === "android" ? "default" : "slide_from_right",
+          ...BOTTOM_TOOLBAR_OPTIONS,
           contentStyle: { backgroundColor: solidSheetBackground },
           gestureEnabled: true,
           headerBackButtonDisplayMode: "minimal",

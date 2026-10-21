@@ -31,6 +31,7 @@ type Options = NativeStackNavigationOptions & {
   readonly headerSubtitleStyle?: { color?: string; fontSize?: number; fontFamily?: string };
   readonly unstable_headerCenterItems?: () => NativeStackHeaderItem[];
   readonly unstable_headerToolbarItems?: () => ToolbarItem[];
+  readonly nativeKeepsBottomToolbar?: boolean;
 };
 
 type MenuElementInput =
@@ -213,9 +214,11 @@ export function V5StackHeader(props: {
   }
   // Duo keeps compose at the bottom of a visible sidebar. On a single panel,
   // the primary column owns the rail too; its separate UIToolbar is inaccessible.
+  // A sheet's own UIToolbar shows at the foot of its rail, so it can keep its bottom items.
   if (
     nativeMetrics &&
     nativeMetrics.verticalBarEdge !== "none" &&
+    !options.nativeKeepsBottomToolbar &&
     (!props.primary || nativeMetrics.horizontalSizeClass === "compact")
   ) {
     trailing.push(...bottom);

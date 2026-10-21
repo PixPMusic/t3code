@@ -20,6 +20,7 @@ export type AppNativeStackNavigationOptions = Omit<
   "headerTintColor" | "unstable_headerLeftItems" | "unstable_headerRightItems"
 > & {
   readonly nativeContentInsetHorizontally?: boolean;
+  readonly nativeKeepsBottomToolbar?: boolean;
   readonly nativeSidebarFilter?: NativeStackHeaderItemMenu;
   readonly headerTintColor?: string | ColorValue;
   readonly unstable_headerCenterItems?: unknown;
