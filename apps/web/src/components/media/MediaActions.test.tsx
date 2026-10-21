@@ -142,6 +142,44 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+it("copies a CORS-blocked image through its source environment while keeping the clipboard gesture", async () => {
+  const { readMediaPng } = await vi.importActual<typeof import("./mediaContent")>("./mediaContent");
+  state.png.mockImplementation(readMediaPng);
+  const fetching = deferred<void>();
+  const response = deferred<Response>();
+  const png = new Blob(["image bytes"], { type: "image/png" });
+  using fetch = vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementationOnce(() => {
+      fetching.resolve();
+      return response.promise;
+    })
+    .mockResolvedValueOnce(new Response(png));
+
+  const copying = useMediaActions({
+    kind: "image",
+    name: "remote.png",
+    src: "https://images.example.com/remote.png",
+    environmentId,
+  }).copyImage();
+
+  expect(state.clipboard).toHaveBeenCalledOnce();
+  await fetching.promise;
+  response.resolve(Promise.reject(new TypeError("Failed to fetch")));
+  await copying;
+
+  expect(state.mint).toHaveBeenCalledWith({
+    environmentId,
+    input: { resource: { _tag: "remote-image", url: "https://images.example.com/remote.png" } },
+  });
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+    "https://images.example.com/remote.png",
+    "https://host.test/api/assets/image.png",
+  ]);
+  const [item] = state.clipboard.mock.calls[0]![0];
+  expect(await item.items["image/png"]).toEqual(png);
+});
+
 it.each(["workspace-file", "media-file"] as const)(
   "disables denied %s byte actions and prevents imperative requests",
   async (_tag) => {
