@@ -89,7 +89,10 @@ export function useMediaActions(source: MediaActionSource) {
     const connection = readPreparedConnection(environmentId);
     if (!connection) throw new Error("Reconnect to this environment and try again.");
     const result = await createAssetUrl({ environmentId, input: { resource } });
-    if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+    if (result._tag === "Failure") {
+      if (resource._tag === "github-media") return resource.url;
+      throw squashAtomCommandFailure(result);
+    }
     assertCanReadMedia();
     const url = resolveAssetUrl(connection.httpBaseUrl, result.value.relativeUrl);
     if (!url) throw new Error("The environment returned an invalid media URL.");
@@ -100,7 +103,7 @@ export function useMediaActions(source: MediaActionSource) {
   };
   const copyImage = async () => {
     assertCanReadMedia();
-    const environmentId = source.environmentId;
+    const environmentId = source.environmentId ?? sourceAsset?.environmentId;
     if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
       throw new Error(
         "Image copying is unavailable. Use a secure browser connection or save the image.",
@@ -112,7 +115,10 @@ export function useMediaActions(source: MediaActionSource) {
         "image/png": actionUrl().then((src) =>
           readMediaPng(
             src,
-            !source.asset && environmentId && /^https?:\/\//i.test(src)
+            (!sourceAsset ||
+              (sourceAsset.resource._tag === "github-media" && src === sourceAsset.resource.url)) &&
+              environmentId &&
+              /^https?:\/\//i.test(src)
               ? () =>
                   actionUrl({
                     environmentId,
