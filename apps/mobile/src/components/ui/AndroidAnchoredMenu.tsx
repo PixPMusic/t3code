@@ -56,10 +56,14 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
   const overlayRef = useRef<ViewInstance>(null);
   const measuringAnchor = useRef(false);
   const remeasurePending = useRef(false);
+  // Closing invalidates measurements still in flight, so a late one can't reopen the menu.
+  const presentation = useRef(0);
 
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const keyboardHeight = useKeyboardState((state) => state.height);
   const close = useCallback(() => {
+    presentation.current += 1;
+    measuringAnchor.current = false;
     remeasurePending.current = false;
     setAnchor(null);
     setPath([]);
@@ -70,7 +74,9 @@ export function AndroidAnchoredMenu(props: AndroidAnchoredMenuProps) {
   const measureAnchor = useCallback(
     (keyboardWasVisible: boolean) => {
       measuringAnchor.current = true;
+      const measuredFor = presentation.current;
       anchorRef.current?.measureInWindow((x, y, width, height) => {
+        if (measuredFor !== presentation.current) return;
         measuringAnchor.current = false;
         setAnchor({ x, y, width, height, hinge: windowHinge, keyboardWasVisible });
       });
