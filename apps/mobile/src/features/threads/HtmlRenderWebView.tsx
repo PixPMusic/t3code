@@ -60,7 +60,7 @@ export function HtmlRenderWebView(props: {
   readonly title: string;
   readonly nested: boolean;
   readonly onLoadError?: () => void;
-  readonly onContentHeight?: (height: number) => void;
+  readonly onContentHeight?: (height: number | undefined) => void;
 }) {
   const theme = useHtmlRenderTheme();
   const [initialTheme] = useState(theme);
@@ -86,6 +86,7 @@ export function HtmlRenderWebView(props: {
       return;
     }
     shownTheme.current = null;
+    props.onContentHeight?.(undefined);
     setLoaded(false);
     setOverflow(NO_OVERFLOW);
     setGeneration((value) => value + 1);
