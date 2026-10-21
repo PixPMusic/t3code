@@ -231,13 +231,7 @@ export const unlinkPrimaryEnvironmentFromCloud: (input: {
   readonly expectedCloudUserId?: string;
 }) {
   const client = yield* makeEnvironmentHttpApiClient(input.target.httpBaseUrl);
-  if (input.expectedCloudUserId !== undefined) {
-    const state = yield* client.connect
-      .linkState({ headers: {} })
-      .pipe(Effect.mapError(environmentApiError("Could not read environment cloud link state.")));
-    if (state.cloudUserId !== input.expectedCloudUserId) return;
-  }
-  yield* client.connect
+  const unlinked = yield* client.connect
     .unlink({
       headers: {},
       query:
@@ -245,7 +239,15 @@ export const unlinkPrimaryEnvironmentFromCloud: (input: {
           ? {}
           : { expectedCloudUserId: input.expectedCloudUserId },
     })
-    .pipe(Effect.mapError(environmentApiError("Could not unlink the environment from cloud.")));
+    .pipe(
+      Effect.catchTags({
+        // Guarded unlink conflicts mean this host is outside the departing account's scope.
+        EnvironmentHttpConflictError: (error) =>
+          input.expectedCloudUserId === undefined ? Effect.fail(error) : Effect.succeed(null),
+      }),
+      Effect.mapError(environmentApiError("Could not unlink the environment from cloud.")),
+    );
+  if (unlinked === null) return;
 
   const configuredRelayUrl = relayUrl();
   if (configuredRelayUrl && input.clerkToken) {

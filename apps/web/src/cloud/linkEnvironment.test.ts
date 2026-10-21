@@ -148,24 +148,54 @@ afterEach(() => {
 });
 
 describe("web cloud link environment client", () => {
-  it.effect("unlinks the departing account locally before deregistering it from the relay", () =>
+  it.effect(
+    "unlinks without relay-read access before deregistering the account from the relay",
+    () =>
+      Effect.gen(function* () {
+        const fetchMock = vi
+          .fn()
+          .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+            const request = new Request(input, init);
+            return Promise.resolve(
+              request.method === "GET"
+                ? Response.json(
+                    { _tag: "EnvironmentHttpForbiddenError", message: "Missing relay:read" },
+                    { status: 403 },
+                  )
+                : Response.json({ ok: true, endpointRuntimeStatus: { status: "disabled" } }),
+            );
+          });
+        vi.stubGlobal("fetch", fetchMock);
+        vi.stubGlobal("window", { location: { origin: "http://127.0.0.1:3000" } });
+
+        yield* withServices(
+          unlinkPrimaryEnvironmentFromCloud({
+            target: TARGET,
+            clerkToken: "clerk-token",
+            expectedCloudUserId: "user-1",
+          }),
+        );
+
+        const requests = fetchMock.mock.calls.map(([input, init]) => new Request(input, init));
+        expect(requests.map((request) => [request.method, new URL(request.url).pathname])).toEqual([
+          ["POST", "/api/connect/unlink"],
+          ["DELETE", "/v1/client/environment-links/environment-1"],
+        ]);
+        expect(new URL(requests[0]!.url).searchParams.get("expectedCloudUserId")).toBe("user-1");
+        expect(requests[1]!.headers.get("authorization")).toBe("Bearer clerk-token");
+      }),
+  );
+
+  it.effect("skips relay deregistration when guarded unlink reports an account mismatch", () =>
     Effect.gen(function* () {
-      const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
-        const request = input instanceof Request ? input : new Request(input);
-        return Promise.resolve(
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(
           Response.json(
-            request.url.endsWith("/api/connect/link-state")
-              ? {
-                  linked: true,
-                  cloudUserId: "user-1",
-                  relayUrl: "https://relay.example.test",
-                  relayIssuer: "https://relay.example.test",
-                  publishAgentActivity: false,
-                }
-              : { ok: true, endpointRuntimeStatus: { status: "disabled" } },
+            { _tag: "EnvironmentHttpConflictError", message: "Account mismatch" },
+            { status: 409 },
           ),
         );
-      });
       vi.stubGlobal("fetch", fetchMock);
       vi.stubGlobal("window", { location: { origin: "http://127.0.0.1:3000" } });
 
@@ -177,39 +207,31 @@ describe("web cloud link environment client", () => {
         }),
       );
 
-      const requests = fetchMock.mock.calls.map(([input, init]) => new Request(input, init));
-      expect(requests.map((request) => [request.method, new URL(request.url).pathname])).toEqual([
-        ["GET", "/api/connect/link-state"],
-        ["POST", "/api/connect/unlink"],
-        ["DELETE", "/v1/client/environment-links/environment-1"],
-      ]);
-      expect(new URL(requests[1]!.url).searchParams.get("expectedCloudUserId")).toBe("user-1");
-      expect(requests[2]!.headers.get("authorization")).toBe("Bearer clerk-token");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const request = new Request(fetchMock.mock.calls[0]![0], fetchMock.mock.calls[0]![1]);
+      expect(request.method).toBe("POST");
+      expect(new URL(request.url).searchParams.get("expectedCloudUserId")).toBe("user-1");
     }),
   );
 
-  it.effect("leaves a host linked to another account untouched", () =>
+  it.effect("preserves conflict failures for unguarded unlink", () =>
     Effect.gen(function* () {
-      const fetchMock = vi.fn().mockResolvedValue(
-        Response.json({
-          linked: true,
-          cloudUserId: "other-user",
-          relayUrl: "https://relay.example.test",
-          relayIssuer: "https://relay.example.test",
-          publishAgentActivity: false,
-        }),
-      );
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(
+          Response.json(
+            { _tag: "EnvironmentHttpConflictError", message: "Unlink conflict" },
+            { status: 409 },
+          ),
+        );
       vi.stubGlobal("fetch", fetchMock);
       vi.stubGlobal("window", { location: { origin: "http://127.0.0.1:3000" } });
 
-      yield* withServices(
-        unlinkPrimaryEnvironmentFromCloud({
-          target: TARGET,
-          clerkToken: "clerk-token",
-          expectedCloudUserId: "user-1",
-        }),
-      );
+      const error = yield* withServices(
+        unlinkPrimaryEnvironmentFromCloud({ target: TARGET, clerkToken: "clerk-token" }),
+      ).pipe(Effect.flip);
 
+      expect(error.message).toContain("Unlink conflict");
       expect(fetchMock).toHaveBeenCalledTimes(1);
     }),
   );
