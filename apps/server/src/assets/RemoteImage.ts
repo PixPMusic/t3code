@@ -7,8 +7,10 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { HttpClient, HttpClientRequest } from "effect/http";
+import { GENERIC_MIME_TYPES } from "@t3tools/shared/image";
 
 import { publicAddresses } from "../htmlRender/publicProxy.ts";
+import { fileHeaderMimeType } from "../workspace/fileHeaderMimeType.ts";
 
 const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
@@ -77,9 +79,10 @@ const make = Effect.gen(function* () {
           continue;
         }
         if (response.status !== 200) return yield* new RemoteImageError({ reason: "status" });
-        const mimeType =
+        const declaredMimeType =
           response.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-        if (!/^image\/[\w!#$&^.+-]+$/.test(mimeType)) {
+        const genericMimeType = declaredMimeType === "" || GENERIC_MIME_TYPES.has(declaredMimeType);
+        if (!genericMimeType && !/^image\/[\w!#$&^.+-]+$/.test(declaredMimeType)) {
           return yield* new RemoteImageError({ reason: "not-image" });
         }
         if (Number(response.headers["content-length"]) > MAX_IMAGE_BYTES) {
@@ -101,6 +104,13 @@ const make = Effect.gen(function* () {
         for (const chunk of chunks) {
           bytes.set(chunk, offset);
           offset += chunk.byteLength;
+        }
+        // GitHub release downloads use octet-stream even for embedded screenshots.
+        const mimeType = genericMimeType
+          ? fileHeaderMimeType(bytes.subarray(0, 32))
+          : declaredMimeType;
+        if (!mimeType?.startsWith("image/")) {
+          return yield* new RemoteImageError({ reason: "not-image" });
         }
         return { bytes, mimeType };
       }

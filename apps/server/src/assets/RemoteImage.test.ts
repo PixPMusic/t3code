@@ -64,6 +64,45 @@ it.effect("rejects private and credential-bearing redirect targets before reques
   });
 });
 
+it.effect("recognizes PNG bytes served as a generic GitHub release download", () => {
+  const png = new Uint8Array(
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2ioAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  );
+  const test = fixture((url) =>
+    url === "https://github.com/example/repo/releases/download/proof/shot.png"
+      ? new Response(null, {
+          status: 302,
+          headers: { location: "https://release-assets.githubusercontent.com/shot" },
+        })
+      : new Response(png, { headers: { "content-type": "application/octet-stream" } }),
+  );
+  return Effect.gen(function* () {
+    const images = yield* RemoteImage.RemoteImage;
+    const result = yield* images.read(
+      "https://github.com/example/repo/releases/download/proof/shot.png",
+    );
+    expect(result.mimeType).toBe("image/png");
+    expect(result.bytes).toEqual(png);
+  }).pipe(Effect.provide(test.layer));
+});
+
+it.effect("rejects generic downloads whose bytes are not an image despite their filename", () =>
+  Effect.forEach(["<html>not an image</html>", "%PDF-1.7"], (body) => {
+    const test = fixture(
+      () => new Response(body, { headers: { "content-type": "application/octet-stream" } }),
+    );
+    return Effect.gen(function* () {
+      const images = yield* RemoteImage.RemoteImage;
+      expect(
+        yield* images.read("https://images.example.com/fake.png").pipe(Effect.flip),
+      ).toMatchObject({ reason: "not-image" });
+    }).pipe(Effect.provide(test.layer));
+  }),
+);
+
 it.live("refuses hostnames resolving to private addresses in the real HTTP client", () =>
   Effect.gen(function* () {
     const images = yield* RemoteImage.RemoteImage;
