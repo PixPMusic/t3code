@@ -1,6 +1,7 @@
 import { assert, it } from "@effect/vitest";
 import {
   CommandId,
+  EnvironmentId,
   EventId,
   MessageId,
   type ModelSelection,
@@ -32,6 +33,16 @@ import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
 import { checkpointWorkspace } from "@t3tools/provider-testing/replayWorkspace";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import { McpSchema, McpServer } from "effect/ai";
+import * as McpHttpServer from "../mcp/McpHttpServer.ts";
+import * as McpInvocationContext from "../mcp/McpInvocationContext.ts";
+import * as CommandReceiptStore from "./CommandReceiptStore.ts";
+import * as ThreadManagementService from "./ThreadManagementService.ts";
+import * as ThreadSearch from "./ThreadSearch.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
+import * as ServerSettings from "../serverSettings.ts";
 
 const driver = ProviderDriverKind.make("codex");
 const providerInstanceId = ProviderInstanceId.make("codex-restart-test");
@@ -278,6 +289,177 @@ function makeRestartAdapter(
       }),
   };
 }
+
+// An agent that switches its own thread's model through MCP is the running
+// turn the switch interrupts, so the configure call must leave behind a
+// continuation of the unfinished request (#15300).
+it.live("t3_thread_configure from the running turn continues the user request", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const name = "configure-continuation";
+      const cwd = yield* checkpointWorkspace(name);
+      const threadId = ThreadId.make(`thread:${name}`);
+      const otherInstanceId = ProviderInstanceId.make("codex-configure-target");
+      const targetSelection = {
+        instanceId: otherInstanceId,
+        model: replacementSelection.model,
+        options: [{ id: "reasoningEffort", value: "low" }],
+      } satisfies ModelSelection;
+      const state = yield* Ref.make<RestartAdapterState>({
+        activeTurn: null,
+        opened: [],
+        started: [],
+        closedSessionCount: 0,
+        failedReplacementOpen: true,
+      });
+      const adapters = [providerInstanceId, otherInstanceId].map((instanceId) =>
+        makeRestartAdapter(state, pooledCapabilities, instanceId),
+      );
+      const registry = Layer.succeed(ProviderAdapterRegistry.ProviderAdapterRegistryV2, {
+        get: (instanceId) =>
+          Effect.succeed(adapters.find((adapter) => adapter.instanceId === instanceId)!),
+        list: () => Effect.succeed([providerInstanceId, otherInstanceId]),
+        getMetadata: () =>
+          Effect.succeed({
+            driver,
+            continuationKey: "codex:home:/shared",
+            enabled: true,
+            capabilities: pooledCapabilities,
+          }),
+      });
+      const layerDatabase = SqlitePersistence.layerMemory;
+      const layerOrchestration = ThreadManagementService.layer.pipe(
+        Layer.provideMerge(
+          Layer.mergeAll(
+            ServerSettings.layerTest({
+              providerInstances: {
+                [providerInstanceId]: { driver, enabled: true },
+                [otherInstanceId]: { driver, enabled: true },
+              },
+            }),
+            CommandReceiptStore.layer.pipe(Layer.provide(layerDatabase)),
+            ProviderReplayHarness.layerWithRegistry({ name }, registry, {
+              databaseLayer: layerDatabase,
+            }),
+          ),
+        ),
+      );
+
+      yield* Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        const server = yield* McpServer.McpServer;
+        yield* orchestrator.dispatch({
+          type: "thread.create",
+          commandId: CommandId.make(`${name}:create`),
+          threadId,
+          projectId: ProjectId.make(`project:${name}`),
+          title: name,
+          modelSelection: initialSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: cwd,
+          createdBy: "user",
+          creationSource: "web",
+        });
+        const firstSequence = yield* orchestrator.getThreadEventSequence(threadId);
+        yield* orchestrator.dispatch({
+          type: "message.dispatch",
+          commandId: CommandId.make(`${name}:first`),
+          threadId,
+          messageId: MessageId.make(`${name}:first`),
+          text: "Switch to the requested model, then write a four-line poem.",
+          attachments: [],
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "user",
+          creationSource: "web",
+        });
+        yield* worker.drain();
+        yield* orchestrator.streamStoredEventsFrom({ threadId, afterSequence: firstSequence }).pipe(
+          Stream.filter(
+            ({ event }) =>
+              event.type === "provider-turn.updated" && event.payload.status === "running",
+          ),
+          Stream.take(1),
+          Stream.runDrain,
+        );
+        const before = yield* orchestrator.getThreadProjection(threadId);
+        const sequence = yield* orchestrator.getThreadEventSequence(threadId);
+
+        const result = yield* server
+          .callTool({
+            name: "t3_thread_configure",
+            arguments: { modelSelection: targetSelection },
+          })
+          .pipe(
+            Effect.provideService(McpInvocationContext.McpInvocationContext, {
+              environmentId: EnvironmentId.make(`environment:${name}`),
+              requestNamespace: `provider-session:${name}`,
+              thread: {
+                threadId,
+                providerSessionId: `provider-session:${name}`,
+                providerInstanceId,
+              },
+              client: undefined,
+              issuedAt: 0,
+              capabilities: new Set(["orchestration"] as const),
+            }),
+            Effect.provideService(
+              McpSchema.McpServerClient,
+              McpSchema.McpServerClient.of({
+                clientId: 1,
+                protocolVersion: "2025-06-18",
+                clientCapabilities: {},
+                clientInfo: { name, version: "1" },
+                initializePayload: {
+                  protocolVersion: "2025-06-18",
+                  capabilities: {},
+                  clientInfo: { name, version: "1" },
+                },
+                getClient: Effect.die("unused"),
+              }),
+            ),
+          );
+        assert.notEqual(result.isError, true, JSON.stringify(result.content));
+        yield* worker.drain();
+        yield* orchestrator.streamStoredEventsFrom({ threadId, afterSequence: sequence }).pipe(
+          Stream.filter(
+            ({ event }) =>
+              event.type === "run.updated" &&
+              event.payload.id === before.runs[0]?.id &&
+              ["completed", "interrupted", "failed", "cancelled"].includes(event.payload.status),
+          ),
+          Stream.take(1),
+          Stream.runDrain,
+        );
+        yield* worker.drain();
+
+        const after = yield* orchestrator.getThreadProjection(threadId);
+        assert.deepEqual(after.thread.modelSelection, targetSelection);
+        assert.deepEqual(
+          after.runs.map((run) => [run.id, run.status]),
+          [[before.runs[0]!.id, "completed"]],
+        );
+        assert.deepEqual(
+          (yield* Ref.get(state)).started.map((turn) => turn.model),
+          [initialSelection.model, targetSelection.model],
+        );
+        assert.deepEqual(after.runs[0]?.modelSelection, targetSelection);
+      }).pipe(
+        Effect.provide(
+          McpHttpServer.layerThreadToolkit.pipe(
+            Layer.provideMerge(McpServer.McpServer.layer),
+            Layer.provide(NodeCrypto.layer),
+            Layer.provide(Layer.mock(ThreadSearch.ThreadSearch)({})),
+            Layer.provide(Layer.mock(ScheduledTaskService.ScheduledTaskService)({})),
+            Layer.provideMerge(layerOrchestration),
+          ),
+        ),
+      );
+    }),
+  ),
+);
 
 it.live("retries a failed selection restart session open before completing", () =>
   Effect.scoped(
