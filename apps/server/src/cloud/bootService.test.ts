@@ -865,9 +865,12 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
         expect(
           yield* fs.readFileString(markerPath).pipe(Effect.orElseSucceed(() => undefined)),
         ).toBe(hasMarker ? "1.2.3\n" : undefined);
-        expect(yield* fs.readFileString(plan.logPath)).toContain(
-          "Could not set up the T3 Code background service.",
+        const log = yield* fs.readFileString(plan.logPath);
+        expect(log).toContain("Could not set up the T3 Code background service.");
+        expect(log).toContain(
+          "Restoring the previous background service failed. The service was left stopped.",
         );
+        expect(log).not.toContain("missing-restore-source");
       }),
   );
 

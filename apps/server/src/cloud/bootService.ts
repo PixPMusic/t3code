@@ -959,7 +959,13 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
                 }),
               );
             }
-            if (restoreError !== undefined) return yield* restoreError;
+            if (restoreError !== undefined) {
+              yield* logFailure({
+                message:
+                  "Restoring the previous background service failed. The service was left stopped.",
+              });
+              return yield* restoreError;
+            }
             // systemd may already have loaded the replacement definition.
             if (activationStarted && previousUnit !== manager.render(plan)) {
               yield* runSteps(manager.finalize);
