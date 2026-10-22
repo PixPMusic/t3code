@@ -13,7 +13,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import Animated, { FadeIn, LinearTransition, useReducedMotion } from "react-native-reanimated";
+import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 
 import { cn } from "../lib/cn";
 import { AppText as Text } from "./ui/AppText";
@@ -47,8 +47,6 @@ export function ComposerInlineControl(props: {
   readonly showChevron?: boolean;
 }) {
   const { scale, smallIconSize } = useAndroidControlSizing();
-  // Android can leave the entering label transparent when system animations are disabled.
-  const reducedMotion = useReducedMotion();
   // The label fades in as the control widens, and leaves at once: an exiting view keeps
   // drawing at its old place while the chevron moves into it. The clip keeps content laid out
   // at the final width inside the frame while it eases there.
@@ -95,7 +93,7 @@ export function ComposerInlineControl(props: {
         {props.iconOnly ? null : (
           <Animated.View
             className="shrink"
-            entering={animatesLabel && !reducedMotion ? INLINE_CONTROL_LABEL_ENTERING : undefined}
+            entering={animatesLabel ? INLINE_CONTROL_LABEL_ENTERING : undefined}
           >
             <Text
               className={cn(
