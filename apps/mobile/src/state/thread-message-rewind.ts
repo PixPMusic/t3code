@@ -91,6 +91,7 @@ export async function rewindUserMessage(
     new Set(appAtomRegistry.get(rewindingThreadKeysAtom)).add(key),
   );
   let prepared: Awaited<ReturnType<typeof prepareRewindComposerContent>> | undefined;
+  let recoverySaved = false;
   try {
     const restoreFiles = await confirm();
     if (restoreFiles === null) return false;
@@ -111,6 +112,17 @@ export async function rewindUserMessage(
     )
       throw new Error("The thread has changed. Select a message to rewind again.");
     assertRewindContentFits(getComposerDraftSnapshot(key), prepared);
+    // A lost acknowledgement cannot tell us whether history was removed. Persist the
+    // recovery copy first, so a timeout or process exit still leaves the user their prompt.
+    await mergeComposerDraftContent(key, prepared, { allowAttachmentOverflow: true });
+    recoverySaved = true;
+    const dispatchTarget = readRewindTarget(threadRef, messageId);
+    if (
+      !dispatchTarget ||
+      dispatchTarget.checkpoint.id !== target.checkpoint.id ||
+      JSON.stringify(dispatchTarget.message) !== JSON.stringify(target.message)
+    )
+      throw new Error("The thread has changed. Select a message to rewind again.");
     const requestId = CommandId.make(uuidv4());
     const atom = environmentThreadDetails.stateAtom(threadRef);
     clearThreadComposerError(key);
@@ -139,13 +151,14 @@ export async function rewindUserMessage(
         if (result._tag !== "Success") throw squashAtomCommandFailure(result);
       },
     });
-    // A share arriving while rollback settles must not silently lose attachments at the cap.
-    await mergeComposerDraftContent(key, prepared, { allowAttachmentOverflow: true });
     return true;
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not rewind this message.";
     setThreadComposerError(
       key,
-      error instanceof Error ? error.message : "Could not rewind this message.",
+      recoverySaved
+        ? `${message} Your prompt and attachments are saved in the composer. Check the conversation before trying again.`
+        : message,
     );
     return false;
   } finally {

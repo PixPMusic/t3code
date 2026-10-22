@@ -158,6 +158,8 @@ inside it, or a folder that contains it, since
 restoring would erase their changes. A thread that works in the project directory
 rewinds the conversation only. The selected prompt and its attachments return to the composer for editing and
 resending. Any unsent draft stays above the restored prompt.
+If mobile cannot confirm that the rewind finished, it keeps the recovered prompt
+and attachments in the composer. Check the conversation before trying again.
 
 This removes the selected message and later conversation from the active thread
 and provider history. It does not undo external actions or separate provider

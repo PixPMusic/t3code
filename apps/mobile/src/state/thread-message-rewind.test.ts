@@ -132,14 +132,31 @@ function setup() {
   });
   mocks.command.mockResolvedValue({ _tag: "Success" });
   mocks.wait.mockImplementation(async ({ revert }: { revert: () => Promise<void> }) => revert());
-  mocks.merge.mockImplementation(async () => {
-    draft = { ...draft, text: `${draft.text}\n\n${message.text}` };
+  mocks.merge.mockImplementation(async (_key: string, content: typeof draft) => {
+    draft = {
+      ...draft,
+      text: `${draft.text}\n\n${content.text}`,
+      attachments: [...draft.attachments, ...content.attachments],
+    };
   });
   mocks.release.mockResolvedValue(undefined);
 }
 
 describe("mobile message rewind", () => {
-  it("keeps the draft untouched until persisted completion and passes checkpoint identity and file mode", async () => {
+  it("retains a persisted recovery copy when rollback completion is uncertain", async () => {
+    setup();
+    mocks.wait.mockImplementationOnce(async ({ revert }: { revert: () => Promise<void> }) => {
+      await revert();
+      throw new Error("Timed out waiting for the thread to rewind.");
+    });
+    expect(await rewindUserMessage(threadRef, messageId, mocks.confirm)).toBe(false);
+    expect(draft.text).toBe("Unsent draft\n\nRestore me");
+    expect(draft.attachments).toEqual([{ id: "owned", fileUri: "file:///owned" }]);
+    expect(mocks.merge.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.command.mock.invocationCallOrder[0]!,
+    );
+  });
+  it("saves the draft before rollback and waits for persisted completion with the selected checkpoint and file mode", async () => {
     setup();
     const receipt = Promise.withResolvers<void>();
     const completion = Promise.withResolvers<void>();
@@ -150,8 +167,8 @@ describe("mobile message rewind", () => {
     });
     const waiting = rewindUserMessage(threadRef, messageId, mocks.confirm);
     await receipt.promise;
-    expect(draft.text).toBe("Unsent draft");
-    expect(mocks.merge).not.toHaveBeenCalled();
+    expect(draft.text).toBe("Unsent draft\n\nRestore me");
+    expect(mocks.merge).toHaveBeenCalledOnce();
     expect(appAtomRegistry.get(rewindingThreadKeysAtom).has("env:thread")).toBe(true);
     expect(mocks.command.mock.calls[0]?.[2]).toMatchObject({
       environmentId: "env",
@@ -169,14 +186,49 @@ describe("mobile message rewind", () => {
     expect(appAtomRegistry.get(rewindingThreadKeysAtom).size).toBe(0);
   });
 
-  it("preserves the draft and releases prepared files on persisted failure", async () => {
+  it("retains the recovery draft on persisted failure", async () => {
     setup();
     mocks.wait.mockRejectedValueOnce(new Error("Provider rollback failed"));
     expect(await rewindUserMessage(threadRef, messageId, mocks.confirm)).toBe(false);
-    expect(draft.text).toBe("Unsent draft");
-    expect(mocks.merge).not.toHaveBeenCalled();
+    expect(draft.text).toBe("Unsent draft\n\nRestore me");
+    expect(draft.attachments).toEqual([{ id: "owned", fileUri: "file:///owned" }]);
     expect(mocks.release).toHaveBeenCalledWith([{ id: "owned", fileUri: "file:///owned" }]);
-    expect(mocks.error).toHaveBeenCalledWith("env:thread", "Provider rollback failed");
+    expect(mocks.error).toHaveBeenCalledWith(
+      "env:thread",
+      expect.stringContaining("Your prompt and attachments are saved in the composer"),
+    );
+  });
+
+  it("does not dispatch a rollback until the recovery draft is durable", async () => {
+    setup();
+    const saving = Promise.withResolvers<void>();
+    const persisted = Promise.withResolvers<void>();
+    mocks.merge.mockImplementationOnce(async () => {
+      saving.resolve();
+      await persisted.promise;
+    });
+    const waiting = rewindUserMessage(threadRef, messageId, mocks.confirm);
+    await saving.promise;
+    expect(mocks.command).not.toHaveBeenCalled();
+    persisted.resolve();
+    expect(await waiting).toBe(true);
+  });
+
+  it("does not dispatch when saving the recovery draft fails", async () => {
+    setup();
+    mocks.merge.mockRejectedValueOnce(new Error("Disk full"));
+    expect(await rewindUserMessage(threadRef, messageId, mocks.confirm)).toBe(false);
+    expect(mocks.command).not.toHaveBeenCalled();
+    expect(mocks.error).toHaveBeenCalledWith("env:thread", "Disk full");
+  });
+
+  it("rechecks permission after saving the recovery draft", async () => {
+    setup();
+    mocks.merge.mockImplementationOnce(async () => {
+      mocks.permission.mockReturnValue(false);
+    });
+    expect(await rewindUserMessage(threadRef, messageId, mocks.confirm)).toBe(false);
+    expect(mocks.command).not.toHaveBeenCalled();
   });
 
   it("does not dispatch on failed imports or cap overflow", async () => {
