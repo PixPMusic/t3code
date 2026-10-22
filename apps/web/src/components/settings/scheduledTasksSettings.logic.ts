@@ -1,6 +1,7 @@
 import { isWebhookDedupeTemplate } from "@t3tools/contracts";
 import {
   EnvironmentId,
+  DEFAULT_UNIFIED_SETTINGS,
   MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
   type ProjectId,
   ScheduledTaskId,
@@ -30,7 +31,10 @@ import {
   deriveProviderInstanceEntries,
   type ProviderInstanceEntry,
 } from "../../providerInstances";
-import { getCustomModelOptionsByInstance } from "../../modelSelection";
+import {
+  getAppModelOptionsForInstance,
+  getCustomModelOptionsByInstance,
+} from "../../modelSelection";
 import { getProviderModelCapabilities } from "../../providerModels";
 
 import type { ResolvedSettingsScope } from "./settingsScope";
@@ -273,24 +277,29 @@ export function scheduledTaskDefaultModel(
       entry.isAvailable &&
       entry.snapshot.auth.status !== "unauthenticated",
   );
+  const catalogSettings = {
+    ...DEFAULT_UNIFIED_SETTINGS,
+    ...settings,
+    favorites: settings.favorites ?? [],
+    providerModelPreferences: {},
+  };
+  const models = available.flatMap((entry) =>
+    getAppModelOptionsForInstance(catalogSettings, entry)
+      .filter((model) => !model.isLegacy && !model.isUnavailable)
+      .map((model) => ({ instanceId: entry.instanceId, model })),
+  );
   const configured = resolveProjectSettings(settings, project?.id ?? null, project).settings
     .defaultModelSelection;
   for (const selection of [preferred, configured, settings.defaultModelSelection]) {
     if (
       selection &&
-      available.some(
-        (entry) =>
-          entry.instanceId === selection.instanceId &&
-          entry.models.find((model) => model.slug === selection.model)?.isLegacy !== true,
+      models.some(
+        ({ instanceId, model }) =>
+          instanceId === selection.instanceId && model.slug === selection.model,
       )
     )
       return selection;
   }
-  const models = available.flatMap((entry) =>
-    entry.models
-      .filter((model) => !model.isLegacy)
-      .map((model) => ({ instanceId: entry.instanceId, model })),
-  );
   const fallback = models.find(({ model }) => model.isDefault) ?? models[0];
   return fallback ? { instanceId: fallback.instanceId, model: fallback.model.slug } : null;
 }
