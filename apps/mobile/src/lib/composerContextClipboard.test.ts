@@ -360,6 +360,28 @@ describe("rewind content preparation", () => {
   });
 });
 
+it("preserves pasted-text attachment handling when restoring a prompt", async () => {
+  const restored = await prepareRewindComposerContent(
+    {
+      text: "Use this text",
+      attachments: [
+        {
+          id: ChatAttachmentId.make("pasted-file"),
+          type: "file",
+          name: "pasted.txt",
+          mimeType: "text/plain",
+          sizeBytes: 3,
+          source: { _tag: "pasted-text" },
+        },
+      ],
+    },
+    EnvironmentId.make("source"),
+    { attachments: [] },
+    new AbortController().signal,
+  );
+  expect(restored.attachments[0]).toMatchObject({ source: { _tag: "pasted-text" } });
+});
+
 it("restores files without context as visible chips and deduplicates repeated file bindings", async () => {
   const record = { ...image, kind: "file" as const, name: "notes.txt", mimeType: "text/plain" };
   const secondRecord = { ...record, contextId: ComposerContextId.make("file-second") };

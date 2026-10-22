@@ -41,9 +41,8 @@ import { clearThreadComposerError, setThreadComposerError } from "./thread-compo
 
 function readRewindTarget(threadRef: ScopedThreadRef, messageId: MessageId) {
   const key = scopedThreadKey(threadRef);
-  const projection = Option.getOrNull(
-    appAtomRegistry.get(environmentThreadDetails.stateAtom(threadRef)).data,
-  );
+  const detail = appAtomRegistry.get(environmentThreadDetails.stateAtom(threadRef));
+  const projection = Option.getOrNull(detail.data);
   const presentation = appAtomRegistry.get(
     environmentPresentations.presentationAtom(threadRef.environmentId),
   );
@@ -63,7 +62,9 @@ function readRewindTarget(threadRef: ScopedThreadRef, messageId: MessageId) {
     (appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom)[key]?.length ?? 0) > 0
   )
     return null;
-  const checkpoint = deriveMessageRevertTargets(projection).get(messageId);
+  const checkpoint = deriveMessageRevertTargets(projection, {
+    historyComplete: !detail.history.hasMoreHistory,
+  }).get(messageId);
   const row = projection.visibleTurnItems.find(
     (row) =>
       row.visibility !== "inherited" &&

@@ -230,6 +230,7 @@ export async function waitForThreadRollback({
 
 export function deriveMessageRevertTargets(
   projection: OrchestrationV2ThreadProjection,
+  { historyComplete = false }: { readonly historyComplete?: boolean } = {},
 ): Map<MessageId, OrchestrationV2Checkpoint> {
   const messagesByRunId = new Map<RunId, Array<{ id: MessageId; inputIntent: string }>>();
   for (const row of projection.visibleTurnItems) {
@@ -287,7 +288,9 @@ export function deriveMessageRevertTargets(
           ]
         : [],
     ),
-    threadStartCheckpointReady: checkpointsByTurnCount.has(0),
+    // A retained baseline does not prove that the first loaded run is the first surviving run.
+    threadStartCheckpointReady:
+      checkpointsByTurnCount.has(0) && (historyComplete || runs[0]?.ordinal === 1),
     availableRevertTurnCounts: deriveAvailableRevertTurnCounts(projection),
   });
   const result = new Map<MessageId, OrchestrationV2Checkpoint>();

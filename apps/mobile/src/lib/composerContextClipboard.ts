@@ -361,6 +361,12 @@ export async function prepareRewindComposerContent(
       let file = filesBySourceId.get(record.attachmentId);
       if (!file) {
         file = await importAttachment(record, environmentId, signal);
+        const original = message.attachments.find(
+          (attachment) => attachment.id === record.attachmentId,
+        );
+        const source = original && "source" in original ? original.source : undefined;
+        if (file.type === "file" && source && "_tag" in source) file = { ...file, source };
+        else if (file.type === "image" && source && "kind" in source) file = { ...file, source };
         attachments.push(file);
         filesBySourceId.set(record.attachmentId, file);
       }

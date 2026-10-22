@@ -202,6 +202,15 @@ function rewindProjection() {
 }
 
 describe("projected message rewind targets", () => {
+  it("does not treat the first loaded run as thread start when earlier history is unknown", () => {
+    const projection = {
+      ...rewindProjection(),
+      runs: [run(8)],
+      checkpoints: [checkpoint(0), checkpoint(8)],
+      visibleTurnItems: [userMessage(8)],
+    };
+    expect(deriveMessageRevertTargets(projection).size).toBe(0);
+  });
   it("uses complete run metadata when the preceding message is outside the bounded timeline", () => {
     const previous = checkpoint(3);
     const projection = {
@@ -226,12 +235,15 @@ describe("projected message rewind targets", () => {
   it("uses thread start for the first remaining run after an earlier rewind", () => {
     const start = checkpoint(0);
     expect(
-      deriveMessageRevertTargets({
-        ...rewindProjection(),
-        runs: [run(1, "rolled_back"), run(8)],
-        checkpoints: [start, checkpoint(8)],
-        visibleTurnItems: [userMessage(8)],
-      }).get(MessageId.make("message-8")),
+      deriveMessageRevertTargets(
+        {
+          ...rewindProjection(),
+          runs: [run(1, "rolled_back"), run(8)],
+          checkpoints: [start, checkpoint(8)],
+          visibleTurnItems: [userMessage(8)],
+        },
+        { historyComplete: true },
+      ).get(MessageId.make("message-8")),
     ).toBe(start);
   });
 
@@ -266,9 +278,9 @@ it("ignores nested-scope baselines when rewinding the first message", () => {
   const projection = rewindProjection();
   const targets = deriveMessageRevertTargets({
     ...projection,
-    runs: [run(8)],
+    runs: [run(1)],
     checkpoints: [start, nested],
-    visibleTurnItems: [userMessage(8)],
+    visibleTurnItems: [userMessage(1)],
     checkpointScopes: [
       ...projection.checkpointScopes,
       {
@@ -280,5 +292,5 @@ it("ignores nested-scope baselines when rewinding the first message", () => {
       },
     ],
   });
-  expect(targets.get(MessageId.make("message-8"))).toBe(start);
+  expect(targets.get(MessageId.make("message-1"))).toBe(start);
 });

@@ -125,6 +125,7 @@ const EMPTY_QUEUE_WORKFLOW_ATOM = Atom.make<null>(null).pipe(
   Atom.withLabel("mobile-thread-queue-workflow:empty"),
 );
 const EMPTY_CHECKPOINT_SUMMARIES_ATOM = Atom.make<ReadonlyArray<ThreadCheckpointSummary>>([]);
+const EMPTY_HISTORY_ATOM = Atom.make({ hasMoreHistory: true });
 
 export function appendReviewCommentToDraft(input: {
   readonly environmentId: EnvironmentId;
@@ -192,6 +193,11 @@ export function useThreadComposerState() {
     selectedEnvironmentRuntime,
   } = useThreadSelection();
   const selectedThreadProjection = useSelectedThreadProjection();
+  const selectedThreadHistory = useAtomValue(
+    selectedThreadDetailRef === null
+      ? EMPTY_HISTORY_ATOM
+      : environmentThreadDetails.historyAtom(selectedThreadDetailRef),
+  );
   const selectedThreadVisibleTurnItems = useSelectedThreadVisibleTurnItems();
   const acknowledgedMessages = useAtomValue(acknowledgedThreadMessagesAtom);
   const queuedMessagesByThreadKey = useThreadOutboxMessages();
@@ -760,13 +766,11 @@ export function useThreadComposerState() {
       sendingThreadKeysAtom,
       new Set(appAtomRegistry.get(sendingThreadKeysAtom)).add(key),
     );
-    try {
-      return await sendMessage(followUpOverride, beforeDispatch);
-    } finally {
+    return sendMessage(followUpOverride, beforeDispatch).finally(() => {
       const next = new Set(appAtomRegistry.get(sendingThreadKeysAtom));
       next.delete(key);
       appAtomRegistry.set(sendingThreadKeysAtom, next);
-    }
+    });
   };
 
   const onChangeDraftMessage = (value: string) => {
@@ -1056,7 +1060,9 @@ export function useThreadComposerState() {
         (provider) => provider.instanceId === selectedThreadShell?.providerInstanceId,
       ),
     )
-      ? deriveMessageRevertTargets(selectedThreadProjection.projection)
+      ? deriveMessageRevertTargets(selectedThreadProjection.projection, {
+          historyComplete: !selectedThreadHistory.hasMoreHistory,
+        })
       : new Map<MessageId, never>();
   const onRewindMessage = async (messageId: MessageId, confirm: () => Promise<boolean | null>) =>
     selectedThreadDetailRef === null

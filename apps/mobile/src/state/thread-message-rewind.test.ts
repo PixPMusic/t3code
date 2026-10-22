@@ -98,6 +98,7 @@ const message = {
   attachments: [],
 };
 const detailAtom = Atom.make({
+  history: { hasMoreHistory: false },
   data: Option.some({
     thread: { providerInstanceId: "codex" },
     visibleTurnItems: [{ visibility: "local", item: message }],
