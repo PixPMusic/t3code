@@ -1,4 +1,3 @@
-import { daybreakLabel } from "@t3tools/client-runtime/model-traits";
 import { useDaybreakModelChange } from "../chat/useDaybreakModelChange";
 import { getProviderModelCapabilities } from "../../providerModels";
 import {
@@ -47,6 +46,10 @@ import {
   useScopedSettingSource,
   useUpdateScopedSettings,
 } from "./useScopedSettings";
+import {
+  blocksBulkDaybreakChange,
+  intersectDaybreakDescriptors,
+} from "./ProjectDefaultsSettings.logic";
 
 const WORKTREE_SUBMODULES_OPTIONS = ["recursive", "top-level", "none"] as const;
 function isWorktreeSubmodules(value: string | null): value is WorktreeSubmodules {
@@ -88,56 +91,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
     selection?.model,
   );
   const activeEntry = entries.find((entry) => entry.instanceId === selection?.instanceId);
-  const { requestModelChange, daybreakDialog } = useDaybreakModelChange((next) => {
-    if (modelDisabledReason(next.instanceId, next.model)) return null;
-    const descriptorSets = targets.map((target) => {
-      const provider = providersByEnvironment
-        .get(target.environmentId)
-        ?.find((entry) => entry.instanceId === next.instanceId);
-      return provider
-        ? (getProviderModelCapabilities(
-            provider.models,
-            next.model,
-            provider.driver,
-            settings.planModeEnabled,
-          ).optionDescriptors ?? [])
-        : [];
-    });
-    const descriptors = descriptorSets[0] ?? [];
-    return descriptors.map((descriptor) =>
-      descriptor.id === "cyberAccessProgram" && descriptor.type === "select"
-        ? {
-            ...descriptor,
-            options: descriptor.options.filter((option) =>
-              descriptorSets.every((set) =>
-                set.some(
-                  (entry) =>
-                    entry.id === descriptor.id &&
-                    entry.type === "select" &&
-                    entry.options.some((choice) => choice.id === option.id),
-                ),
-              ),
-            ),
-          }
-        : descriptor,
-    );
-  }, JSON.stringify(scope));
-  const mixedModel = useScopedSettingsMixed(["defaultModelSelection"]);
-  const mixedPermissions = useScopedSettingsMixed(["defaultRuntimeMode"]);
-  const PermissionIcon = runtimeModeConfig[settings.defaultRuntimeMode].icon;
-  const mixedWorkspace = useScopedSettingsMixed(["defaultThreadEnvMode"]);
-  const mixedSubmodules = useScopedSettingsMixed(["worktreeSubmodules"]);
-  const mixedAutoPull = useScopedSettingsMixed(["defaultAutoPull"]);
-  const mixedAgentCredits = useScopedSettingsMixed(["removeAgentCreditsOnMerge"]);
-  const mixedMergeMethod = useScopedSettingsMixed(["pullRequestMergeMethod"]);
-  const modelSource = useScopedSettingSource(["defaultModelSelection"]);
-  const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
-  const unavailable = connectedEnvironments.length === 0;
-  const effective = target
-    ? resolveProjectSettings(target.settings, null, null, null).settings
-    : null;
-
-  function modelDisabledReason(instanceId: ProviderInstanceId, model: string): string | null {
+  const modelDisabledReason = (instanceId: ProviderInstanceId, model: string): string | null => {
     const sourceEntry = entries.find((entry) => entry.instanceId === instanceId);
     for (const candidate of targets) {
       const environment = environments.find(
@@ -166,15 +120,45 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       }
     }
     return null;
-  }
+  };
+
+  const { requestModelChange, daybreakDialog } = useDaybreakModelChange((next) => {
+    if (modelDisabledReason(next.instanceId, next.model)) return null;
+    const descriptorSets = targets.map((target) => {
+      const provider = providersByEnvironment
+        .get(target.environmentId)
+        ?.find((entry) => entry.instanceId === next.instanceId);
+      return provider
+        ? (getProviderModelCapabilities(
+            provider.models,
+            next.model,
+            provider.driver,
+            settings.planModeEnabled,
+          ).optionDescriptors ?? [])
+        : [];
+    });
+    return intersectDaybreakDescriptors(descriptorSets);
+  }, JSON.stringify(scope));
+  const mixedModel = useScopedSettingsMixed(["defaultModelSelection"]);
+  const mixedPermissions = useScopedSettingsMixed(["defaultRuntimeMode"]);
+  const PermissionIcon = runtimeModeConfig[settings.defaultRuntimeMode].icon;
+  const mixedWorkspace = useScopedSettingsMixed(["defaultThreadEnvMode"]);
+  const mixedSubmodules = useScopedSettingsMixed(["worktreeSubmodules"]);
+  const mixedAutoPull = useScopedSettingsMixed(["defaultAutoPull"]);
+  const mixedAgentCredits = useScopedSettingsMixed(["removeAgentCreditsOnMerge"]);
+  const mixedMergeMethod = useScopedSettingsMixed(["pullRequestMergeMethod"]);
+  const modelSource = useScopedSettingSource(["defaultModelSelection"]);
+  const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
+  const unavailable = connectedEnvironments.length === 0;
+  const effective = target
+    ? resolveProjectSettings(target.settings, null, null, null).settings
+    : null;
 
   const setModel = (value: ModelSelection | null) => {
     if (
-      targets.length !== 1 &&
-      targets.some((target) =>
-        target.settings.defaultModelSelection?.options?.some(
-          (option) => option.id === "cyberAccessProgram" && daybreakLabel(option.value),
-        ),
+      blocksBulkDaybreakChange(
+        targets.map((target) => target.settings.defaultModelSelection),
+        value,
       )
     ) {
       toastManager.add({

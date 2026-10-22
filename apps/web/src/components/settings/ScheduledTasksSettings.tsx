@@ -1,7 +1,6 @@
 import { useDaybreakModelChange } from "../chat/useDaybreakModelChange";
 import { daybreakLabel } from "@t3tools/client-runtime/model-traits";
 import { TraitsPicker } from "../chat/TraitsPicker";
-import { getProviderModelCapabilities } from "../../providerModels";
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusTitle } from "@t3tools/client-runtime/connection";
 import * as Option from "effect/Option";
@@ -90,6 +89,7 @@ import {
   matchesScheduledTaskScope,
   scheduleFromDraft,
   scheduledTaskDefaultModel,
+  scheduledTaskModelDescriptors,
   taskToDraft,
   type DraftState,
   type ScheduleMode,
@@ -1180,8 +1180,16 @@ function ScheduledTaskEditorForm({
   );
   const { requestModelChange, daybreakDialog } = useDaybreakModelChange(
     (next, destinationContext) => {
+      const destinationScope = destinationContext
+        ? (JSON.parse(destinationContext) as {
+            environmentId: EnvironmentId;
+            projectId: ProjectId | null;
+          })
+        : { environmentId, projectId: selectedProject?.id ?? null };
       const destination = destinationContext
-        ? connectedEnvironments.find((entry) => entry.environmentId === destinationContext)
+        ? connectedEnvironments.find(
+            (entry) => entry.environmentId === destinationScope.environmentId,
+          )
         : environment;
       if (!destination?.serverConfig) return null;
       const destinationProviders =
@@ -1190,23 +1198,12 @@ function ScheduledTaskEditorForm({
         destination.serverConfig.settings,
         settings,
       );
-      const provider = destinationProviders.find((entry) => entry.instanceId === next.instanceId);
-      const available = getCustomModelOptionsByInstance(destinationSettings, destinationProviders)
-        .get(next.instanceId)
-        ?.some((model) => model.slug === next.model && !model.isUnavailable);
-      return provider &&
-        provider.enabled &&
-        provider.installed &&
-        provider.availability !== "unavailable" &&
-        provider.auth.status !== "unauthenticated" &&
-        available
-        ? (getProviderModelCapabilities(
-            provider.models,
-            next.model,
-            provider.driver,
-            destinationSettings.planModeEnabled,
-          ).optionDescriptors ?? [])
-        : null;
+      return scheduledTaskModelDescriptors(
+        destinationSettings,
+        destinationProviders,
+        next,
+        destinationScope.projectId,
+      );
     },
     `${environmentId}:${selectedProjectId}`,
   );
@@ -1397,7 +1394,10 @@ function ScheduledTaskEditorForm({
                     }));
                   },
                   false,
-                  next.environmentId,
+                  JSON.stringify({
+                    environmentId: next.environmentId,
+                    projectId: nextProject?.id ?? null,
+                  }),
                 );
               }}
             >
@@ -1471,19 +1471,29 @@ function ScheduledTaskEditorForm({
                 value={selectedProjectId}
                 onValueChange={(projectId) => {
                   const project = projects.find((project) => project.id === projectId);
-                  if (draft.modelKey || !project || !activeDaybreak) {
+                  if (!project || !activeDaybreak) {
                     setDraft((current) => ({ ...current, projectId: projectId ?? "" }));
                     return;
                   }
-                  const next = scheduledTaskDefaultModel(settings, project, instanceEntries);
+                  const next = scheduledTaskDefaultModel(
+                    settings,
+                    project,
+                    instanceEntries,
+                    draft.modelKey ? effectiveSelection : null,
+                  );
                   if (!next) return;
-                  requestModelChange(effectiveSelection?.options, next, (selection) =>
-                    setDraft((current) => ({
-                      ...current,
-                      projectId: project.id,
-                      modelKey: `${selection.instanceId}:${selection.model}`,
-                      baseModelSelection: selection,
-                    })),
+                  requestModelChange(
+                    effectiveSelection?.options,
+                    next,
+                    (selection) =>
+                      setDraft((current) => ({
+                        ...current,
+                        projectId: project.id,
+                        modelKey: `${selection.instanceId}:${selection.model}`,
+                        baseModelSelection: selection,
+                      })),
+                    false,
+                    JSON.stringify({ environmentId, projectId: project.id }),
                   );
                 }}
               >

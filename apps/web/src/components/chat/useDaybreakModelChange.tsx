@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { formatModelSlugName } from "@t3tools/shared/model";
 import {
   decideDaybreakModelChange,
-  DAYBREAK_OPTION_ID,
+  getDaybreakModelChangeChoices,
 } from "@t3tools/client-runtime/model-traits";
 import type {
   ModelSelection,
@@ -69,24 +70,23 @@ export function useDaybreakModelChange(
   const choose = (selection: ModelSelection) => {
     if (!pending) return;
     // A catalog refresh can revoke an offered program while the dialog is open.
-    const latest = decide(pending);
-    if (!latest) return;
-    const program = selection.options?.find((option) => option.id === DAYBREAK_OPTION_ID)?.value;
-    const accepted =
-      latest.type === "ready"
-        ? latest.selection
-        : latest.choices.find(
-            (choice) =>
-              choice.selection.options?.find((option) => option.id === DAYBREAK_OPTION_ID)
-                ?.value === program,
-          )?.selection;
-    if (!accepted) {
+    const latest = decide({ ...pending, currentOptions: selection.options, target: selection });
+    if (!latest || latest.type !== "ready") {
       setPending({ ...pending });
       return;
     }
     setPending(null);
-    pending.commit(accepted);
+    pending.commit(latest.selection);
   };
+  const choices =
+    pending && decision
+      ? getDaybreakModelChangeChoices(
+          pending.target,
+          pending.clearsDaybreak
+            ? []
+            : (getDescriptors(pending.target, pending.destinationContext) ?? []),
+        )
+      : [];
   const daybreakDialog = (
     <AlertDialog
       open={pending !== null}
@@ -96,12 +96,16 @@ export function useDaybreakModelChange(
     >
       <AlertDialogPopup>
         <AlertDialogHeader>
-          <AlertDialogTitle>Change Daybreak program?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {decision?.type === "confirm" && !pending?.clearsDaybreak
+              ? `${decision.activeLabel} isn’t available on ${formatModelSlugName(pending?.target.model ?? "this model")}`
+              : "Change Daybreak program?"}
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {decision?.type === "confirm"
               ? pending?.clearsDaybreak
                 ? `Resetting the default model clears its saved ${decision.activeLabel} selection.`
-                : `${decision.activeLabel} is not available for the selected model and account. Choose how to continue.`
+                : "Choose an available option to switch models, or cancel to keep your current selection."
               : decision
                 ? "Daybreak availability has changed. Confirm the model change to continue."
                 : "This model or account is no longer available. Cancel and choose another model."}
@@ -111,15 +115,11 @@ export function useDaybreakModelChange(
           <Button variant="outline" onClick={() => setPending(null)}>
             Cancel
           </Button>
-          {decision?.type === "confirm" ? (
-            decision.choices.map((choice) => (
-              <Button key={choice.label} onClick={() => choose(choice.selection)}>
-                {pending?.clearsDaybreak ? "Reset default" : choice.label}
-              </Button>
-            ))
-          ) : decision ? (
-            <Button onClick={() => choose(decision.selection)}>Switch model</Button>
-          ) : null}
+          {choices.map((choice) => (
+            <Button variant="outline" key={choice.label} onClick={() => choose(choice.selection)}>
+              {pending?.clearsDaybreak ? "Reset default" : choice.label}
+            </Button>
+          ))}
         </AlertDialogFooter>
       </AlertDialogPopup>
     </AlertDialog>

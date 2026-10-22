@@ -10,6 +10,8 @@ import {
   type RuntimeMode,
   type ProviderInteractionMode,
   type ServerSettings,
+  type ServerProvider,
+  type UnifiedSettings,
 } from "@t3tools/contracts";
 import {
   parseMaxDeliveryAge,
@@ -23,7 +25,13 @@ import {
   resolveProjectSettings,
   type LegacyProjectSettingsFields,
 } from "@t3tools/shared/projectSettings";
-import type { ProviderInstanceEntry } from "../../providerInstances";
+import {
+  applyProviderInstanceSettings,
+  deriveProviderInstanceEntries,
+  type ProviderInstanceEntry,
+} from "../../providerInstances";
+import { getCustomModelOptionsByInstance } from "../../modelSelection";
+import { getProviderModelCapabilities } from "../../providerModels";
 
 import type { ResolvedSettingsScope } from "./settingsScope";
 
@@ -259,8 +267,9 @@ export function scheduledTaskDefaultModel(
   settings: ServerSettings,
   project: (LegacyProjectSettingsFields & { readonly id: ProjectId }) | null,
   entries: readonly ProviderInstanceEntry[],
+  preferred: ModelSelection | null = null,
 ): ModelSelection | null {
-  const available = entries.filter(
+  const available = applyProviderInstanceSettings(entries, settings, project?.id ?? null).filter(
     (entry) =>
       entry.enabled &&
       entry.installed &&
@@ -269,7 +278,7 @@ export function scheduledTaskDefaultModel(
   );
   const configured = resolveProjectSettings(settings, project?.id ?? null, project).settings
     .defaultModelSelection;
-  for (const selection of [configured, settings.defaultModelSelection]) {
+  for (const selection of [preferred, configured, settings.defaultModelSelection]) {
     if (
       selection &&
       available.some(
@@ -287,4 +296,38 @@ export function scheduledTaskDefaultModel(
   );
   const fallback = models.find(({ model }) => model.isDefault) ?? models[0];
   return fallback ? { instanceId: fallback.instanceId, model: fallback.model.slug } : null;
+}
+
+export function scheduledTaskModelDescriptors(
+  settings: UnifiedSettings,
+  providers: ReadonlyArray<ServerProvider>,
+  next: ModelSelection,
+  projectId: ProjectId | null,
+) {
+  const provider = providers.find((entry) => entry.instanceId === next.instanceId);
+  const enabled = applyProviderInstanceSettings(
+    deriveProviderInstanceEntries(providers),
+    settings,
+    projectId,
+  ).find((entry) => entry.instanceId === next.instanceId)?.enabled;
+  // Hidden models are picker preferences; configured defaults remain usable.
+  const available = getCustomModelOptionsByInstance(
+    { ...settings, providerModelPreferences: {} },
+    providers,
+  )
+    .get(next.instanceId)
+    ?.some((model) => model.slug === next.model && !model.isUnavailable);
+  return provider &&
+    enabled &&
+    provider.installed &&
+    provider.availability !== "unavailable" &&
+    provider.auth.status !== "unauthenticated" &&
+    available
+    ? (getProviderModelCapabilities(
+        provider.models,
+        next.model,
+        provider.driver,
+        settings.planModeEnabled,
+      ).optionDescriptors ?? [])
+    : null;
 }
