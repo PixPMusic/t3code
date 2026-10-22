@@ -1,5 +1,116 @@
+diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.cpp b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.cpp
+index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251f791d63a 100644
+--- a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.cpp
++++ b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.cpp
+@@ -823,35 +823,40 @@ void LayoutAnimationsProxy::addOngoingAnimations(ShadowViewMutationList &mutatio
+ 
+     maybeCorrectedTags = preserveMountedTags_(tagsToUpdate);
+     if (!maybeCorrectedTags.has_value()) {
++      if (!updateMap_.empty()) {
++        schedulePullOnNextFrame();
++      }
+       return;
+     }
+   }
+ 
+   const auto correctedTags = maybeCorrectedTags.has_value() ? maybeCorrectedTags->get() : nullptr;
+ 
+-  // since the map is not updated, we can assume that the ordering of tags in
+-  // correctedTags matches the iterator
++  // Erasing entries preserves the order of the remaining tags in correctedTags.
+   int i = -1;
+ #endif
+-  for (auto &[tag, updateValues] : updateMap_) {
++  for (auto it = updateMap_.begin(); it != updateMap_.end();) {
++    auto &[tag, updateValues] = *it;
+ #ifdef ANDROID
+     i++;
+-    if (correctedTags != nullptr && correctedTags[i] == -1) {
+-      // skip views that have not been mounted yet
+-      // on Android we start entering animations from the JS thread
+-      // so it might happen, that the first frame of the animation goes through
+-      // before the view is first mounted
+-      // https://github.com/software-mansion/react-native-reanimated/issues/7493
+-      continue;
+-    }
+ #endif
+-
+     auto layoutAnimationIt = layoutAnimations_.find(tag);
+     auto completedAnimationIt = completedAnimations_.find(tag);
+     if (layoutAnimationIt == layoutAnimations_.end() &&
+         (completedAnimationIt == completedAnimations_.end() || completedAnimationIt->second.shouldRemove)) {
++      it = updateMap_.erase(it);
++      continue;
++    }
++
++#ifdef ANDROID
++    if (correctedTags != nullptr && correctedTags[i] == -1) {
++      // A reduced-motion animation may have only one frame, before its view mounts.
++      // Keep it until a UI-thread pull can apply it; cancellation and teardown erase it.
++      // https://github.com/software-mansion/react-native-reanimated/issues/7493
++      ++it;
+       continue;
+     }
++#endif
+ 
+     auto &layoutAnimation = layoutAnimationIt != layoutAnimations_.end() ? layoutAnimationIt->second
+                                                                          : completedAnimationIt->second.animation;
+@@ -867,8 +872,8 @@ void LayoutAnimationsProxy::addOngoingAnimations(ShadowViewMutationList &mutatio
+     if (layoutAnimation.opacity && getViewProps(newView).opacity == *layoutAnimation.opacity) {
+       layoutAnimation.opacity.reset();
+     }
++    it = updateMap_.erase(it);
+   }
+-  updateMap_.clear();
+ }
+ 
+ void LayoutAnimationsProxy::endAnimationsRecursively(
+@@ -1056,10 +1061,14 @@ void LayoutAnimationsProxy::cleanupAnimations(
+     const PropsParserContext &propsParserContext,
+     const bool flushStructuralMutations) const {
+   ReanimatedSystraceSection s("cleanupAnimations");
+-  std::unordered_set<Tag> preservedContainerTags;
++  std::unordered_set<Tag> preservedTags;
++  // Completion must not discard a final frame still waiting for its native view.
++  for (const auto &[tag, _] : updateMap_) {
++    preservedTags.insert(tag);
++  }
+   if constexpr (StaticFeatureFlags::getFlag("ENABLE_SHARED_ELEMENT_TRANSITIONS")) {
+     for (const auto &[tag, _] : completedAnimations_) {
+-      if (hasPendingLayoutAnimation(tag)) {
++      if (hasPendingLayoutAnimation(tag) || preservedTags.contains(tag)) {
+         continue;
+       }
+       const auto containerIt = sharedContainers_.find(tag);
+@@ -1067,7 +1076,7 @@ void LayoutAnimationsProxy::cleanupAnimations(
+         continue;
+       }
+       if (!flushStructuralMutations) {
+-        preservedContainerTags.insert(tag);
++        preservedTags.insert(tag);
+         continue;
+       }
+       if (containerIt->second.restoreAfterNode) {
+@@ -1078,14 +1087,15 @@ void LayoutAnimationsProxy::cleanupAnimations(
+ 
+     cleanupSharedTransitions(transaction, propsParserContext);
+   }
+-  cleanupCompletedAnimations(transaction.filteredMutations, propsParserContext, true, preservedContainerTags);
++  cleanupCompletedAnimations(transaction.filteredMutations, propsParserContext, true, preservedTags);
+ }
+ 
+ #ifdef ANDROID
+ bool LayoutAnimationsProxy::hasPendingStructuralCleanup() const {
+   return std::ranges::any_of(completedAnimations_, [this](const auto &entry) {
+     const auto &[tag, completedAnimation] = entry;
+-    return !hasPendingLayoutAnimation(tag) && (completedAnimation.shouldRemove || sharedContainers_.contains(tag));
++    return !hasPendingLayoutAnimation(tag) && !updateMap_.contains(tag) &&
++        (completedAnimation.shouldRemove || sharedContainers_.contains(tag));
+   });
+ }
+ 
 diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h
-index 675b1b7..dea79ba 100644
+index 675b1b7d890971d0c43522f59106f1cf20b0fe1a..dea79ba4806e8f1ac31a11c7fa045298b54d6305 100644
 --- a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h
 +++ b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h
 @@ -247,7 +247,9 @@ static inline bool isRNSScreenOrStack(const std::shared_ptr<LightNode> &node) {
