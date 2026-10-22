@@ -3,7 +3,7 @@ import { defineConfig, mergeConfig } from "vite-plus";
 
 import baseConfig from "../../vite.config.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
-import { CLI_NODE_VERSION } from "../../scripts/lib/cli-runtime.ts";
+import rootPackageJson from "../../package.json" with { type: "json" };
 import packageJson from "./package.json" with { type: "json" };
 import { WeightedShardSequencer } from "./src/testUtils/weightedShardSequencer.ts";
 
@@ -44,9 +44,10 @@ const SEA_TARGETS = {
   "win-x64": { platform: "win", arch: "x64" },
 } as const;
 const packExecutableTarget = process.env.T3CODE_PACK_EXE_TARGET?.trim();
-if (packExecutable && !packExecutableTarget && process.versions.node !== CLI_NODE_VERSION) {
+const cliNodeVersion = rootPackageJson.engines.node;
+if (packExecutable && !packExecutableTarget && process.versions.node !== cliNodeVersion) {
   throw new Error(
-    `Native CLI executables must be built with Node ${CLI_NODE_VERSION}; running ${process.versions.node}.`,
+    `Native CLI executables must be built with Node ${cliNodeVersion}; running ${process.versions.node}.`,
   );
 }
 if (packExecutableTarget && !Object.hasOwn(SEA_TARGETS, packExecutableTarget)) {
@@ -58,7 +59,7 @@ const packExecutableTargets = packExecutableTarget
   ? [
       {
         ...SEA_TARGETS[packExecutableTarget as keyof typeof SEA_TARGETS],
-        nodeVersion: CLI_NODE_VERSION,
+        nodeVersion: cliNodeVersion,
       },
     ]
   : undefined;
