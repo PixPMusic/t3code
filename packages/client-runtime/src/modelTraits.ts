@@ -82,6 +82,9 @@ export function decideDaybreakModelChange(
     ],
   });
   if (!activeLabel && (!descriptor || choices.some((choice) => choice.id === "standard"))) {
+    // Preserve model-only updates so the caller can retain unrelated sticky traits.
+    if (!target.options?.some((option) => option.id === DAYBREAK_OPTION_ID))
+      return { type: "ready" as const, selection: target };
     // Daybreak follows the current selection, never a target's old remembered program.
     return {
       type: "ready" as const,

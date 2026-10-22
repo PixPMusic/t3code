@@ -33,6 +33,17 @@ function programs(...ids: string[]): ReadonlyArray<ProviderOptionDescriptor> {
 }
 
 describe("Daybreak model changes", () => {
+  it.each([{ descriptors: [] }, { descriptors: programs("standard", "daybreakBlue") }])(
+    "preserves model-only updates when no Daybreak value needs changing (%j)",
+    ({ descriptors }) => {
+      const modelOnly = { instanceId, model: "target" };
+      for (const current of [undefined, [{ id: "cyberAccessProgram", value: "standard" }]]) {
+        const result = decideDaybreakModelChange(current, modelOnly, descriptors);
+        expect(result).toEqual({ type: "ready", selection: modelOnly });
+        if (result.type === "ready") expect(result.selection).not.toHaveProperty("options");
+      }
+    },
+  );
   it("offers only Blue and advertised Off when Red cannot carry", () => {
     const decision = decideDaybreakModelChange(red, target, programs("standard", "daybreakBlue"));
     expect(decision.type).toBe("confirm");
