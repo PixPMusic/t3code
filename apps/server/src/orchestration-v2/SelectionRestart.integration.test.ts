@@ -18,11 +18,13 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
+import * as Result from "effect/Result";
 import * as Stream from "effect/Stream";
 
 import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
@@ -92,6 +94,7 @@ function makeRestartAdapter(
   state: Ref.Ref<RestartAdapterState>,
   sessionCapabilities: OrchestrationV2ProviderCapabilities = pooledCapabilities,
   providerInstanceId = initialSelection.instanceId,
+  interruptGate?: Deferred.Deferred<void>,
 ): ProviderAdapter.ProviderAdapterV2["Service"] {
   return {
     instanceId: providerInstanceId,
@@ -265,6 +268,9 @@ function makeRestartAdapter(
           steerTurn: () => Effect.void,
           interruptTurn: () =>
             Effect.gen(function* () {
+              if (interruptGate !== undefined) {
+                yield* Deferred.await(interruptGate);
+              }
               const active = (yield* Ref.get(state)).activeTurn;
               if (active !== null) {
                 const updatedAt = yield* DateTime.now;
@@ -457,6 +463,114 @@ it.live("t3_thread_configure from the running turn continues the user request", 
           ),
         ),
       );
+    }),
+  ),
+);
+
+// The configure precheck runs outside the thread lock, so an archive can
+// commit between it and the restart dispatch. Archive leaves the run running
+// until its detach effect interrupts the turn; that restart must be rejected.
+it.live("rejects a selection restart dispatched after the thread is archived", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const name = "selection-restart-archived";
+      const cwd = yield* checkpointWorkspace(name);
+      const threadId = ThreadId.make(`thread:${name}`);
+      const state = yield* Ref.make<RestartAdapterState>({
+        activeTurn: null,
+        opened: [],
+        started: [],
+        closedSessionCount: 0,
+        failedReplacementOpen: true,
+      });
+      // Holds the archive detach before it can interrupt the running turn.
+      const interruptGate = yield* Deferred.make<void>();
+      const layerRegistry = ProviderAdapterRegistry.layerSingle(
+        makeRestartAdapter(state, pooledCapabilities, providerInstanceId, interruptGate),
+      );
+
+      yield* Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        yield* Effect.addFinalizer(() => Deferred.succeed(interruptGate, undefined));
+        yield* orchestrator.dispatch({
+          type: "thread.create",
+          commandId: CommandId.make(`${name}:create`),
+          threadId,
+          projectId: ProjectId.make(`project:${name}`),
+          title: name,
+          modelSelection: initialSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: cwd,
+          createdBy: "user",
+          creationSource: "web",
+        });
+        const firstSequence = yield* orchestrator.getThreadEventSequence(threadId);
+        yield* orchestrator.dispatch({
+          type: "message.dispatch",
+          commandId: CommandId.make(`${name}:first`),
+          threadId,
+          messageId: MessageId.make(`${name}:first`),
+          text: "first",
+          attachments: [],
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "user",
+          creationSource: "web",
+        });
+        yield* worker.drain();
+        yield* orchestrator.streamStoredEventsFrom({ threadId, afterSequence: firstSequence }).pipe(
+          Stream.filter(
+            ({ event }) =>
+              event.type === "provider-turn.updated" && event.payload.status === "running",
+          ),
+          Stream.take(1),
+          Stream.runDrain,
+        );
+        const activeRunId = (yield* orchestrator.getThreadProjection(threadId)).runs[0]?.id;
+        if (activeRunId === undefined) {
+          return yield* Effect.die("active archived restart test run is missing");
+        }
+
+        yield* orchestrator.dispatch({
+          type: "thread.archive",
+          commandId: CommandId.make(`${name}:archive`),
+          threadId,
+        });
+        const archived = yield* orchestrator.getThreadProjection(threadId);
+        assert.isNotNull(archived.thread.archivedAt);
+        assert.deepEqual(
+          archived.runs.map((run) => [run.id, run.status]),
+          [[activeRunId, "running"]],
+        );
+
+        const result = yield* orchestrator
+          .dispatch({
+            type: "message.dispatch",
+            commandId: CommandId.make(`${name}:configure`),
+            threadId,
+            messageId: MessageId.make(`${name}:configure:model-continuation`),
+            text: "continue",
+            attachments: [],
+            modelSelection: replacementSelection,
+            dispatchMode: { type: "restart_active", targetRunId: activeRunId },
+            createdBy: "agent",
+            creationSource: "mcp",
+          })
+          .pipe(Effect.result);
+        assert.equal(
+          Result.isFailure(result) ? result.failure._tag : "accepted",
+          "OrchestratorDispatchError",
+        );
+
+        const after = yield* orchestrator.getThreadProjection(threadId);
+        assert.deepEqual(
+          after.messages.map((message) => message.id),
+          archived.messages.map((message) => message.id),
+        );
+        assert.lengthOf(after.attempts, archived.attempts.length);
+      }).pipe(Effect.provide(ProviderReplayHarness.layerWithRegistry({ name }, layerRegistry)));
     }),
   ),
 );
