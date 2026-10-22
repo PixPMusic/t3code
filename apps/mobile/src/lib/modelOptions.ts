@@ -1,4 +1,8 @@
 import {
+  getModelTraitDescriptors,
+  preserveExplicitDaybreakOption,
+} from "@t3tools/client-runtime/model-traits";
+import {
   normalizeProviderAccentColor,
   resolveProviderInstanceDisplayName,
   shouldShowInstanceBadge,
@@ -14,7 +18,6 @@ import type {
 import { isProviderDriverKind, resolveProjectProviderInstanceEnabled } from "@t3tools/contracts";
 import {
   buildExplicitProviderOptionSelectionsFromDescriptors,
-  getProviderOptionDescriptors,
 } from "@t3tools/shared/model";
 import { resolveModelShortName } from "@t3tools/client-runtime/provider-clients";
 
@@ -120,11 +123,14 @@ function normalizeSelectionOptions(
   if (!selection.options?.length) {
     return { instanceId: selection.instanceId, model: selection.model };
   }
-  const options = buildExplicitProviderOptionSelectionsFromDescriptors(
-    getProviderOptionDescriptors({
-      caps: capabilities,
-      selections: selection.options,
-    }),
+  const options = preserveExplicitDaybreakOption(
+    buildExplicitProviderOptionSelectionsFromDescriptors(
+      getModelTraitDescriptors({
+        caps: capabilities,
+        selections: selection.options,
+      }),
+      selection.options,
+    ),
     selection.options,
   );
   return options

@@ -353,6 +353,8 @@ export function SourceControlWritingSettingsSection() {
                   !mixedReviewGuideModel &&
                   reviewGuideInstanceEntry ? (
                     <TraitsPicker
+                    allowDaybreak={false}
+                      allowDaybreak={false}
                       provider={reviewGuideInstanceEntry.driverKind}
                       models={reviewGuideInstanceEntry.models}
                       model={reviewGuideSelection.model}
@@ -554,6 +556,7 @@ export function SourceControlWritingSettingsSection() {
                 !mixedWriterModel &&
                 writerInstanceEntry ? (
                   <TraitsPicker
+                    allowDaybreak={false}
                     provider={writerInstanceEntry.driverKind}
                     models={writerInstanceEntry.models}
                     model={activeSelection.model}

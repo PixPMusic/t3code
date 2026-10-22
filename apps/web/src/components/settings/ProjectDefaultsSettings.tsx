@@ -1,3 +1,6 @@
+import { daybreakLabel } from "@t3tools/client-runtime/model-traits";
+import { useDaybreakModelChange } from "../chat/useDaybreakModelChange";
+import { getProviderModelCapabilities } from "../../providerModels";
 import {
   DEFAULT_SERVER_SETTINGS,
   type ModelSelection,
@@ -48,7 +51,7 @@ function isWorktreeSubmodules(value: string | null): value is WorktreeSubmodules
 }
 
 export function ProjectDefaultsSettings({ category }: { category: ProjectSettingsCategory }) {
-  const { scope, target, connectedEnvironments } = useSettingsScope();
+  const { scope, target, targets, connectedEnvironments } = useSettingsScope();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const navigate = useNavigate();
@@ -76,6 +79,41 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
     selection?.model,
   );
   const activeEntry = entries.find((entry) => entry.instanceId === selection?.instanceId);
+  const modelDisabledReason = useScopedModelDisabledReason(settings, entries);
+  const { requestModelChange, daybreakDialog } = useDaybreakModelChange((next) => {
+    if (modelDisabledReason(next.instanceId, next.model)) return null;
+    const descriptorSets = targets.map((target) => {
+      const provider = providersByEnvironment
+        .get(target.environmentId)
+        ?.find((entry) => entry.instanceId === next.instanceId);
+      return provider
+        ? (getProviderModelCapabilities(
+            provider.models,
+            next.model,
+            provider.driver,
+            settings.planModeEnabled,
+          ).optionDescriptors ?? [])
+        : [];
+    });
+    const descriptors = descriptorSets[0] ?? [];
+    return descriptors.map((descriptor) =>
+      descriptor.id === "cyberAccessProgram" && descriptor.type === "select"
+        ? {
+            ...descriptor,
+            options: descriptor.options.filter((option) =>
+              descriptorSets.every((set) =>
+                set.some(
+                  (entry) =>
+                    entry.id === descriptor.id &&
+                    entry.type === "select" &&
+                    entry.options.some((choice) => choice.id === option.id),
+                ),
+              ),
+            ),
+          }
+        : descriptor,
+    );
+  }, JSON.stringify(scope));
   const mixedModel = useScopedSettingsMixed(["defaultModelSelection"]);
   const mixedFallback = useScopedSettingsMixed(["fallbackModelSelection"]);
   const fallbackSelection = settings.fallbackModelSelection ?? selection;
@@ -98,15 +136,53 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
     ? resolveProjectSettings(target.settings, null, null, null).settings
     : null;
 
-  const modelDisabledReason = useScopedModelDisabledReason(settings, entries);
 
   const setModel = (value: ModelSelection | null) => {
+    if (
+      targets.length !== 1 &&
+      targets.some((target) =>
+        target.settings.defaultModelSelection?.options?.some(
+          (option) => option.id === "cyberAccessProgram" && daybreakLabel(option.value),
+        ),
+      )
+    ) {
+      toastManager.add({
+        type: "warning",
+        title: "Select one target to change Daybreak",
+        description:
+          "Choose a single environment or project before changing a model with an active Daybreak program.",
+      });
+      return;
+    }
     const reason = value ? modelDisabledReason(value.instanceId, value.model) : null;
     if (reason) {
       toastManager.add({ type: "error", title: "Default model not saved", description: reason });
       return;
     }
-    updateSettings({ defaultModelSelection: value });
+    if (
+      value &&
+      value.instanceId === selection?.instanceId &&
+      value.model === selection.model &&
+      value.options !== undefined
+    ) {
+      updateSettings({ defaultModelSelection: value });
+      return;
+    }
+    const next =
+      value ??
+      resolveDefaultProviderModelSelection(providers, null) ??
+      selection ??
+      settings.defaultModelSelection;
+    if (!next) {
+      updateSettings({ defaultModelSelection: value });
+      return;
+    }
+    requestModelChange(
+      selection?.options ?? settings.defaultModelSelection?.options,
+      next,
+      (resolved) => updateSettings({ defaultModelSelection: value === null ? null : resolved }),
+      value === null,
+    );
   };
 
   const modelRow = (
@@ -157,6 +233,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             />
             {!mixedModel ? (
               <TraitsPicker
+                allowDaybreak={targets.length === 1}
                 provider={activeEntry.driverKind}
                 models={activeEntry.models}
                 model={selection.model}
@@ -282,6 +359,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       id={category === "source-control" ? "source-control-defaults" : "project-defaults"}
       title={category === "source-control" ? "Repositories" : "New threads"}
     >
+      {daybreakDialog}
       {category === "project" ? (
         <>
           {modelRow}
@@ -467,7 +545,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
 }
 
 export function WorktreeSubmodulesRow() {
-  const { scope, target, connectedEnvironments } = useSettingsScope();
+  const { scope, target, targets, connectedEnvironments } = useSettingsScope();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const mixedSubmodules = useScopedSettingsMixed(["worktreeSubmodules"]);
