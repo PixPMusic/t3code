@@ -1,7 +1,91 @@
 // @effect-diagnostics globalDate:off -- A fixed instant keeps calendar-window assertions deterministic.
 import { describe, expect, it, vi } from "vite-plus/test";
+import type { UsageSource } from "@t3tools/contracts";
 
-import { formatHourShort, makeWindow } from "./usageFormat.ts";
+import { formatHourShort, makeWindow, usageSourceMessages } from "./usageFormat.ts";
+
+function malformedSource(count: number, overrides: Partial<UsageSource> = {}): UsageSource {
+  return {
+    fingerprint: {
+      hostId: "demo-host",
+      provider: "codex",
+      resolvedHomePath: "/demo/codex",
+      volumeId: "demo-volume",
+    },
+    status: "partial",
+    scannedFiles: 1,
+    skippedFiles: 0,
+    malformedRecords: count,
+    distinctSessions: 1,
+    message: `${count} malformed or inconsistent usage record(s) were skipped; usage may be incomplete.`,
+    ...overrides,
+  };
+}
+
+describe("usage source messages", () => {
+  it("combines different skipped-record counts into one warning", () => {
+    const codex = malformedSource(1);
+    const claude = malformedSource(11, {
+      fingerprint: { ...codex.fingerprint, provider: "claude", resolvedHomePath: "/demo/claude" },
+    });
+
+    expect(usageSourceMessages([codex, claude])).toEqual([
+      "12 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
+    ]);
+  });
+
+  it("counts equal warnings from distinct sources but the same source only once", () => {
+    const source = malformedSource(1);
+    const otherHost = malformedSource(1, {
+      fingerprint: { ...source.fingerprint, hostId: "other-demo-host" },
+    });
+
+    expect(usageSourceMessages([source, source, otherHost])).toEqual([
+      "2 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
+    ]);
+  });
+
+  it("uses the largest count when connected environments report the same source", () => {
+    const source = malformedSource(1);
+
+    expect(usageSourceMessages([source, malformedSource(11), source])).toEqual([
+      "11 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
+    ]);
+  });
+
+  it("retains other diagnostics beside the combined warning", () => {
+    const source = malformedSource(1);
+    const readFailure = "2 transcript path(s) could not be read; usage may be incomplete.";
+    const cursor = malformedSource(0, {
+      fingerprint: { ...source.fingerprint, provider: "cursor" },
+      status: "ok",
+      message: "Cursor history is limited to the last 30 days.",
+    });
+
+    expect(
+      usageSourceMessages([
+        { ...source, message: `${readFailure} ${source.message}` },
+        { ...source, malformedRecords: 0, message: readFailure },
+        cursor,
+      ]),
+    ).toEqual([
+      readFailure,
+      cursor.message,
+      "1 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
+    ]);
+  });
+
+  it("omits missing and healthy sources and diagnostics handled by an action", () => {
+    expect(
+      usageSourceMessages([
+        malformedSource(1, { status: "missing" }),
+        malformedSource(1, { status: "ok" }),
+        malformedSource(1, { action: "enableCursorKeychain" }),
+      ]),
+    ).toEqual([]);
+    expect(usageSourceMessages([])).toEqual([]);
+  });
+});
 
 describe("hourly usage formatting", () => {
   it("keeps requested zones separate when formatting repeated calls", () => {
