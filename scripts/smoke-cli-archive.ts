@@ -294,7 +294,9 @@ const smokeCliArchive = Effect.fn("smokeCliArchive")(function* (input: {
   const environmentId = yield* checkServer(executable, false);
   const managedDir = path.join(home, "runtime/versions", input.expectVersion);
   yield* fs.makeDirectory(path.dirname(managedDir), { recursive: true });
-  yield* fs.rename(contentDir, managedDir);
+  yield* fs
+    .rename(contentDir, managedDir)
+    .pipe(Effect.retry({ times: 10, schedule: Schedule.spaced("500 millis") }));
   yield* fs.writeFileString(path.join(managedDir, ".install-complete"), `${input.expectVersion}\n`);
   yield* fs.writeFileString(
     path.join(home, "runtime/service-state.json"),
