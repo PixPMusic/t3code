@@ -111,9 +111,45 @@ index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251
  }
  
 diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.cpp b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.cpp
+index 0742d063666ac5579232b2f53e4117f427b7177d..3df48c377c4ad9c483d3cc6e5f4d867afd8c4032 100644
 --- a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.cpp
 +++ b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.cpp
-@@ -265,7 +265,8 @@ ShadowView LayoutAnimationsProxyCommon::materializeLayoutAnimation(
+@@ -85,6 +85,11 @@ std::optional<SurfaceId> LayoutAnimationsProxyCommon::progressLayoutAnimation(
+   }
+
+   auto rawProps = std::make_shared<RawProps>(uiRuntime_, jsi::Value(uiRuntime_, newStyle));
++  // Rebase only the entering frame's own props, not its React base or fallback opacity.
++  folly::dynamic enteringProps = nullptr;
++  if (layoutAnimation.type == LayoutAnimationType::ENTERING) {
++    enteringProps = (folly::dynamic)*rawProps;
++  }
+   if (layoutAnimation.opacity) {
+     auto props = (folly::dynamic)*rawProps;
+     props["opacity"] = *layoutAnimation.opacity;
+@@ -97,7 +102,7 @@ std::optional<SurfaceId> LayoutAnimationsProxyCommon::progressLayoutAnimation(
+ #endif
+   auto newProps = componentDescriptorRegistry_->at(layoutAnimation.finalView.componentHandle)
+                       .cloneProps(propsParserContext, layoutAnimation.finalView.props, std::move(*rawProps));
+-  updateMap_.insert_or_assign(tag, UpdateValues{newProps, Frame(uiRuntime_, newStyle)});
++  updateMap_.insert_or_assign(tag, UpdateValues{newProps, Frame(uiRuntime_, newStyle), std::move(enteringProps)});
+
+   return surfaceId_;
+ }
+@@ -251,6 +256,13 @@ void LayoutAnimationsProxyCommon::applySynchronousPropsToLayoutAnimation(const T
+     auto pendingView = animation->finalView;
+     pendingView.props = it->second.newProps;
+     it->second.newProps = mergeSynchronousProps(pendingView, props);
++    if (!it->second.enteringProps.isNull()) {
++      for (const auto &[key, value] : props.items()) {
++        if (it->second.enteringProps.count(key) > 0) {
++          it->second.enteringProps[key] = value;
++        }
++      }
++    }
+   }
+ }
+
+@@ -265,7 +277,8 @@ ShadowView LayoutAnimationsProxyCommon::materializeLayoutAnimation(
    auto currentView = before;
    const auto activeAnimationIt = layoutAnimations_.find(tag);
    if (type == LayoutAnimationType::ENTERING) {
@@ -123,15 +159,17 @@ diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.
    } else if (activeAnimationIt != layoutAnimations_.end()) {
      currentView = activeAnimationIt->second.currentView;
    } else if (const auto completedAnimationIt = completedAnimations_.find(tag);
-@@ -546,5 +547,16 @@ bool LayoutAnimationsProxyCommon::updateEnteringAnimationTarget(const Tag tag, const ShadowView &finalView) const {
+@@ -546,6 +559,19 @@ bool LayoutAnimationsProxyCommon::updateEnteringAnimationTarget(const Tag tag, c
      }
      return true;
    }
 +  if (const auto completedAnimationIt = completedAnimations_.find(tag);
 +      completedAnimationIt != completedAnimations_.end() && !completedAnimationIt->second.shouldRemove &&
 +      completedAnimationIt->second.animation.type == LayoutAnimationType::ENTERING && updateMap_.contains(tag)) {
-+    // Retargeting must preserve the queued final frame until it reaches the native view.
++    // Preserve the queued animation values without replaying props from the old React target.
 +    auto &animation = completedAnimationIt->second.animation;
++    auto &updateValues = updateMap_.at(tag);
++    updateValues.newProps = mergeSynchronousProps(finalView, updateValues.enteringProps);
 +    animation.finalView = finalView;
 +    if (animation.opacity) {
 +      animation.opacity = getViewProps(finalView).opacity;
@@ -142,10 +180,18 @@ diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.
  }
 
 diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h
-index 675b1b7d890971d0c43522f59106f1cf20b0fe1a..dea79ba4806e8f1ac31a11c7fa045298b54d6305 100644
+index 675b1b7d890971d0c43522f59106f1cf20b0fe1a..af17cfe82e4d47969ddee02fa343e3c31b856e02 100644
 --- a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h
 +++ b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h
-@@ -247,7 +247,9 @@ static inline bool isRNSScreenOrStack(const std::shared_ptr<LightNode> &node) {
+@@ -44,6 +44,7 @@ struct Frame {
+ struct UpdateValues {
+   Props::Shared newProps;
+   Frame frame;
++  folly::dynamic enteringProps = nullptr;
+ };
+
+ struct Snapshot {
+@@ -247,7 +248,9 @@ static inline bool isRNSScreenOrStack(const std::shared_ptr<LightNode> &node) {
    const auto componentName = node->current.componentName;
    react_native_assert(componentName && "Component name is nullptr");
    return !std::strcmp(componentName, "RNSScreenStack") || !std::strcmp(componentName, "RNSScreen") ||
