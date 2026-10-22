@@ -147,7 +147,7 @@ into a normal draft.
 
 ## Edit an earlier prompt
 
-On web and desktop, choose **Edit from here** beneath a sent message to rewind
+On web, desktop, and mobile, choose **Edit from here** beneath a sent message to rewind
 the conversation to before that message. Choose **Revert and keep changes** to
 leave workspace files as they are, or **Revert files too** to put the workspace back
 to its checkpoint from before that message. That also undoes edits you made yourself.

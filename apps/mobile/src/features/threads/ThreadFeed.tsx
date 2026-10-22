@@ -158,7 +158,6 @@ import {
 import { CopyTextButton } from "./CopyTextButton";
 import { getReviewSectionIdForCheckpoint } from "../review/reviewModel";
 import { setReviewSelectedSectionId } from "../review/reviewState";
-import { Menu } from "../../components/ui/Menu";
 import { copyPromptLink } from "../prompt-links/prompt-link-actions";
 import { parseReviewCommentMessageSegments } from "../review/reviewCommentSelection";
 import type { ReviewDiffTheme } from "../review/shikiReviewHighlighter";
@@ -312,6 +311,8 @@ export interface ThreadFeedProps {
   readonly queuedMessages: ReadonlyArray<QueuedThreadMessage>;
   readonly dispatchingMessageId: MessageId | null;
   readonly onEditPendingMessage: ((message: QueuedThreadMessage) => void) | null;
+  readonly rewindMessageIds?: ReadonlySet<MessageId>;
+  readonly onRewindMessage?: (messageId: MessageId) => void;
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
   readonly threadTitle: string;
@@ -352,37 +353,48 @@ async function waitForThreadShell(
   });
 }
 
-const USER_MESSAGE_COPY_MENU_ACTIONS = [
-  { id: "copy-prompt-link", title: "Copy prompt link", image: "link" },
-];
-
-function UserMessageCopyButton(props: {
+function UserMessageControls(props: {
   readonly text: string;
   readonly onCopy: (() => Promise<void>) | undefined;
+  readonly onRewind?: (() => void) | undefined;
   readonly tintColor: ColorValue;
 }) {
-  const button = (
-    <CopyTextButton
-      accessibilityLabel="Copy message"
-      text={props.text}
-      onCopy={props.onCopy}
-      tintColor={props.tintColor}
-      buttonSize={28}
-      iconSize={13}
-    />
-  );
   const linkText = replaceComposerContextReferences(props.text, (reference) => reference.label);
-  if (linkText.length > PROMPT_LINK_MAX_PROMPT_LENGTH) return button;
   return (
-    <Menu
-      actions={USER_MESSAGE_COPY_MENU_ACTIONS}
-      onPressAction={({ nativeEvent }) => {
-        if (nativeEvent.event === "copy-prompt-link") void copyPromptLink(linkText);
-      }}
-      shouldOpenOnLongPress
-    >
-      {button}
-    </Menu>
+    <>
+      {props.onRewind ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit from here"
+          hitSlop={8}
+          className="size-7 items-center justify-center"
+          onPress={props.onRewind}
+        >
+          <SymbolView name="arrow.uturn.backward" size={13} tintColor={props.tintColor} />
+        </Pressable>
+      ) : null}
+      {props.text.trim().length > 0 ? (
+        <CopyTextButton
+          accessibilityLabel="Copy message"
+          text={props.text}
+          onCopy={props.onCopy}
+          tintColor={props.tintColor}
+          buttonSize={28}
+          iconSize={13}
+        />
+      ) : null}
+      {linkText.trim().length > 0 && linkText.length <= PROMPT_LINK_MAX_PROMPT_LENGTH ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Copy prompt link"
+          hitSlop={8}
+          className="size-7 items-center justify-center"
+          onPress={() => void copyPromptLink(linkText)}
+        >
+          <SymbolView name="link" size={13} tintColor={props.tintColor} />
+        </Pressable>
+      ) : null}
+    </>
   );
 }
 
@@ -992,6 +1004,8 @@ function ThreadAutomationMessageRow(props: {
   readonly text: string;
   readonly context?: OrchestrationMessageContext;
   readonly scheduledTaskId: ScheduledTaskId | undefined;
+  readonly onRewind?: (() => void) | undefined;
+  readonly onCopy?: (() => Promise<void>) | undefined;
   readonly timestampLabel: string;
   readonly expanded: boolean;
   readonly onToggle: () => void;
@@ -1094,9 +1108,10 @@ function ThreadAutomationMessageRow(props: {
           <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
             {props.timestampLabel}
           </Text>
-          <UserMessageCopyButton
+          <UserMessageControls
             text={props.text}
-            onCopy={undefined}
+            onCopy={props.onCopy}
+            onRewind={props.onRewind}
             tintColor={props.iconSubtleColor}
           />
         </View>
@@ -1114,6 +1129,8 @@ function renderFeedEntry(
     | "skills"
     | "dispatchingMessageId"
     | "onEditPendingMessage"
+    | "rewindMessageIds"
+    | "onRewindMessage"
     | "threadId"
     | "workspaceRoot"
   > & {
@@ -1330,6 +1347,21 @@ function renderFeedEntry(
           text={presentation.text}
           context={message.context}
           scheduledTaskId={presentation.scheduledTaskId}
+          onRewind={
+            props.rewindMessageIds?.has(message.id)
+              ? () => props.onRewindMessage?.(message.id)
+              : undefined
+          }
+          onCopy={
+            message.context
+              ? () =>
+                  writeComposerContextClipboard(message.text, {
+                    version: 1,
+                    source: { environmentId: props.environmentId, messageId: message.id },
+                    records: message.context!.records,
+                  })
+              : undefined
+          }
           timestampLabel={timestampLabel}
           expanded={props.expandedWorkRows[rowId] ?? false}
           onToggle={() => props.onToggleWorkRow(rowId, entry.id)}
@@ -1516,22 +1548,25 @@ function renderFeedEntry(
                 <SymbolView name="pencil" size={14} tintColor={iconSubtleColor} />
               </Pressable>
             ) : null}
-            {presentation.text.trim().length > 0 ? (
-              <UserMessageCopyButton
-                text={presentation.text}
-                onCopy={
-                  message.context
-                    ? () =>
-                        writeComposerContextClipboard(message.text, {
-                          version: 1,
-                          source: { environmentId: props.environmentId, messageId: message.id },
-                          records: message.context!.records,
-                        })
-                    : undefined
-                }
-                tintColor={iconSubtleColor}
-              />
-            ) : null}
+            <UserMessageControls
+              onRewind={
+                props.rewindMessageIds?.has(message.id) && !entry.pendingMessage
+                  ? () => props.onRewindMessage?.(message.id)
+                  : undefined
+              }
+              text={presentation.text}
+              onCopy={
+                message.context
+                  ? () =>
+                      writeComposerContextClipboard(message.text, {
+                        version: 1,
+                        source: { environmentId: props.environmentId, messageId: message.id },
+                        records: message.context!.records,
+                      })
+                  : undefined
+              }
+              tintColor={iconSubtleColor}
+            />
           </View>
         </Animated.View>
       );
@@ -2374,6 +2409,8 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
     worktreeSetup: props.worktreeSetup,
     setupWorkingStartedAt: props.setupWorkingStartedAt,
     dispatchingMessageId: props.dispatchingMessageId,
+    rewindMessageIds: props.rewindMessageIds,
+    onRewindMessage: props.onRewindMessage,
     unsettledTurnId,
     copiedRowId,
     expandedWorkGroups,
@@ -2751,6 +2788,8 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             environmentId: props.environmentId,
             dispatchingMessageId: props.dispatchingMessageId,
             onEditPendingMessage: props.onEditPendingMessage,
+            rewindMessageIds: props.rewindMessageIds,
+            onRewindMessage: props.onRewindMessage,
             onUseArtifactTemplate: props.onUseArtifactTemplate,
             threadId: props.threadId,
             copiedRowId,
