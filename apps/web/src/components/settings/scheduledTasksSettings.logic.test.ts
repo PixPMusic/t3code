@@ -309,6 +309,73 @@ describe("scheduled task model defaults", () => {
       project,
       deriveProviderInstanceEntries(value.providers),
     );
+  it("falls back to the destination project default when the preferred model disappeared", () => {
+    const active = {
+      instanceId,
+      model: "removed-model",
+      options: [{ id: "cyberAccessProgram", value: "daybreakRed" }],
+    };
+    const next = scheduledTaskDefaultModel(
+      config.settings,
+      { id: projectId, defaultModelSelection: projectSelection },
+      deriveProviderInstanceEntries(config.providers),
+      active,
+    );
+    expect(next).toEqual(projectSelection);
+    const descriptors = scheduledTaskModelDescriptors(
+      DEFAULT_UNIFIED_SETTINGS,
+      config.providers,
+      next!,
+      projectId,
+    );
+    expect(descriptors).not.toBeNull();
+    expect(decideDaybreakModelChange(active.options, next!, descriptors ?? [])).toMatchObject({
+      type: "confirm",
+      choices: [{ label: "Turn Off" }],
+    });
+  });
+
+  it("ignores missing configured defaults and legacy models when choosing a fallback", () => {
+    const missing = { instanceId, model: "removed-model" };
+    const providers = config.providers.map((provider) => ({
+      ...provider,
+      models: [
+        { slug: "legacy", name: "Legacy", isCustom: false, isLegacy: true, capabilities: null },
+        ...provider.models,
+      ],
+    }));
+    expect(
+      scheduledTaskDefaultModel(
+        { ...config.settings, defaultModelSelection: missing },
+        { id: projectId, defaultModelSelection: missing },
+        deriveProviderInstanceEntries(providers),
+        missing,
+      ),
+    ).toEqual({ instanceId, model: "catalog-default" });
+  });
+
+  it("preserves a configured custom model that is absent from native discovery", () => {
+    const preferred = { instanceId, model: "custom-model" };
+    const settings = {
+      ...config.settings,
+      providerInstances: {
+        [instanceId]: {
+          driver: config.providers[0]!.driver,
+          enabled: true,
+          config: { customModels: [{ slug: preferred.model, name: "Custom model" }] },
+        },
+      },
+    };
+    expect(
+      scheduledTaskDefaultModel(
+        settings,
+        { id: projectId },
+        deriveProviderInstanceEntries(config.providers),
+        preferred,
+      ),
+    ).toEqual(preferred);
+  });
+
   it("resolves destination project enablement instead of carrying the source project's entries", () => {
     const sourceId = ProjectId.make("source");
     const settings = {
