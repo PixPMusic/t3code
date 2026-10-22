@@ -188,8 +188,8 @@ describe("Daybreak staged choices", () => {
       { providerKey: "codex", providerLabel: "Codex", models: [refreshed] },
     ]);
     expect(decision.type === "confirm" && decision.choices.map((choice) => choice.label)).toEqual([
-      "Switch to Blue",
-      "Turn off and switch",
+      "Use Blue",
+      "Turn Off",
     ]);
     expect(pending.selection.options).toEqual(red);
   });

@@ -1,4 +1,3 @@
-import { daybreakLabel } from "@t3tools/client-runtime/model-traits";
 import { useDaybreakModelChange } from "../chat/useDaybreakModelChange";
 import { getProviderModelCapabilities } from "../../providerModels";
 import {
@@ -44,6 +43,10 @@ import {
   useScopedSettingSource,
   useUpdateScopedSettings,
 } from "./useScopedSettings";
+import {
+  blocksBulkDaybreakChange,
+  intersectDaybreakDescriptors,
+} from "./ProjectDefaultsSettings.logic";
 
 const WORKTREE_SUBMODULES_OPTIONS = ["recursive", "top-level", "none"] as const;
 function isWorktreeSubmodules(value: string | null): value is WorktreeSubmodules {
@@ -95,24 +98,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
           ).optionDescriptors ?? [])
         : [];
     });
-    const descriptors = descriptorSets[0] ?? [];
-    return descriptors.map((descriptor) =>
-      descriptor.id === "cyberAccessProgram" && descriptor.type === "select"
-        ? {
-            ...descriptor,
-            options: descriptor.options.filter((option) =>
-              descriptorSets.every((set) =>
-                set.some(
-                  (entry) =>
-                    entry.id === descriptor.id &&
-                    entry.type === "select" &&
-                    entry.options.some((choice) => choice.id === option.id),
-                ),
-              ),
-            ),
-          }
-        : descriptor,
-    );
+    return intersectDaybreakDescriptors(descriptorSets);
   }, JSON.stringify(scope));
   const mixedModel = useScopedSettingsMixed(["defaultModelSelection"]);
   const mixedFallback = useScopedSettingsMixed(["fallbackModelSelection"]);
@@ -139,11 +125,9 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
 
   const setModel = (value: ModelSelection | null) => {
     if (
-      targets.length !== 1 &&
-      targets.some((target) =>
-        target.settings.defaultModelSelection?.options?.some(
-          (option) => option.id === "cyberAccessProgram" && daybreakLabel(option.value),
-        ),
+      blocksBulkDaybreakChange(
+        targets.map((target) => target.settings.defaultModelSelection),
+        value,
       )
     ) {
       toastManager.add({

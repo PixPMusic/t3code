@@ -551,30 +551,26 @@ function ThreadSettingsSessionProvider(
     if (decision.type === "ready") return { ...target, selection: decision.selection };
     const selection = await new Promise<ModelSelection | null>((resolve) => {
       Dialog.alert(
-        "Change Daybreak program?",
-        `${decision.activeLabel} is not available for the selected model and account. Choose how to continue.`,
+        `${decision.activeLabel} isn’t available on ${target.label}`,
+        "Choose an available option to switch models, or cancel to keep your current selection.",
         [
-          { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
           ...decision.choices.map((choice) => ({
             text: choice.label,
             onPress: () => resolve(choice.selection),
           })),
+          { text: "Cancel", style: "cancel", onPress: () => resolve(null) },
         ],
-        { onDismiss: () => resolve(null) },
+        { cancelable: true, equalWeightActions: true, onDismiss: () => resolve(null) },
       );
     });
     if (!selection) return null;
     if (!canCommitPendingModel(target, getLatestGroups())) return null;
-    const latest = decide();
-    const program = selection.options?.find((option) => option.id === DAYBREAK_OPTION_ID)?.value;
-    const accepted =
-      latest.type === "ready"
-        ? latest.selection
-        : latest.choices.find(
-            (choice) =>
-              choice.selection.options?.find((option) => option.id === DAYBREAK_OPTION_ID)
-                ?.value === program,
-          )?.selection;
+    const latest = pendingDaybreakModelChange(
+      selection.options,
+      { ...target, selection },
+      getLatestGroups(),
+    );
+    const accepted = latest.type === "ready" ? latest.selection : null;
     if (!accepted) {
       Dialog.alert(
         "Daybreak availability changed",

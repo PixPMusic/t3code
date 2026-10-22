@@ -405,7 +405,7 @@ export function ComposerModelPicker({
       const remaining = next[0] ?? selectedModelSelection;
       onProviderModelSelect(remaining.instanceId, remaining.model, {
         focusComposer: false,
-        currentSelection: selectedModelSelection,
+        currentSelection: remaining,
         onCommit: () => onMultipleModelSelectionsChange(null),
       });
     }

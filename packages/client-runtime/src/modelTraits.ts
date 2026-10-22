@@ -96,27 +96,45 @@ export function decideDaybreakModelChange(
   return {
     type: "confirm" as const,
     activeLabel: activeLabel ?? "Daybreak Off",
-    choices: [
-      ...choices.flatMap((choice) =>
-        daybreakLabel(choice.id)
-          ? [
-              {
-                label: choice.id === "daybreakBlue" ? "Switch to Blue" : "Switch to Red",
-                selection: select(choice.id),
-              },
-            ]
-          : [],
-      ),
-      ...(!descriptor || choices.some((choice) => choice.id === "standard")
+    choices: getDaybreakModelChangeChoices(target, targetDescriptors),
+  };
+}
+
+export function getDaybreakModelChangeChoices(
+  target: ModelSelection,
+  targetDescriptors: ReadonlyArray<ProviderOptionDescriptor>,
+) {
+  const descriptor = targetDescriptors.find(
+    (entry) => entry.id === DAYBREAK_OPTION_ID && entry.type === "select",
+  );
+  const choices = descriptor?.type === "select" ? descriptor.options : [];
+  const select = (value: string | undefined): ModelSelection => ({
+    ...target,
+    options: [
+      ...(target.options ?? []).filter((option) => option.id !== DAYBREAK_OPTION_ID),
+      ...(value ? [{ id: DAYBREAK_OPTION_ID, value }] : []),
+    ],
+  });
+  return [
+    ...choices.flatMap((choice) =>
+      daybreakLabel(choice.id)
         ? [
             {
-              label: "Turn off and switch",
-              selection: select(descriptor ? "standard" : undefined),
+              label: choice.id === "daybreakBlue" ? "Use Blue" : "Use Red",
+              selection: select(choice.id),
             },
           ]
-        : []),
-    ],
-  };
+        : [],
+    ),
+    ...(!descriptor || choices.some((choice) => choice.id === "standard")
+      ? [
+          {
+            label: "Turn Off",
+            selection: select(descriptor ? "standard" : undefined),
+          },
+        ]
+      : []),
+  ];
 }
 
 export const ULTRATHINK_PROMPT_PREFIX = "Ultrathink:\n";

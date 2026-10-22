@@ -37,10 +37,7 @@ describe("Daybreak model changes", () => {
     const decision = decideDaybreakModelChange(red, target, programs("standard", "daybreakBlue"));
     expect(decision.type).toBe("confirm");
     if (decision.type !== "confirm") return;
-    expect(decision.choices.map((choice) => choice.label)).toEqual([
-      "Switch to Blue",
-      "Turn off and switch",
-    ]);
+    expect(decision.choices.map((choice) => choice.label)).toEqual(["Use Blue", "Turn Off"]);
     expect(decision.choices.map((choice) => choice.selection.options)).toEqual([
       [{ id: "cyberAccessProgram", value: "daybreakBlue" }],
       [{ id: "cyberAccessProgram", value: "standard" }],
@@ -51,13 +48,13 @@ describe("Daybreak model changes", () => {
   it("does not invent Off when standard is absent", () => {
     const decision = decideDaybreakModelChange(red, target, programs("daybreakBlue"));
     expect(decision.type === "confirm" && decision.choices.map((choice) => choice.label)).toEqual([
-      "Switch to Blue",
+      "Use Blue",
     ]);
   });
   it("offers clearing the option for a target without a capability descriptor", () => {
     const decision = decideDaybreakModelChange(red, target, []);
     expect(decision.type === "confirm" && decision.choices).toEqual([
-      { label: "Turn off and switch", selection: { ...target, options: [] } },
+      { label: "Turn Off", selection: { ...target, options: [] } },
     ]);
   });
   it("preserves the active program over the target sticky choice", () => {
@@ -72,7 +69,7 @@ describe("Daybreak model changes", () => {
   it("requires an explicit advertised program when moving from Off to a color-only model", () => {
     const decision = decideDaybreakModelChange(undefined, target, programs("daybreakBlue"));
     expect(decision.type === "confirm" && decision.choices.map((choice) => choice.label)).toEqual([
-      "Switch to Blue",
+      "Use Blue",
     ]);
   });
   it("never resurrects a remembered active program when the current program is Off", () => {
