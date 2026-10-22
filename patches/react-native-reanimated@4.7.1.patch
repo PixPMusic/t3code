@@ -2,7 +2,7 @@ diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.cpp b/
 index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251f791d63a 100644
 --- a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.cpp
 +++ b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxy.cpp
-@@ -823,35 +823,40 @@ void LayoutAnimationsProxy::addOngoingAnimations(ShadowViewMutationList &mutatio
+@@ -823,35 +823,41 @@ void LayoutAnimationsProxy::addOngoingAnimations(ShadowViewMutationList &mutatio
  
      maybeCorrectedTags = preserveMountedTags_(tagsToUpdate);
      if (!maybeCorrectedTags.has_value()) {
@@ -48,6 +48,7 @@ index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251
 +      // A reduced-motion animation may have only one frame, before its view mounts.
 +      // Keep it until a UI-thread pull can apply it; cancellation and teardown erase it.
 +      // https://github.com/software-mansion/react-native-reanimated/issues/7493
++      schedulePullOnNextFrame();
 +      ++it;
        continue;
      }
@@ -55,7 +56,7 @@ index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251
  
      auto &layoutAnimation = layoutAnimationIt != layoutAnimations_.end() ? layoutAnimationIt->second
                                                                           : completedAnimationIt->second.animation;
-@@ -867,8 +872,8 @@ void LayoutAnimationsProxy::addOngoingAnimations(ShadowViewMutationList &mutatio
+@@ -867,8 +873,8 @@ void LayoutAnimationsProxy::addOngoingAnimations(ShadowViewMutationList &mutatio
      if (layoutAnimation.opacity && getViewProps(newView).opacity == *layoutAnimation.opacity) {
        layoutAnimation.opacity.reset();
      }
@@ -65,7 +66,7 @@ index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251
  }
  
  void LayoutAnimationsProxy::endAnimationsRecursively(
-@@ -1056,10 +1061,14 @@ void LayoutAnimationsProxy::cleanupAnimations(
+@@ -1056,10 +1062,14 @@ void LayoutAnimationsProxy::cleanupAnimations(
      const PropsParserContext &propsParserContext,
      const bool flushStructuralMutations) const {
    ReanimatedSystraceSection s("cleanupAnimations");
@@ -82,7 +83,7 @@ index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251
          continue;
        }
        const auto containerIt = sharedContainers_.find(tag);
-@@ -1067,7 +1076,7 @@ void LayoutAnimationsProxy::cleanupAnimations(
+@@ -1067,7 +1077,7 @@ void LayoutAnimationsProxy::cleanupAnimations(
          continue;
        }
        if (!flushStructuralMutations) {
@@ -91,7 +92,7 @@ index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251
          continue;
        }
        if (containerIt->second.restoreAfterNode) {
-@@ -1078,14 +1087,15 @@ void LayoutAnimationsProxy::cleanupAnimations(
+@@ -1078,14 +1088,15 @@ void LayoutAnimationsProxy::cleanupAnimations(
  
      cleanupSharedTransitions(transaction, propsParserContext);
    }
@@ -109,6 +110,37 @@ index c0825bb47a6fac02331138b5e0a0e5bbb52df0fa..1658cd1286d1087dec1dff84234f6251
    });
  }
  
+diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.cpp b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.cpp
+--- a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.cpp
++++ b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsProxyCommon.cpp
+@@ -265,7 +265,8 @@ ShadowView LayoutAnimationsProxyCommon::materializeLayoutAnimation(
+   auto currentView = before;
+   const auto activeAnimationIt = layoutAnimations_.find(tag);
+   if (type == LayoutAnimationType::ENTERING) {
+-    currentView = after;
++    // A pending retarget has not changed the frame submitted for native mounting.
++    currentView = before;
+   } else if (activeAnimationIt != layoutAnimations_.end()) {
+     currentView = activeAnimationIt->second.currentView;
+   } else if (const auto completedAnimationIt = completedAnimations_.find(tag);
+@@ -546,5 +547,16 @@ bool LayoutAnimationsProxyCommon::updateEnteringAnimationTarget(const Tag tag, const ShadowView &finalView) const {
+     }
+     return true;
+   }
++  if (const auto completedAnimationIt = completedAnimations_.find(tag);
++      completedAnimationIt != completedAnimations_.end() && !completedAnimationIt->second.shouldRemove &&
++      completedAnimationIt->second.animation.type == LayoutAnimationType::ENTERING && updateMap_.contains(tag)) {
++    // Retargeting must preserve the queued final frame until it reaches the native view.
++    auto &animation = completedAnimationIt->second.animation;
++    animation.finalView = finalView;
++    if (animation.opacity) {
++      animation.opacity = getViewProps(finalView).opacity;
++    }
++    return true;
++  }
+   return false;
+ }
+
 diff --git a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h b/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h
 index 675b1b7d890971d0c43522f59106f1cf20b0fe1a..dea79ba4806e8f1ac31a11c7fa045298b54d6305 100644
 --- a/Common/cpp/reanimated/LayoutAnimations/LayoutAnimationsUtils.h
