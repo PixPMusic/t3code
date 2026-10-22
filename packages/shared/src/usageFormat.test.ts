@@ -34,14 +34,37 @@ describe("usage source messages", () => {
     ]);
   });
 
-  it("counts equal warnings from distinct sources but the same source only once", () => {
+  it.each([
+    { first: 1, second: 1, total: 2 },
+    { first: 1, second: 11, total: 12 },
+  ])(
+    "combines hosts reporting $first and $second skipped records once per source",
+    ({ first, second, total }) => {
+      const source = malformedSource(first);
+      const otherHost = malformedSource(second, {
+        fingerprint: { ...source.fingerprint, hostId: "other-demo-host" },
+      });
+
+      expect(usageSourceMessages([source, source, otherHost, otherHost])).toEqual([
+        `${total} malformed or inconsistent usage record(s) were skipped; usage may be incomplete.`,
+      ]);
+      expect(usageSourceMessages([source, source])).toEqual([
+        `${first} malformed or inconsistent usage record(s) were skipped; usage may be incomplete.`,
+      ]);
+      expect(usageSourceMessages([otherHost, otherHost])).toEqual([
+        `${second} malformed or inconsistent usage record(s) were skipped; usage may be incomplete.`,
+      ]);
+    },
+  );
+
+  it("keeps different machines with the same hostname and home path distinct", () => {
     const source = malformedSource(1);
-    const otherHost = malformedSource(1, {
-      fingerprint: { ...source.fingerprint, hostId: "other-demo-host" },
+    const otherMachine = malformedSource(11, {
+      fingerprint: { ...source.fingerprint, volumeId: "other-demo-volume" },
     });
 
-    expect(usageSourceMessages([source, source, otherHost])).toEqual([
-      "2 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
+    expect(usageSourceMessages([source, otherMachine])).toEqual([
+      "12 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
     ]);
   });
 
