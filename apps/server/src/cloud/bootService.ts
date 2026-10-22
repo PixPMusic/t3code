@@ -945,10 +945,21 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
         if (Exit.isSuccess(exit) || !stopAttempted || activationAttempted) return Effect.void;
         return Effect.gen(function* () {
           if (previousFiles !== undefined) {
+            let restoreError: BootServiceInstallError | undefined;
             for (const [filePath, contents] of previousFiles) {
-              if (Option.isSome(contents)) yield* writeDurably(filePath, contents.value);
-              else yield* fs.remove(filePath, { force: true });
+              const restore = Option.isSome(contents)
+                ? writeDurably(filePath, contents.value)
+                : fs
+                    .remove(filePath, { force: true })
+                    .pipe(Effect.mapError((cause) => new BootServiceInstallError({ cause })));
+              yield* restore.pipe(
+                Effect.catch((error) => {
+                  restoreError ??= error;
+                  return Effect.void;
+                }),
+              );
             }
+            if (restoreError !== undefined) return yield* restoreError;
             // systemd may already have loaded the replacement definition.
             if (activationStarted && previousUnit !== manager.render(plan)) {
               yield* runSteps(manager.finalize);
@@ -971,13 +982,7 @@ export const make = Effect.fn("cloud.boot_service.make")(function* (input: {
                 : Effect.void;
             }),
           );
-        }).pipe(
-          Effect.mapError((cause) =>
-            cause._tag === "PlatformError" ? new BootServiceInstallError({ cause }) : cause,
-          ),
-          Effect.tapError(logFailure),
-          Effect.ignore,
-        );
+        }).pipe(Effect.tapError(logFailure), Effect.ignore);
       }),
     );
     return plan;

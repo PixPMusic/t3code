@@ -809,26 +809,36 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
       }),
   );
 
-  it.effect.each(["linux", "darwin"] as const)(
-    "leaves the service stopped if restoring its previous state fails on %s",
-    (platform) =>
+  it.effect.each(
+    (["linux", "darwin"] as const).flatMap((platform) =>
+      (["state", "unit"] as const).flatMap((failedRestore) =>
+        [false, true].map((hasMarker) => ({ platform, failedRestore, hasMarker })),
+      ),
+    ),
+  )(
+    "restores remaining files and leaves the service stopped after $failedRestore restore failure on $platform (marker: $hasMarker)",
+    ({ platform, failedRestore, hasMarker }) =>
       Effect.gen(function* () {
         const { service, fs, baseDir, statePath, starts, commands, makeService } =
           yield* makeHarness(platform);
         const path = yield* Path.Path;
         const plan = yield* service.install();
+        const markerPath = path.join(baseDir, "runtime", SERVICE_RESTART_PENDING_FILE);
+        if (hasMarker) yield* fs.writeFileString(markerPath, "1.2.3\n");
         let stateWrites = 0;
-        let unitWritten = false;
+        let unitWrites = 0;
         const fileSystem = FileSystem.FileSystem.of({
           ...fs,
           rename: (from, to) =>
             Effect.gen(function* () {
-              if (to === statePath && ++stateWrites === 2) {
+              if (to === statePath && ++stateWrites === 2 && failedRestore === "state") {
+                return yield* fs.rename(path.join(baseDir, "missing-restore-source"), to);
+              }
+              if (to === plan.unitPath && ++unitWrites === 2 && failedRestore === "unit") {
                 return yield* fs.rename(path.join(baseDir, "missing-restore-source"), to);
               }
               yield* fs.rename(from, to);
-              if (to === plan.unitPath && !unitWritten) {
-                unitWritten = true;
+              if (to === plan.unitPath && unitWrites === 1) {
                 yield* fs.rename(from, to);
               }
             }),
@@ -845,6 +855,16 @@ it.layer(NodeServices.layer)("boot service install", (it) => {
             ? "systemctl --user stop t3code.service"
             : "launchctl bootout --wait gui/501/com.t3tools.t3code.service",
         );
+        expect(parseServiceState(yield* fs.readFileString(statePath))?.activeVersion).toBe(
+          failedRestore === "state" ? "1.2.4" : "1.2.3",
+        );
+        expect(BootService.bootServiceProgramOf(yield* fs.readFileString(plan.unitPath))).toBe(
+          pinnedRuntimePaths(path, baseDir, failedRestore === "unit" ? "1.2.4" : "1.2.3", platform)
+            .entryPath,
+        );
+        expect(
+          yield* fs.readFileString(markerPath).pipe(Effect.orElseSucceed(() => undefined)),
+        ).toBe(hasMarker ? "1.2.3\n" : undefined);
         expect(yield* fs.readFileString(plan.logPath)).toContain(
           "Could not set up the T3 Code background service.",
         );
