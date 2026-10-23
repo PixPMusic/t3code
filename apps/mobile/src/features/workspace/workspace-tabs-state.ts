@@ -1,4 +1,17 @@
-export type WorkspaceTab = "threads" | "pullRequests";
+import {
+  NAVIGATION_TAB_ORDER,
+  navigationCustomizationAvailable,
+  resolveNavigationTabOrder,
+  type NavigationTab,
+} from "./navigation-tab-order";
+
+export function resolveWorkspaceTabOrder(saved: readonly unknown[] | undefined) {
+  return navigationCustomizationAvailable()
+    ? resolveNavigationTabOrder(saved)
+    : NAVIGATION_TAB_ORDER;
+}
+
+export type WorkspaceTab = NavigationTab;
 export type WorkspaceSearchMode = "resting" | "active" | "expanded";
 
 export interface WorkspaceTabState {
@@ -22,7 +35,11 @@ export function initialWorkspaceTabsState(): WorkspaceTabsState {
   return {
     selectedTab: "threads",
     selectionRevision: 0,
-    tabs: { threads: emptyTab(), pullRequests: emptyTab() },
+    tabs: {
+      threads: emptyTab(),
+      pullRequests: emptyTab(),
+      usage: emptyTab(),
+    },
   };
 }
 
@@ -47,6 +64,7 @@ export function workspaceTabsReducer(
           selectionRevision: state.selectionRevision + 1,
         };
   const tab = action.tab ?? state.selectedTab;
+  if (tab !== "threads" && tab !== "pullRequests") return state;
   const current = state.tabs[tab];
   let next: WorkspaceTabState;
   switch (action.type) {
@@ -88,4 +106,18 @@ export function workspaceToolbarHeight(mode: WorkspaceSearchMode): number {
   return mode === "expanded"
     ? WORKSPACE_TOOLBAR.height * 2 + WORKSPACE_TOOLBAR.expandedGap
     : WORKSPACE_TOOLBAR.height;
+}
+
+export const NATIVE_WORKSPACE_TAB_SLOTS = [
+  "first",
+  "second",
+  "third",
+  "fourth",
+  "settings",
+] as const;
+
+export function workspaceTabForNativeSlot(order: readonly WorkspaceTab[], slot: string) {
+  if (slot === "settings") return "settings";
+  const index = NATIVE_WORKSPACE_TAB_SLOTS.findIndex((candidate) => candidate === slot);
+  return order[index] ?? null;
 }

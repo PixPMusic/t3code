@@ -1,3 +1,14 @@
+import {
+  navigationCustomizationAvailable,
+  overflowNavigationTabs,
+} from "../workspace/navigation-tab-order";
+import {
+  NAVIGATION_TAB_ICONS,
+  WORKSPACE_TAB_LABELS,
+  useNavigationTabOrder,
+  useHiddenNavigationTabs,
+} from "../workspace/navigation-tabs";
+import { useSelectWorkspaceTab } from "../workspace/useSelectWorkspaceTab";
 import { Toolbar } from "../../components/ui/Toolbar";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { useAuth, useUser } from "@clerk/expo";
@@ -77,6 +88,7 @@ function ConfiguredSettingsRouteScreen() {
         contentContainerClassName="gap-4 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
+        <OverflowSection />
         <SettingsSection title="Connections">
           <SettingsRow
             icon="person.crop.circle"
@@ -117,6 +129,7 @@ function LocalSettingsRouteScreen() {
           paddingBottom: Math.max(insets.bottom, 18) + 18,
         }}
       >
+        <OverflowSection />
         <SettingsSection title="Connections">
           <SettingsRow
             icon="desktopcomputer"
@@ -154,6 +167,13 @@ function SettingsIndexSections() {
     <>
       <SettingsSection title="Interface">
         <SettingsRow icon="paintbrush" label="Appearance" target="SettingsAppearance" />
+        {navigationCustomizationAvailable() ? (
+          <SettingsRow
+            icon="line.3.horizontal"
+            label="Navigation tabs"
+            target="SettingsNavigation"
+          />
+        ) : null}
         {Platform.OS === "ios" ? (
           <>
             <SettingsRow icon="keyboard" label="Keyboard" target="SettingsKeyboard" />
@@ -215,9 +235,29 @@ function SettingsIndexSections() {
       </SettingsSection>
 
       <SettingsSection title="App">
-        <SettingsRow icon="chart.bar.xaxis" label="Usage" target="SettingsUsage" />
         <SettingsRow icon="info.circle" label="About T3 Code" target="SettingsAbout" />
       </SettingsSection>
     </>
   );
+}
+
+function OverflowSection() {
+  const order = useNavigationTabOrder();
+  const hidden = useHiddenNavigationTabs();
+  const { layout } = useAdaptiveWorkspaceLayout();
+  const tabs =
+    Platform.OS === "android" && layout.usesSplitView ? [] : overflowNavigationTabs(order, hidden);
+  const selectTab = useSelectWorkspaceTab();
+  return tabs.length ? (
+    <SettingsSection>
+      {tabs.map((tab) => (
+        <SettingsRow
+          key={tab}
+          icon={NAVIGATION_TAB_ICONS[tab]}
+          label={WORKSPACE_TAB_LABELS[tab]}
+          onPress={() => selectTab(tab)}
+        />
+      ))}
+    </SettingsSection>
+  ) : null;
 }

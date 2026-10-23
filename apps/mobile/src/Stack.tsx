@@ -85,6 +85,7 @@ import {
 } from "./features/threads/ThreadSettingsSheet";
 import { NewTaskFlowProvider } from "./features/threads/new-task-flow-provider";
 import { NewTaskRouteScreen } from "./features/threads/NewTaskRouteScreen";
+import { SettingsNavigationRouteScreen } from "./features/settings/SettingsNavigationRouteScreen";
 import { SettingsAppearanceRouteScreen } from "./features/settings/SettingsAppearanceRouteScreen";
 import { SettingsClientStorageRouteScreen } from "./features/settings/SettingsClientStorageRouteScreen";
 import { SettingsDiagnosticsRouteScreen } from "./features/diagnostics/SettingsDiagnosticsRouteScreen";
@@ -304,6 +305,11 @@ const SettingsContentStack = createV5SheetStackNavigator({
       options: {
         title: "Archived Threads",
       },
+    }),
+    SettingsNavigation: createNativeStackScreen({
+      screen: SettingsNavigationRouteScreen,
+      linking: "navigation-tabs",
+      options: { title: "Navigation tabs" },
     }),
     SettingsAppearance: createNativeStackScreen({
       screen: SettingsAppearanceRouteScreen,
