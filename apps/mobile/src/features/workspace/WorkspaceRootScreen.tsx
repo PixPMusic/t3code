@@ -119,7 +119,7 @@ function WorkspaceRootContent() {
         ? 64 + insets.bottom + 16
         : Platform.OS === "ios"
           ? Math.max(insets.bottom, keyboardHeight) +
-            (deviceType === "pad" || systemTabBar || sidebarTabs || tab.searchMode !== "resting"
+            (systemTabBar || sidebarTabs || tab.searchMode !== "resting"
               ? sidebarPicker
                 ? 80
                 : 16
@@ -208,11 +208,8 @@ function WorkspaceRootContent() {
             <WorkspaceExtraTab tab={state.selectedTab} />
           )}
         </SafeAreaInsetsContext>
-        {deviceType !== "pad" && (sidebarPicker || compactTabs) ? (
-          <WorkspaceSidebarTabs
-            onNewTask={compactTabs && state.selectedTab === "threads" ? startNewTask : undefined}
-            compact={deviceType === "phone" ? true : undefined}
-          />
+        {deviceType !== "pad" && deviceType !== "phone" && sidebarPicker ? (
+          <WorkspaceSidebarTabs />
         ) : null}
         {enabled.length === 0 ? null : state.selectedTab === "threads" ||
           state.selectedTab === "pullRequests" ? (

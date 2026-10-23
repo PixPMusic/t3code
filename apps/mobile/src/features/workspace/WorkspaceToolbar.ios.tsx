@@ -74,7 +74,7 @@ export function WorkspaceToolbar(props: {
   const bottomBarInset = useDuoBottomBarInset();
   const { isTabActive } = workspace;
   const tabActive = use(NativeWorkspaceTabActivityContext)?.active ?? true;
-  const { layout, panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
+  const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const searchRef = useRef<SearchBarCommands>(null);
   const fieldRef = useRef<TextInputInstance>(null);
   const tab = workspace.state.tabs[workspace.state.selectedTab];
@@ -164,7 +164,7 @@ export function WorkspaceToolbar(props: {
       <Toolbar placement="right">
         {selectedTab !== "threads" ||
         isDuoDevice(deviceType) ||
-        (deviceType === "pad" && !layout.usesSplitView) ||
+        deviceType === "pad" ||
         sidebarTabs === "picker" ||
         compactTabs ? null : (
           <Toolbar.Button

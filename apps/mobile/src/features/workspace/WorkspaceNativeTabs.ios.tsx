@@ -20,7 +20,7 @@ import {
   type WorkspaceTab,
 } from "./workspace-tabs-state";
 import { NativeWorkspaceTabActivityContext } from "../../native/v5-workspace-context";
-import { useSystemWorkspaceTabBar } from "./useSystemWorkspaceTabBar";
+import { useCompactWorkspaceTabs, useSystemWorkspaceTabBar } from "./useSystemWorkspaceTabBar";
 import { useControlTheme } from "../../components/ui/useControlTheme";
 import { useDeviceType } from "../../native/native-layout-metrics";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
@@ -69,6 +69,7 @@ export function WorkspaceNativeTabs(props: {
   const [provenance, setProvenance] = useState(0);
   const systemTabBar = useSystemWorkspaceTabBar();
   const deviceType = useDeviceType();
+  const compactTabs = useCompactWorkspaceTabs();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const { width } = useWindowDimensions();
   const { colors } = useControlTheme();
@@ -160,7 +161,7 @@ export function WorkspaceNativeTabs(props: {
           );
         })}
       </Tabs.Host>
-      {deviceType === "pad" ? (
+      {deviceType === "pad" || (compactTabs && !props.hidden) ? (
         <View
           pointerEvents="box-none"
           style={{
@@ -172,11 +173,10 @@ export function WorkspaceNativeTabs(props: {
           }}
         >
           <WorkspaceSidebarTabs
-            compact={!layout.usesSplitView}
+            compact={deviceType === "phone" || !layout.usesSplitView}
+            reserveComposeSpace
             onNewTask={
-              !layout.usesSplitView && !workspace.settingsOpen && selectedTab === "threads"
-                ? startNewTask
-                : undefined
+              !workspace.settingsOpen && selectedTab === "threads" ? startNewTask : undefined
             }
           />
         </View>

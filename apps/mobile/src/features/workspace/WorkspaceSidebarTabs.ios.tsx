@@ -23,6 +23,7 @@ const NativeSidebarTabBar = requireNativeView<
 export function WorkspaceSidebarTabs(props: {
   readonly onNewTask?: () => void;
   readonly compact?: boolean;
+  readonly reserveComposeSpace?: boolean;
 }) {
   const workspace = useWorkspaceTabs()!;
   const order = useNavigationTabOrder();
@@ -63,7 +64,13 @@ export function WorkspaceSidebarTabs(props: {
         bottom: 0,
         left: props.compact ? 8 : 0,
         // Keep the tab icons in place when Compose disappears on other destinations.
-        right: props.compact ? (props.onNewTask ? 12 : 76) : 0,
+        right:
+          (props.compact ? 12 : 0) +
+          ((props.reserveComposeSpace ?? props.compact) && !props.onNewTask
+            ? props.compact
+              ? 64
+              : 76
+            : 0),
         height: 128,
       }}
     />
