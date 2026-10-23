@@ -1,4 +1,5 @@
 import { useLayoutEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
@@ -102,19 +103,20 @@ function SwipeableUndoNotice(props: {
       }}
     >
       <GestureDetector gesture={gesture}>
-        <Animated.View
-          collapsable={false}
-          entering={noticeEntering}
-          accessible
-          accessibilityRole="alert"
-          accessibilityLiveRegion="assertive"
-          accessibilityLabel={`${notice.action} thread`}
-          style={animatedStyle}
-          accessibilityActions={[{ name: "dismiss", label: "Dismiss message" }]}
-          onAccessibilityAction={({ nativeEvent }) => {
-            if (nativeEvent.actionName === "dismiss") dismiss();
-          }}
-        >
+        <Animated.View collapsable={false} entering={noticeEntering} style={animatedStyle}>
+          {/* Keep the dismiss target separate so TalkBack can also focus Undo. */}
+          <View
+            accessible
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+            accessibilityLabel={`${notice.action} thread`}
+            accessibilityActions={[{ name: "dismiss", label: "Dismiss message" }]}
+            onAccessibilityAction={({ nativeEvent }) => {
+              if (nativeEvent.actionName === "dismiss") dismiss();
+            }}
+            pointerEvents="none"
+            style={StyleSheet.absoluteFill}
+          />
           <Toast
             message={`${notice.action} thread`}
             action={{ label: "Undo", onPress: () => void notice.undo() }}
