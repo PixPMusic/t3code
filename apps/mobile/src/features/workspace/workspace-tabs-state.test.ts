@@ -5,8 +5,19 @@ import {
   workspaceTabForNativeSlot,
   resolveWorkspaceTabOrder,
   workspaceSearchBottomClearance,
+  workspaceDockBottomClearance,
   workspaceUsesColumns,
 } from "./workspace-tabs-state";
+
+describe("compact list clearance", () => {
+  it.each([
+    { bottomInset: 34, keyboardHeight: 300, clearance: 380 },
+    { bottomInset: 34, keyboardHeight: 0, clearance: 114 },
+    { bottomInset: 34, keyboardHeight: 20, clearance: 114 },
+  ])("keeps the last result above the keyboard and dock: %j", ({ clearance, ...input }) => {
+    expect(workspaceDockBottomClearance(input)).toBe(clearance);
+  });
+});
 
 describe("Duo list clearance", () => {
   it.each([18, 60])(

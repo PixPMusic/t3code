@@ -35,6 +35,7 @@ import { WorkspaceToolbar } from "./WorkspaceToolbar";
 import {
   WORKSPACE_DOCK,
   workspaceSearchBottomClearance,
+  workspaceDockBottomClearance,
   workspaceToolbarHeight,
 } from "./workspace-tabs-state";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
@@ -116,7 +117,7 @@ function WorkspaceRootContent() {
           keyboardHeight,
         })
       : compactTabs || deviceType === "pad"
-        ? 64 + insets.bottom + 16
+        ? workspaceDockBottomClearance({ bottomInset: insets.bottom, keyboardHeight })
         : Platform.OS === "ios"
           ? Math.max(insets.bottom, keyboardHeight) +
             (systemTabBar || sidebarTabs || tab.searchMode !== "resting"
