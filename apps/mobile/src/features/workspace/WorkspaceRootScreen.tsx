@@ -158,14 +158,18 @@ function WorkspaceRootContent() {
             title="T3 Code"
             titleContent={renderHeaderTitle()}
             actions={[
-              {
-                accessibilityLabel:
-                  state.selectedTab === "threads" ? "Search threads" : "Search pull requests",
-                icon: "magnifyingglass",
-                onPress: () => {
-                  dispatchHardwareKeyboardCommand("focusSearch");
-                },
-              },
+              ...(state.selectedTab === "threads" || state.selectedTab === "pullRequests"
+                ? [
+                    {
+                      accessibilityLabel:
+                        state.selectedTab === "threads" ? "Search threads" : "Search pull requests",
+                      icon: "magnifyingglass" as const,
+                      onPress: () => {
+                        dispatchHardwareKeyboardCommand("focusSearch");
+                      },
+                    },
+                  ]
+                : []),
               {
                 accessibilityLabel: "Settings",
                 icon: "gearshape",
