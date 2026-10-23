@@ -16,7 +16,7 @@ import {
   readThreadUndoNotice,
   useThreadUndoNotice,
 } from "./thread-undo-notice";
-import { ThreadUndoNoticeHeightContext } from "./thread-undo-notice-layout";
+import { ThreadUndoNoticeBottomContext } from "./thread-undo-notice-layout";
 
 const SWIPE_TIMING = { duration: 160, reduceMotion: ReduceMotion.System };
 
@@ -34,16 +34,15 @@ function SwipeableUndoNotice(props: {
 }) {
   const { notice } = props;
   const insets = useSafeAreaInsets();
-  const setHeight = use(ThreadUndoNoticeHeightContext);
+  const bottom = use(ThreadUndoNoticeBottomContext);
   const translation = useSharedValue(0);
   const width = useSharedValue(0);
 
   useLayoutEffect(
     () => () => {
       cancelAnimation(translation);
-      setHeight?.(0);
     },
-    [setHeight, translation],
+    [translation],
   );
 
   const dismiss = () => {
@@ -80,16 +79,17 @@ function SwipeableUndoNotice(props: {
   return (
     <View
       className="absolute inset-x-3 z-[100]"
-      style={{ bottom: insets.bottom + 12 }}
+      style={{ bottom: bottom ?? insets.bottom + 12 }}
       pointerEvents="box-none"
       onLayout={(event) => {
         width.set(event.nativeEvent.layout.width);
-        setHeight?.(event.nativeEvent.layout.height);
       }}
     >
       <GestureDetector gesture={gesture}>
         <Animated.View
           collapsable={false}
+          accessible
+          accessibilityLabel={`${notice.action} thread`}
           style={animatedStyle}
           accessibilityActions={[{ name: "dismiss", label: "Dismiss message" }]}
           onAccessibilityAction={({ nativeEvent }) => {
