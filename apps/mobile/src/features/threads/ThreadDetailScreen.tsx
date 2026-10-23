@@ -579,10 +579,13 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
     (Platform.OS === "ios" && Platform.isPad
       ? Math.max(bottomSafeArea, 12) - (hasSidebarTabBar ? 5 : 0)
       : undefined);
-  const composerBottomInset =
-    alignedBottomInset !== undefined
-      ? Math.max(0, alignedBottomInset - THREAD_COMPOSER_BOTTOM_GUTTER)
-      : Math.max(bottomSafeArea, 12);
+  // The Duo's floating sidebar pill ends three points below the composer's usual gutter.
+  const composerBottomInset = Math.max(
+    0,
+    (alignedBottomInset !== undefined
+      ? alignedBottomInset - THREAD_COMPOSER_BOTTOM_GUTTER
+      : Math.max(bottomSafeArea, 12)) - (hasSidebarTabBar ? 3 : 0),
+  );
   const composerKeyboardOffset = composerBottomInset;
   const contentPresentationKind = props.contentPresentation.kind;
   const realThreadSyncLabel = (() => {
