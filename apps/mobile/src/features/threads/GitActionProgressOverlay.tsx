@@ -2,9 +2,11 @@ import { sourceControlClients } from "@t3tools/client-runtime/source-control-cli
 import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
 import * as Haptics from "expo-haptics";
 import { useEffect, useRef } from "react";
+import { Platform } from "react-native";
 import Animated, { FadeIn, FadeOut, ReduceMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Toast } from "../../components/ui/Toast";
+import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
 import { MOBILE_MOTION } from "../../lib/designTokens";
 import { APP_BAR_HEIGHT } from "../../lib/layoutMetrics";
 import type { GitActionProgress } from "../../state/use-vcs-action-state";
@@ -17,6 +19,11 @@ export function GitActionProgressOverlay(props: {
   const { progress, onDismiss } = props;
   const openPullRequest = props.onOpenPullRequest;
   const insets = useSafeAreaInsets();
+  const toolbar = useToolbarLayout();
+  const top =
+    Platform.OS === "android"
+      ? toolbar.paddingTop + toolbar.height + toolbar.paddingBottom + 8
+      : insets.top + APP_BAR_HEIGHT + 8;
   const prevPhaseRef = useRef(progress.phase);
 
   useEffect(() => {
@@ -37,9 +44,6 @@ export function GitActionProgressOverlay(props: {
         : tryOpenExternalUrl(progress.prUrl, "pull-request"));
       return;
     }
-    if (progress.phase === "success" || progress.phase === "error") {
-      onDismiss();
-    }
   };
 
   if (progress.phase === "idle") {
@@ -56,8 +60,9 @@ export function GitActionProgressOverlay(props: {
       entering={FadeIn.duration(MOBILE_MOTION.enter).reduceMotion(ReduceMotion.System)}
       exiting={FadeOut.duration(MOBILE_MOTION.exit).reduceMotion(ReduceMotion.System)}
       className="absolute inset-x-3 z-[100]"
-      style={{ top: insets.top + APP_BAR_HEIGHT + 8 }}
+      style={{ top }}
       pointerEvents="box-none"
+      onAccessibilityEscape={onDismiss}
     >
       <Toast
         message={progress.label ?? "Source control"}
@@ -71,7 +76,6 @@ export function GitActionProgressOverlay(props: {
         }
         busy={progress.phase === "running"}
         action={openLabel ? { label: openLabel, onPress: handlePress } : undefined}
-        onDismiss={progress.phase === "running" ? undefined : onDismiss}
       />
     </Animated.View>
   );
