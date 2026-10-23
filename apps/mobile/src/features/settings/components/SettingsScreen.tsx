@@ -9,6 +9,7 @@ import { useWorkspaceTabs } from "../../workspace/WorkspaceTabsContext";
 import { useWorkspaceSurface } from "../../workspace/useWorkspaceSurface";
 import { useDeviceType } from "../../../native/native-layout-metrics";
 import { NativeStackScreenOptions } from "../../../native/StackHeader";
+import { useCompactWorkspaceTabs } from "../../workspace/useSystemWorkspaceTabBar";
 
 export { SettingsScreenContent };
 
@@ -25,6 +26,7 @@ export function SettingsScreen(
   const workspace = useWorkspaceTabs();
   const surface = useWorkspaceSurface();
   const deviceType = useDeviceType();
+  const compactTabs = useCompactWorkspaceTabs();
   const cover = deviceType === "duo-folded";
   // Android opens Settings as a workspace tab; its root page has nothing to go back to.
   const workspaceRoot =
@@ -35,7 +37,7 @@ export function SettingsScreen(
     <View
       collapsable={false}
       className={`flex-1 ${workspaceRoot || cover ? surface.className : "bg-sheet"}`}
-      style={deviceType === "pad" ? { paddingBottom: 80 } : undefined}
+      style={deviceType === "pad" || compactTabs ? { paddingBottom: 80 } : undefined}
     >
       <AppBar
         title={props.title}

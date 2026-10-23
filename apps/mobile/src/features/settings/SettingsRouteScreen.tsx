@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Platform, View } from "react-native";
 import { useWorkspaceSurface } from "../workspace/useWorkspaceSurface";
 import { useDeviceType } from "../../native/native-layout-metrics";
+import { useCompactWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { deriveProjectGroupLabel } from "@t3tools/client-runtime/state/project-grouping";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,6 +35,7 @@ import { useSettingsEnvironmentFilter } from "./settings-environment-filter";
 export function SettingsRouteScreen() {
   const surface = useWorkspaceSurface();
   const deviceType = useDeviceType();
+  const compactTabs = useCompactWorkspaceTabs();
   const content = hasCloudPublicConfig() ? (
     <ConfiguredSettingsRouteScreen />
   ) : (
@@ -43,7 +45,7 @@ export function SettingsRouteScreen() {
   return (
     <View
       className={`flex-1 ${surface.className}`}
-      style={deviceType === "pad" ? { paddingBottom: 80 } : undefined}
+      style={deviceType === "pad" || compactTabs ? { paddingBottom: 80 } : undefined}
     >
       {Platform.OS === "ios" ? (
         <NativeStackScreenOptions
