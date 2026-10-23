@@ -71,6 +71,7 @@ export function WorkspaceNativeTabs(props: {
   const deviceType = useDeviceType();
   const compactTabs = useCompactWorkspaceTabs();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
+  const compactSidebarTabs = deviceType === "phone" || !layout.usesSplitView;
   const { width } = useWindowDimensions();
   const { colors } = useControlTheme();
   const selectedTab = workspace.state.selectedTab;
@@ -173,10 +174,12 @@ export function WorkspaceNativeTabs(props: {
           }}
         >
           <WorkspaceSidebarTabs
-            compact={deviceType === "phone" || !layout.usesSplitView}
-            reserveComposeSpace
+            compact={compactSidebarTabs}
+            reserveComposeSpace={compactSidebarTabs}
             onNewTask={
-              !workspace.settingsOpen && selectedTab === "threads" ? startNewTask : undefined
+              compactSidebarTabs && !workspace.settingsOpen && selectedTab === "threads"
+                ? startNewTask
+                : undefined
             }
           />
         </View>
