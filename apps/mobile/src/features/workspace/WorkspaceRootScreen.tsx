@@ -80,7 +80,7 @@ function WorkspaceRootContent() {
   const compactTabs = useCompactWorkspaceTabs();
   const enabled = useEnabledNavigationTabs();
   const sidebarTabs = useSidebarWorkspaceTabs();
-  const sidebarPicker = sidebarTabs === "picker";
+  const sidebarPicker = sidebarTabs === "picker" || (deviceType === "pad" && layout.usesSplitView);
   const sidebarNavigation =
     primaryColumn !== null &&
     (layout.usesSplitView ||
@@ -115,11 +115,11 @@ function WorkspaceRootContent() {
           bottomBarInset,
           keyboardHeight,
         })
-      : compactTabs
+      : compactTabs || deviceType === "pad"
         ? 64 + insets.bottom + 16
         : Platform.OS === "ios"
           ? Math.max(insets.bottom, keyboardHeight) +
-            (systemTabBar || sidebarTabs || tab.searchMode !== "resting"
+            (deviceType === "pad" || systemTabBar || sidebarTabs || tab.searchMode !== "resting"
               ? sidebarPicker
                 ? 80
                 : 16
@@ -208,9 +208,9 @@ function WorkspaceRootContent() {
             <WorkspaceExtraTab tab={state.selectedTab} />
           )}
         </SafeAreaInsetsContext>
-        {sidebarPicker || compactTabs ? (
+        {deviceType !== "pad" && (sidebarPicker || compactTabs) ? (
           <WorkspaceSidebarTabs
-            onNewTask={compactTabs ? startNewTask : undefined}
+            onNewTask={compactTabs && state.selectedTab === "threads" ? startNewTask : undefined}
             compact={deviceType === "phone" ? true : undefined}
           />
         ) : null}
