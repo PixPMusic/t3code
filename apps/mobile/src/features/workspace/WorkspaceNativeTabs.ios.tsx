@@ -161,7 +161,7 @@ export function WorkspaceNativeTabs(props: {
           );
         })}
       </Tabs.Host>
-      {deviceType === "pad" || (compactTabs && !props.hidden) ? (
+      {(deviceType === "pad" || compactTabs) && !props.hidden ? (
         <View
           pointerEvents="box-none"
           style={{
