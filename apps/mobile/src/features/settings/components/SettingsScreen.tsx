@@ -24,7 +24,8 @@ export function SettingsScreen(
   const index = useNavigationState((state) => state.index);
   const workspace = useWorkspaceTabs();
   const surface = useWorkspaceSurface();
-  const cover = useDeviceType() === "duo-folded";
+  const deviceType = useDeviceType();
+  const cover = deviceType === "duo-folded";
   // Android opens Settings as a workspace tab; its root page has nothing to go back to.
   const workspaceRoot =
     props.workspaceRoot ||
@@ -34,6 +35,7 @@ export function SettingsScreen(
     <View
       collapsable={false}
       className={`flex-1 ${workspaceRoot || cover ? surface.className : "bg-sheet"}`}
+      style={deviceType === "pad" ? { paddingBottom: 80 } : undefined}
     >
       <AppBar
         title={props.title}

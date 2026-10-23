@@ -5,7 +5,7 @@ import {
   useEnabledNavigationTabs,
 } from "./navigation-tabs";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Keyboard, View, type NativeSyntheticEvent } from "react-native";
+import { Keyboard, View, useWindowDimensions, type NativeSyntheticEvent } from "react-native";
 import {
   Tabs,
   type TabSelectedEvent,
@@ -22,6 +22,9 @@ import {
 import { NativeWorkspaceTabActivityContext } from "../../native/v5-workspace-context";
 import { useSystemWorkspaceTabBar } from "./useSystemWorkspaceTabBar";
 import { useControlTheme } from "../../components/ui/useControlTheme";
+import { useDeviceType } from "../../native/native-layout-metrics";
+import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
+import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 
 const PULL_REQUEST_ICON = require("../../../assets/icons/pull-request.png");
 
@@ -65,6 +68,9 @@ export function WorkspaceNativeTabs(props: {
   const navigation = useNavigation();
   const [provenance, setProvenance] = useState(0);
   const systemTabBar = useSystemWorkspaceTabBar();
+  const deviceType = useDeviceType();
+  const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
+  const { width } = useWindowDimensions();
   const { colors } = useControlTheme();
   const selectedTab = workspace.state.selectedTab;
   const selectedSlot = workspace.settingsOpen ? -1 : primaryTabs.indexOf(selectedTab);
@@ -154,6 +160,27 @@ export function WorkspaceNativeTabs(props: {
           );
         })}
       </Tabs.Host>
+      {deviceType === "pad" ? (
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            left: 0,
+            bottom: 0,
+            width: layout.listPaneWidth ?? width,
+            height: 128,
+          }}
+        >
+          <WorkspaceSidebarTabs
+            compact={!layout.usesSplitView}
+            onNewTask={
+              !layout.usesSplitView && !workspace.settingsOpen && selectedTab === "threads"
+                ? startNewTask
+                : undefined
+            }
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

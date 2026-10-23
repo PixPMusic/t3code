@@ -62,7 +62,8 @@ export function WorkspaceSidebarTabs(props: {
         position: "absolute",
         bottom: 0,
         left: props.compact ? 8 : 0,
-        right: props.compact ? 12 : 0,
+        // Keep the tab icons in place when Compose disappears on other destinations.
+        right: props.compact ? (props.onNewTask ? 12 : 76) : 0,
         height: 128,
       }}
     />

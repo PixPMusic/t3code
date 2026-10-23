@@ -74,7 +74,7 @@ export function WorkspaceToolbar(props: {
   const bottomBarInset = useDuoBottomBarInset();
   const { isTabActive } = workspace;
   const tabActive = use(NativeWorkspaceTabActivityContext)?.active ?? true;
-  const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
+  const { layout, panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const searchRef = useRef<SearchBarCommands>(null);
   const fieldRef = useRef<TextInputInstance>(null);
   const tab = workspace.state.tabs[workspace.state.selectedTab];
@@ -162,7 +162,11 @@ export function WorkspaceToolbar(props: {
       />
       {/* UIKit lays trailing items out from the edge inward. */}
       <Toolbar placement="right">
-        {isDuoDevice(deviceType) || sidebarTabs === "picker" || compactTabs ? null : (
+        {selectedTab !== "threads" ||
+        isDuoDevice(deviceType) ||
+        (deviceType === "pad" && !layout.usesSplitView) ||
+        sidebarTabs === "picker" ||
+        compactTabs ? null : (
           <Toolbar.Button
             accessibilityLabel="New chat"
             icon="square.and.pencil"

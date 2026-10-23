@@ -267,9 +267,11 @@ class T3WorkspaceNavigationView(
             )
           }
         }
-        newThreadButton(fraction) {
-          expanded = false
-          onNewThread(emptyMap<String, Any>())
+        if (selectedTab == "threads") {
+          newThreadButton(fraction) {
+            expanded = false
+            onNewThread(emptyMap<String, Any>())
+          }
         }
         Spacer(Modifier.weight(1f))
         tabs.forEach { tab ->

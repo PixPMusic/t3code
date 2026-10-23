@@ -20,7 +20,7 @@ export function useSidebarWorkspaceTabs(): "picker" | "toolbar" | null {
   const metrics = useNativeLayoutMetrics();
   const page = useWorkspacePage();
   if (Platform.OS !== "ios" || !layout.usesSplitView || page) return null;
-  if (deviceType === "pad") return "picker";
+  if (deviceType === "pad") return null;
   // Portrait Duo has no system rail; keep its tabs in the sidebar like iPad.
   if (deviceType === "duo-unfolded" && (metrics?.verticalBarEdge ?? "none") === "none")
     return "picker";
@@ -32,11 +32,18 @@ export function useCompactWorkspaceTabs() {
   const deviceType = useDeviceType();
   const page = useWorkspacePage();
   // The compact glass picker reserves the trailing edge for a separate compose button.
-  return Platform.OS === "ios" && !page && !layout.usesSplitView && !isDuoDevice(deviceType);
+  return (
+    Platform.OS === "ios" &&
+    deviceType !== "pad" &&
+    !page &&
+    !layout.usesSplitView &&
+    !isDuoDevice(deviceType)
+  );
 }
 
 export function useSystemWorkspaceTabBar() {
+  const deviceType = useDeviceType();
   const sidebarTabs = useSidebarWorkspaceTabs();
   const compactTabs = useCompactWorkspaceTabs();
-  return Platform.OS === "ios" && sidebarTabs === null && !compactTabs;
+  return Platform.OS === "ios" && deviceType !== "pad" && sidebarTabs === null && !compactTabs;
 }
