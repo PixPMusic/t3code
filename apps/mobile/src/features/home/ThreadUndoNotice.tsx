@@ -24,15 +24,16 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
       ? Math.max(
           insets.bottom,
           columnMetrics?.safeArea.bottom ?? 0,
-          workspace?.bottomClearance ?? 0,
-        )
-      : insets.bottom;
+          // Workspace content clearance includes 16 points of padding above its controls.
+          (workspace?.bottomClearance ?? 0) - 16,
+        ) + 8
+      : insets.bottom + 12;
   return (
     <View
       key={instance.key}
       collapsable={false}
       className="absolute inset-x-3 z-[100]"
-      style={{ bottom: bottom + 12 }}
+      style={{ bottom }}
       pointerEvents="box-none"
     >
       <Toast
