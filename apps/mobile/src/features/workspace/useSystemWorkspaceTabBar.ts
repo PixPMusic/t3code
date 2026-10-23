@@ -1,3 +1,4 @@
+import { isDuoDevice } from "../../lib/device-type";
 import { Platform } from "react-native";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useDeviceType, useNativeLayoutMetrics } from "../../native/native-layout-metrics";
@@ -9,12 +10,21 @@ export function useSidebarWorkspaceTabs(): "picker" | "toolbar" | null {
   const metrics = useNativeLayoutMetrics();
   if (Platform.OS !== "ios" || !layout.usesSplitView) return null;
   if (deviceType === "pad") return "picker";
-  // The Duo's side rail carries UIKit's tabs. Unfolded in portrait it has no
-  // rail, so the tabs sit in the thread list's own toolbar.
+  // Portrait Duo has no system rail; keep its tabs in the sidebar like iPad.
+  if (deviceType === "duo-unfolded" && (metrics?.verticalBarEdge ?? "none") === "none")
+    return "picker";
   return (metrics?.verticalBarEdge ?? "none") === "none" ? "toolbar" : null;
+}
+
+export function useCompactWorkspaceTabs() {
+  const { layout } = useAdaptiveWorkspaceLayout();
+  const deviceType = useDeviceType();
+  // The compact glass picker reserves the trailing edge for a separate compose button.
+  return Platform.OS === "ios" && !layout.usesSplitView && !isDuoDevice(deviceType);
 }
 
 export function useSystemWorkspaceTabBar() {
   const sidebarTabs = useSidebarWorkspaceTabs();
-  return Platform.OS === "ios" && sidebarTabs === null;
+  const compactTabs = useCompactWorkspaceTabs();
+  return Platform.OS === "ios" && sidebarTabs === null && !compactTabs;
 }

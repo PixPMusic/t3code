@@ -13,6 +13,7 @@ export function SettingsScreen(
   props: Pick<AppBarProps, "title" | "actions" | "trailing"> & {
     readonly children: ReactNode;
     readonly formSheet?: boolean;
+    readonly workspaceRoot?: boolean;
   },
 ) {
   const navigation = useNavigation();
@@ -21,7 +22,8 @@ export function SettingsScreen(
   const workspace = useWorkspaceTabs();
   // Android opens Settings as a workspace tab; its root page has nothing to go back to.
   const workspaceRoot =
-    Platform.OS === "android" && workspace !== null && index === 0 && route.name === "Settings";
+    props.workspaceRoot ||
+    (Platform.OS === "android" && workspace !== null && index === 0 && route.name === "Settings");
 
   return (
     <View collapsable={false} className="flex-1 bg-sheet">
