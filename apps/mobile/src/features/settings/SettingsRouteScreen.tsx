@@ -9,17 +9,17 @@ import {
   useHiddenNavigationTabs,
 } from "../workspace/navigation-tabs";
 import { useSelectWorkspaceTab } from "../workspace/useSelectWorkspaceTab";
-import { Toolbar } from "../../components/ui/Toolbar";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { useAuth, useUser } from "@clerk/expo";
 import { useNavigation } from "@react-navigation/native";
 import { Platform, View } from "react-native";
+import { useWorkspaceSurface } from "../workspace/useWorkspaceSurface";
+import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { deriveProjectGroupLabel } from "@t3tools/client-runtime/state/project-grouping";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { hasCloudPublicConfig } from "../cloud/publicConfig";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
-import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
@@ -31,8 +31,7 @@ import {
 import { useSettingsEnvironmentFilter } from "./settings-environment-filter";
 
 export function SettingsRouteScreen() {
-  const navigation = useNavigation();
-  const { layout } = useAdaptiveWorkspaceLayout();
+  const surface = useWorkspaceSurface();
   const content = hasCloudPublicConfig() ? (
     <ConfiguredSettingsRouteScreen />
   ) : (
@@ -40,22 +39,17 @@ export function SettingsRouteScreen() {
   );
 
   return (
-    <>
+    <View className={`flex-1 ${surface.className}`}>
       {Platform.OS === "ios" ? (
-        <NativeStackScreenOptions options={{ headerBackVisible: !layout.usesSplitView }} />
+        <NativeStackScreenOptions
+          options={{
+            headerTransparent: false,
+            headerStyle: { backgroundColor: surface.backgroundColor },
+            contentStyle: { backgroundColor: surface.backgroundColor },
+          }}
+        />
       ) : null}
-      {Platform.OS === "ios" && layout.usesSplitView ? (
-        <>
-          <Toolbar placement="left">
-            <Toolbar.Button
-              accessibilityLabel="Go back"
-              icon="chevron.left"
-              onPress={() => navigation.goBack()}
-            />
-          </Toolbar>
-        </>
-      ) : null}
-      <SettingsEnvironmentFilterHeader closeSettings />
+      <SettingsEnvironmentFilterHeader />
       {Platform.OS === "android" ? (
         <SettingsScreen title="Settings" trailing={<AndroidSettingsEnvironmentFilter />}>
           {content}
@@ -63,7 +57,7 @@ export function SettingsRouteScreen() {
       ) : (
         content
       )}
-    </>
+    </View>
   );
 }
 
@@ -80,7 +74,7 @@ function ConfiguredSettingsRouteScreen() {
       : (user?.primaryEmailAddress?.emailAddress ?? "Signed in");
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
@@ -119,7 +113,7 @@ function LocalSettingsRouteScreen() {
   const environmentCount = Object.keys(savedConnectionsById).length;
 
   return (
-    <View collapsable={false} className="flex-1 bg-sheet">
+    <View collapsable={false} className="flex-1">
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}

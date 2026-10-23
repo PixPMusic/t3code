@@ -67,7 +67,7 @@ export function WorkspaceNativeTabs(props: {
   const systemTabBar = useSystemWorkspaceTabBar();
   const { colors } = useControlTheme();
   const selectedTab = workspace.state.selectedTab;
-  const selectedSlot = primaryTabs.indexOf(selectedTab);
+  const selectedSlot = workspace.settingsOpen ? -1 : primaryTabs.indexOf(selectedTab);
   const request = useMemo(
     () => ({
       selectedScreenKey:
@@ -146,7 +146,7 @@ export function WorkspaceNativeTabs(props: {
             >
               <RetainedWorkspaceTab
                 tab={tab}
-                active={settings ? selectedSlot === -1 : selectedTab === tab}
+                active={settings ? selectedSlot === -1 : selectedSlot === index}
               >
                 {props.children}
               </RetainedWorkspaceTab>
