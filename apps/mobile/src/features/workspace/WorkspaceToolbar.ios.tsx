@@ -1,6 +1,6 @@
 import { useActiveNewTask } from "../../state/active-new-task";
 import { Toolbar } from "../../components/ui/Toolbar";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { use, useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { isDuoDevice } from "../../lib/device-type";
@@ -37,6 +37,7 @@ export function WorkspaceToolbar(props: {
     activeNewTask === null;
   const { isTabActive } = workspace;
   const tabActive = use(NativeWorkspaceTabActivityContext)?.active ?? true;
+  const focused = useIsFocused();
   const { panes, togglePrimarySidebar } = useAdaptiveWorkspaceLayout();
   const searchRef = useRef<SearchBarCommands>(null);
   const tab = workspace.state.tabs[workspace.state.selectedTab];
@@ -76,9 +77,11 @@ export function WorkspaceToolbar(props: {
   );
   useHardwareKeyboardCommand("focusSearch", focusSearch);
   const restoreSearch = useCallback(() => {
-    if (searchVisible && isTabActive(selectedTab) && tab.searchMode !== "resting")
+    if (focused && searchVisible && isTabActive(selectedTab) && tab.searchMode !== "resting") {
       searchRef.current?.setText(tab.query);
-  }, [isTabActive, selectedTab, tab.searchMode, tab.query, searchVisible]);
+      if (bottomSearch) searchRef.current?.setActive(true);
+    }
+  }, [focused, bottomSearch, isTabActive, selectedTab, tab.searchMode, tab.query, searchVisible]);
   useFocusEffect(
     useCallback(() => {
       const frame = requestAnimationFrame(restoreSearch);
@@ -118,6 +121,7 @@ export function WorkspaceToolbar(props: {
     <>
       <NativeStackScreenOptions
         optionsVersion={[selectedTab, tab.searchMode]}
+        listeners={{ transitionEnd: restoreSearch }}
         options={{
           headerSearchBarOptions:
             (NATIVE_LIQUID_GLASS_SUPPORTED || tab.searchMode !== "resting") && searchVisible
