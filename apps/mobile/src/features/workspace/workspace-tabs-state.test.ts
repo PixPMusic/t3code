@@ -4,7 +4,37 @@ import {
   workspaceTabsReducer,
   workspaceTabForNativeSlot,
   resolveWorkspaceTabOrder,
+  workspaceSearchBottomClearance,
 } from "./workspace-tabs-state";
+
+describe("Duo list clearance", () => {
+  it.each([18, 60])(
+    "scrolls the last row above search with a %s-point native bar inset",
+    (bottomBarInset) => {
+      const clearance = workspaceSearchBottomClearance({
+        bottomInset: 34,
+        bottomBarInset,
+        keyboardHeight: 0,
+      });
+      expect(clearance).toBe(bottomBarInset + 48 + 16);
+    },
+  );
+
+  it("keeps the last row above search when the keyboard lifts the field", () => {
+    expect(
+      workspaceSearchBottomClearance({ bottomInset: 34, bottomBarInset: 18, keyboardHeight: 300 }),
+    ).toBe(300 + 8 + 48 + 16);
+  });
+
+  it("falls back to the field's safe-area spacing before native bar metrics arrive", () => {
+    expect(workspaceSearchBottomClearance({ bottomInset: 34, keyboardHeight: 0 })).toBe(
+      34 + 48 + 16,
+    );
+    expect(workspaceSearchBottomClearance({ bottomInset: 0, keyboardHeight: 0 })).toBe(
+      12 + 48 + 16,
+    );
+  });
+});
 
 describe("workspace root navigation", () => {
   it("keeps the registered defaults while customization is unavailable", () => {
