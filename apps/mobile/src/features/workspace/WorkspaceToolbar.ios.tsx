@@ -28,7 +28,8 @@ export function WorkspaceToolbar(props: {
   const deviceType = useDeviceType();
   const sidebarTabs = useSidebarWorkspaceTabs();
   const compactTabs = useCompactWorkspaceTabs();
-  const bottomSearch = NATIVE_LIQUID_GLASS_SUPPORTED && isDuoDevice(deviceType);
+  const duoSearch = NATIVE_LIQUID_GLASS_SUPPORTED && isDuoDevice(deviceType);
+  const bottomSearch = duoSearch && sidebarTabs !== "picker";
   // On the Duo, compose belongs to the threads tab, in the detail column's bar when unfolded.
   const nativeToolbarCompose =
     Platform.OS === "ios" &&
@@ -60,10 +61,10 @@ export function WorkspaceToolbar(props: {
   }, [workspace, selectedTab, props.sidebar, panes.primarySidebarVisible, togglePrimarySidebar]);
   const focusSearch = useCallback(() => {
     if (!workspace.isTabActive(selectedTab)) return false;
-    if (bottomSearch || !NATIVE_LIQUID_GLASS_SUPPORTED) enterSearch();
+    if (duoSearch || !NATIVE_LIQUID_GLASS_SUPPORTED) enterSearch();
     searchRef.current?.focus();
     return true;
-  }, [workspace, selectedTab, enterSearch, bottomSearch]);
+  }, [workspace, selectedTab, enterSearch, duoSearch]);
   const cancelSearch = useCallback(() => {
     workspace.recordScrollOffset(selectedTab, tab.searchEntryOffset);
     workspace.dispatch({ type: "cancel", tab: selectedTab });
@@ -86,14 +87,14 @@ export function WorkspaceToolbar(props: {
       tab.searchMode !== "resting"
     ) {
       searchRef.current?.setText(tab.query);
-      if (bottomSearch) {
+      if (duoSearch) {
         searchRef.current?.setActive(true);
         if (tab.searchMode === "active") searchRef.current?.focus();
       }
     }
   }, [
     searchHostVisible,
-    bottomSearch,
+    duoSearch,
     isTabActive,
     selectedTab,
     tab.searchMode,
@@ -110,7 +111,7 @@ export function WorkspaceToolbar(props: {
     if (!tabActive) return;
     const frame = requestAnimationFrame(restoreSearch);
     return () => cancelAnimationFrame(frame);
-  }, [restoreSearch, tabActive]);
+  }, [restoreSearch, tabActive, bottomSearch]);
   const composeButton = nativeToolbarCompose ? (
     <Toolbar.Button
       identifier="workspace-compose"
@@ -155,7 +156,10 @@ export function WorkspaceToolbar(props: {
                       ? "integrated"
                       : "integratedButton"
                     : "stacked",
-                  allowToolbarIntegration: NATIVE_LIQUID_GLASS_SUPPORTED && deviceType !== "phone",
+                  allowToolbarIntegration:
+                    NATIVE_LIQUID_GLASS_SUPPORTED &&
+                    deviceType !== "phone" &&
+                    sidebarTabs !== "picker",
                   placeholder:
                     selectedTab === "pullRequests" ? "Search pull requests" : "Search threads",
                   cancelButtonHidden: foldedSearch,
