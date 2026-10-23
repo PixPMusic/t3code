@@ -102,6 +102,20 @@ export function workspaceTabsReducer(
 export const WORKSPACE_TOOLBAR = { height: 48, expandedGap: 10, edge: 16, gap: 8 };
 export const WORKSPACE_DOCK = { height: 48, tabsWidth: 176, gap: 12, bottomGap: 6 };
 
+export function workspaceSearchBottomClearance(input: {
+  readonly bottomInset: number;
+  readonly bottomBarInset?: number;
+  readonly keyboardHeight: number;
+}) {
+  const bottom = input.bottomBarInset ?? Math.max(input.bottomInset, 12);
+  // AboveKeyboard lifts the field to an 8-point gap above the keyboard.
+  return (
+    Math.max(bottom, input.keyboardHeight > 0 ? input.keyboardHeight + 8 : 0) +
+    WORKSPACE_TOOLBAR.height +
+    16
+  );
+}
+
 export function workspaceToolbarHeight(mode: WorkspaceSearchMode): number {
   return mode === "expanded"
     ? WORKSPACE_TOOLBAR.height * 2 + WORKSPACE_TOOLBAR.expandedGap

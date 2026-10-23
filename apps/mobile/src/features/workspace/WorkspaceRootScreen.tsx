@@ -12,8 +12,10 @@ import { CompactBrandTitle } from "../../components/CompactBrandTitle";
 import { AndroidScreenHeader } from "../../components/ui/AndroidScreenHeader";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
+import { isDuoDevice } from "../../lib/device-type";
 import {
   useDeviceType,
+  useDuoBottomBarInset,
   useNativeColumnLayoutMetrics,
   useNativeLayoutMetrics,
 } from "../../native/native-layout-metrics";
@@ -28,7 +30,11 @@ import {
   useWorkspaceTabs,
 } from "./WorkspaceTabsContext";
 import { WorkspaceToolbar } from "./WorkspaceToolbar";
-import { WORKSPACE_DOCK, workspaceToolbarHeight } from "./workspace-tabs-state";
+import {
+  WORKSPACE_DOCK,
+  workspaceSearchBottomClearance,
+  workspaceToolbarHeight,
+} from "./workspace-tabs-state";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import {
   useCompactWorkspaceTabs,
@@ -79,6 +85,7 @@ function WorkspaceRootContent() {
       (nativeMetrics !== null && nativeMetrics.verticalBarEdge !== "none"));
   const width = columnMetrics?.width ?? windowWidth;
   const insets = useSafeAreaInsets();
+  const bottomBarInset = useDuoBottomBarInset();
   const keyboardHeight = useKeyboardState((keyboard) => keyboard.height);
   const workspace = useWorkspaceTabs()!;
   const { state } = workspace;
@@ -97,18 +104,25 @@ function WorkspaceRootContent() {
     [width, navigation],
   );
   const tab = state.tabs[state.selectedTab];
-  const bottomClearance = compactTabs
-    ? 64 + insets.bottom + 16
-    : Platform.OS === "ios"
-      ? Math.max(insets.bottom, keyboardHeight) +
-        (systemTabBar || sidebarTabs || tab.searchMode !== "resting"
-          ? sidebarPicker
-            ? 80
-            : 16
-          : WORKSPACE_DOCK.height + WORKSPACE_DOCK.bottomGap + 16)
-      : keyboardHeight > 0 && tab.searchMode !== "resting"
-        ? keyboardHeight + 64
-        : Math.max(insets.bottom, 12) + workspaceToolbarHeight(tab.searchMode) + 16;
+  const bottomClearance =
+    Platform.OS === "ios" && isDuoDevice(deviceType)
+      ? workspaceSearchBottomClearance({
+          bottomInset: insets.bottom,
+          bottomBarInset,
+          keyboardHeight,
+        })
+      : compactTabs
+        ? 64 + insets.bottom + 16
+        : Platform.OS === "ios"
+          ? Math.max(insets.bottom, keyboardHeight) +
+            (systemTabBar || sidebarTabs || tab.searchMode !== "resting"
+              ? sidebarPicker
+                ? 80
+                : 16
+              : WORKSPACE_DOCK.height + WORKSPACE_DOCK.bottomGap + 16)
+          : keyboardHeight > 0 && tab.searchMode !== "resting"
+            ? keyboardHeight + 64
+            : Math.max(insets.bottom, 12) + workspaceToolbarHeight(tab.searchMode) + 16;
   const context = useMemo(() => ({ ...workspace, bottomClearance }), [workspace, bottomClearance]);
 
   return (
