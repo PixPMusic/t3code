@@ -225,7 +225,9 @@ export function useUsage(
     });
   }
   const kept =
-    lastAnswered?.selection === selectedEnvironmentIds && lastAnswered.hidden === hiddenProviders
+    lastAnswered?.selection === selectedEnvironmentIds &&
+    lastAnswered.hidden === hiddenProviders &&
+    (lastAnswered.window.resolution ?? "day") === (input.resolution ?? "day")
       ? lastAnswered
       : null;
   const shown =
