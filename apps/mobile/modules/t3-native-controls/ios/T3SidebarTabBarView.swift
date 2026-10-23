@@ -25,15 +25,12 @@ private final class WorkspaceTabBar: UITabBar {
   }
 }
 
-final class T3SidebarTabBarView: ExpoView, UITabBarDelegate, UIToolbarDelegate {
+final class T3SidebarTabBarView: ExpoView, UITabBarDelegate {
   let onSelectionChange = EventDispatcher()
   let onCompose = EventDispatcher()
   private let tabBar = WorkspaceTabBar()
   private let composeButton = UIButton(type: .system)
-  private let composeToolbar = UIToolbar()
   private lazy var tabBarTrailing = tabBar.trailingAnchor.constraint(equalTo: trailingAnchor)
-  private lazy var composeWidth = composeButton.widthAnchor.constraint(equalToConstant: 60)
-  private lazy var composeHeight = composeButton.heightAnchor.constraint(equalToConstant: 60)
   private var itemsByTab: [String: UITabBarItem] = [:]
   var tabs = ["threads", "pullRequests", "usage", "settings"] {
     didSet { if tabs != oldValue { updateItems() } }
@@ -42,14 +39,13 @@ final class T3SidebarTabBarView: ExpoView, UITabBarDelegate, UIToolbarDelegate {
   var selectedColor: UIColor = .systemBlue { didSet { tabBar.tintColor = selectedColor } }
   var compact = false {
     didSet {
-      configureCompose()
       tabBarTrailing.constant = showsCompose ? (compact ? -64 : -76) : 0
       tabBar.setNeedsLayout()
     }
   }
   var showsCompose = false {
     didSet {
-      composeToolbar.isHidden = !showsCompose
+      composeButton.isHidden = !showsCompose
       tabBarTrailing.constant = showsCompose ? (compact ? -64 : -76) : 0
       setNeedsLayout()
     }
@@ -79,11 +75,8 @@ final class T3SidebarTabBarView: ExpoView, UITabBarDelegate, UIToolbarDelegate {
     tabBar.onContentLayout = { [weak self] frame in self?.layoutCompose(alongside: frame) }
     composeButton.accessibilityLabel = "New chat"
     composeButton.addAction(UIAction { [weak self] _ in self?.onCompose() }, for: .touchUpInside)
-    NSLayoutConstraint.activate([composeWidth, composeHeight])
-    composeToolbar.items = [UIBarButtonItem(customView: composeButton)]
-    composeToolbar.delegate = self
-    composeToolbar.isHidden = true
-    addSubview(composeToolbar)
+    composeButton.isHidden = true
+    addSubview(composeButton)
     configureCompose()
     prepareItems()
     updateItems()
@@ -92,13 +85,9 @@ final class T3SidebarTabBarView: ExpoView, UITabBarDelegate, UIToolbarDelegate {
   private func configureCompose() {
     var configuration: UIButton.Configuration
     if #available(iOS 26.0, *) {
-      configuration = compact ? .glass() : .plain()
-      composeToolbar.items?.first?.hidesSharedBackground = compact
+      configuration = .glass()
     } else {
       configuration = .gray()
-      let appearance = UIToolbarAppearance()
-      appearance.configureWithTransparentBackground()
-      composeToolbar.standardAppearance = appearance
     }
     configuration.cornerStyle = .capsule
     configuration.baseForegroundColor = .label
@@ -134,13 +123,8 @@ final class T3SidebarTabBarView: ExpoView, UITabBarDelegate, UIToolbarDelegate {
   private func layoutCompose(alongside frame: CGRect) {
     guard showsCompose, frame.height > 0 else { return }
     let row = convert(frame, from: tabBar)
-    let buttonHeight = row.height + (compact ? 8 : 0)
-    composeWidth.constant = buttonHeight
-    composeHeight.constant = buttonHeight
-    let width = buttonHeight + 16
-    let height = composeToolbar.sizeThatFits(CGSize(width: width, height: bounds.height)).height
-    composeToolbar.frame = CGRect(x: row.maxX + 8, y: row.midY - height / 2, width: width, height: height)
-    composeToolbar.layoutIfNeeded()
+    let size = row.height + 8
+    composeButton.frame = CGRect(x: row.maxX + 16, y: row.midY - size / 2, width: size, height: size)
   }
 
   override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -148,10 +132,6 @@ final class T3SidebarTabBarView: ExpoView, UITabBarDelegate, UIToolbarDelegate {
       return target
     }
     return tabBar.hitTest(convert(point, to: tabBar), with: event)
-  }
-
-  func position(for bar: UIBarPositioning) -> UIBarPosition {
-    .bottom
   }
 
   override func didMoveToWindow() {
