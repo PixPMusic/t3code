@@ -6,8 +6,8 @@ private final class WorkspaceTabBar: UITabBar {
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    let row = tabButton(in: self).map { convert($0.bounds, from: $0) }
-    onContentLayout?(row ?? safeAreaLayoutGuide.layoutFrame)
+    let row = tabButtons(in: self).reduce(CGRect.null) { $0.union(convert($1.bounds, from: $1)) }
+    if !row.isNull { onContentLayout?(row) }
   }
 
   override func safeAreaInsetsDidChange() {
@@ -15,14 +15,13 @@ private final class WorkspaceTabBar: UITabBar {
     invalidateIntrinsicContentSize()
   }
 
-  private func tabButton(in view: UIView) -> UIView? {
-    for subview in view.subviews where !subview.isHidden {
+  private func tabButtons(in view: UIView) -> [UIView] {
+    view.subviews.filter { !$0.isHidden }.flatMap { subview in
       if subview is UIControl, subview.accessibilityIdentifier?.hasPrefix("workspace-tab-") == true {
-        return subview
+        return [subview]
       }
-      if let button = tabButton(in: subview) { return button }
+      return tabButtons(in: subview)
     }
-    return nil
   }
 }
 
@@ -62,6 +61,11 @@ final class T3SidebarTabBarView: ExpoView, UITabBarDelegate, UIToolbarDelegate {
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     tabBar.itemPositioning = .fill
+    // iPad's regular bar uses a compressed inline row even with fill positioning.
+    // This floating sidebar control needs the same full-size items as a phone bar.
+    if #available(iOS 17.0, *) {
+      tabBar.traitOverrides.horizontalSizeClass = .compact
+    }
     tabBar.delegate = self
     tabBar.translatesAutoresizingMaskIntoConstraints = false
     addSubview(tabBar)
@@ -135,7 +139,7 @@ final class T3SidebarTabBarView: ExpoView, UITabBarDelegate, UIToolbarDelegate {
     composeHeight.constant = buttonHeight
     let width = buttonHeight + 16
     let height = composeToolbar.sizeThatFits(CGSize(width: width, height: bounds.height)).height
-    composeToolbar.frame = CGRect(x: bounds.width - 8 - width, y: row.midY - height / 2, width: width, height: height)
+    composeToolbar.frame = CGRect(x: row.maxX + 8, y: row.midY - height / 2, width: width, height: height)
     composeToolbar.layoutIfNeeded()
   }
 

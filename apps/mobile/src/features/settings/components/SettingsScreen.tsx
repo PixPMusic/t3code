@@ -10,6 +10,7 @@ import { useWorkspaceSurface } from "../../workspace/useWorkspaceSurface";
 import { useDeviceType } from "../../../native/native-layout-metrics";
 import { NativeStackScreenOptions } from "../../../native/StackHeader";
 import { useCompactWorkspaceTabs } from "../../workspace/useSystemWorkspaceTabBar";
+import { ScreenScrollViewBottomInset } from "../../../components/ui/ScreenScrollView";
 
 export { SettingsScreenContent };
 
@@ -37,7 +38,6 @@ export function SettingsScreen(
     <View
       collapsable={false}
       className={`flex-1 ${workspaceRoot || cover ? surface.className : "bg-sheet"}`}
-      style={deviceType === "pad" || compactTabs ? { paddingBottom: 80 } : undefined}
     >
       <AppBar
         title={props.title}
@@ -56,11 +56,13 @@ export function SettingsScreen(
           }}
         />
       ) : null}
-      {props.formSheet ? (
-        props.children
-      ) : (
-        <SettingsScreenContent>{props.children}</SettingsScreenContent>
-      )}
+      <ScreenScrollViewBottomInset value={deviceType === "pad" || compactTabs ? 80 : 0}>
+        {props.formSheet ? (
+          props.children
+        ) : (
+          <SettingsScreenContent>{props.children}</SettingsScreenContent>
+        )}
+      </ScreenScrollViewBottomInset>
     </View>
   );
 }
