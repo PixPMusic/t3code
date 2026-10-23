@@ -9,7 +9,10 @@ import {
   useHiddenNavigationTabs,
 } from "../workspace/navigation-tabs";
 import { useSelectWorkspaceTab } from "../workspace/useSelectWorkspaceTab";
-import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
+import {
+  ScreenScrollView as ScrollView,
+  ScreenScrollViewBottomInset,
+} from "../../components/ui/ScreenScrollView";
 import { useAuth, useUser } from "@clerk/expo";
 import { useNavigation } from "@react-navigation/native";
 import { Platform, View } from "react-native";
@@ -43,10 +46,7 @@ export function SettingsRouteScreen() {
   );
 
   return (
-    <View
-      className={`flex-1 ${surface.className}`}
-      style={deviceType === "pad" || compactTabs ? { paddingBottom: 80 } : undefined}
-    >
+    <View className={`flex-1 ${surface.className}`}>
       {Platform.OS === "ios" ? (
         <NativeStackScreenOptions
           options={{
@@ -57,13 +57,15 @@ export function SettingsRouteScreen() {
         />
       ) : null}
       <SettingsEnvironmentFilterHeader />
-      {Platform.OS === "android" ? (
-        <SettingsScreen title="Settings" trailing={<AndroidSettingsEnvironmentFilter />}>
-          {content}
-        </SettingsScreen>
-      ) : (
-        content
-      )}
+      <ScreenScrollViewBottomInset value={deviceType === "pad" || compactTabs ? 80 : 0}>
+        {Platform.OS === "android" ? (
+          <SettingsScreen title="Settings" trailing={<AndroidSettingsEnvironmentFilter />}>
+            {content}
+          </SettingsScreen>
+        ) : (
+          content
+        )}
+      </ScreenScrollViewBottomInset>
     </View>
   );
 }
