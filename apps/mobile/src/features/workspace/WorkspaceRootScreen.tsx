@@ -13,6 +13,8 @@ import { AndroidScreenHeader } from "../../components/ui/AndroidScreenHeader";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
 import { isDuoDevice } from "../../lib/device-type";
+import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
+import { useWorkspaceSurface } from "./useWorkspaceSurface";
 import {
   useDeviceType,
   useDuoBottomBarInset,
@@ -73,6 +75,7 @@ function WorkspaceRootContent() {
   const columnMetrics = useNativeColumnLayoutMetrics();
   const nativeMetrics = useNativeLayoutMetrics();
   const deviceType = useDeviceType();
+  const surface = useWorkspaceSurface();
   const systemTabBar = useSystemWorkspaceTabBar();
   const compactTabs = useCompactWorkspaceTabs();
   const enabled = useEnabledNavigationTabs();
@@ -89,6 +92,7 @@ function WorkspaceRootContent() {
   const keyboardHeight = useKeyboardState((keyboard) => keyboard.height);
   const workspace = useWorkspaceTabs()!;
   const { state } = workspace;
+  const solidHeader = deviceType === "duo-folded" || state.selectedTab === "usage";
   const renderHeaderTitle = useCallback(
     () => (
       <WorkspaceRootTitle
@@ -128,7 +132,7 @@ function WorkspaceRootContent() {
   return (
     <WorkspaceTabsContext value={context}>
       <View
-        className={sidebarPicker ? "flex-1 bg-drawer" : "flex-1 bg-screen"}
+        className={`flex-1 ${sidebarPicker ? "bg-drawer" : surface.className}`}
         style={sidebarPicker ? { paddingTop: insets.top } : undefined}
       >
         {Platform.OS === "ios" ? (
@@ -143,6 +147,13 @@ function WorkspaceRootContent() {
             options={{
               title: enabled.length ? TAB_TITLES[state.selectedTab] : "Navigation",
               headerShown: true,
+              headerTransparent: solidHeader ? false : NATIVE_LIQUID_GLASS_SUPPORTED,
+              headerStyle: solidHeader
+                ? { backgroundColor: surface.backgroundColor }
+                : NATIVE_LIQUID_GLASS_SUPPORTED
+                  ? { backgroundColor: "transparent" }
+                  : undefined,
+              contentStyle: solidHeader ? { backgroundColor: surface.backgroundColor } : undefined,
               ...(state.selectedTab !== "usage" || enabled.length === 0
                 ? { headerRight: undefined }
                 : {}),
@@ -150,7 +161,7 @@ function WorkspaceRootContent() {
                 ? { headerSearchBarOptions: undefined, unstable_headerRightItems: () => [] }
                 : {}),
               unstable_headerLeftItems: () => [],
-              headerTitle: renderHeaderTitle,
+              headerTitle: state.selectedTab === "usage" ? undefined : renderHeaderTitle,
             }}
           />
         ) : (

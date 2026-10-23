@@ -14,6 +14,10 @@ export function resolveWorkspaceTabOrder(saved: readonly unknown[] | undefined) 
 export type WorkspaceTab = NavigationTab;
 export type WorkspaceSearchMode = "resting" | "active" | "expanded";
 
+export function workspaceUsesColumns(tab: WorkspaceTab, detailRoute?: string) {
+  return (tab === "threads" || tab === "pullRequests") && detailRoute !== "SettingsSheet";
+}
+
 export interface WorkspaceTabState {
   readonly query: string;
   readonly searchMode: WorkspaceSearchMode;

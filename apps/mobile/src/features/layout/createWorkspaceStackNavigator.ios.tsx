@@ -26,6 +26,7 @@ import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { scopedThreadKey } from "../../lib/scopedEntities";
 import { WorkspaceTabsProvider, useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import { WorkspaceNativeTabs } from "../workspace/WorkspaceNativeTabs.ios";
+import { workspaceUsesColumns } from "../workspace/workspace-tabs-state";
 import { useDeviceType, useNativeLayoutMetrics } from "../../native/native-layout-metrics";
 
 import { useAdaptiveWorkspaceLayout } from "./AdaptiveWorkspaceLayout";
@@ -360,6 +361,7 @@ function WorkspaceColumns(
 
 function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean }) {
   const { layout } = useAdaptiveWorkspaceLayout();
+  const workspace = useWorkspaceTabs()!;
   // Native dismiss commits the route pop after the transition. Restore the dock
   // when the primary screen starts appearing, including interactive back gestures.
   const [primaryVisible, setPrimaryVisible] = useState(false);
@@ -377,6 +379,7 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
   const descriptors = props.descriptors;
   const baseRoute = { key: `${props.state.key}:workspace`, name: "Workspace" };
   const visibleRoute = projection.detail.at(-1) ?? primaryRoute;
+  const workspacePage = !workspaceUsesColumns(workspace.state.selectedTab, visibleRoute.name);
   const baseDescriptor: Descriptor = {
     ...primaryDescriptor,
     navigation: props.descriptors[visibleRoute.key]!.navigation,
@@ -387,6 +390,7 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
     render: () => (
       <WorkspaceNativeTabs
         hidden={
+          !workspacePage &&
           projection.detail.length > 0 &&
           !primaryVisible &&
           !layout.usesSplitView &&
@@ -397,7 +401,7 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
             props.navigation.dispatch({ type: "POP_TO_TOP", target: props.state.key });
         }}
       >
-        {props.nativeColumns ? (
+        {props.nativeColumns && !workspacePage ? (
           <WorkspaceColumns
             {...props}
             descriptors={descriptors}
