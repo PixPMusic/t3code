@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vite-plus/test";
-import { initialWorkspaceTabsState, workspaceTabsReducer } from "./workspace-tabs-state";
+import {
+  initialWorkspaceTabsState,
+  workspaceTabsReducer,
+  workspaceTabForNativeSlot,
+  resolveWorkspaceTabOrder,
+} from "./workspace-tabs-state";
 
 describe("workspace root navigation", () => {
+  it("keeps the registered defaults while customization is unavailable", () => {
+    expect(resolveWorkspaceTabOrder(undefined)).toEqual(["threads", "pullRequests", "usage"]);
+    expect(resolveWorkspaceTabOrder(["home", "usage", "issues", "threads"])).toEqual(
+      resolveWorkspaceTabOrder(undefined),
+    );
+  });
+
   it("retains separate queries and positions across tabs, and cancels only the current search", () => {
     let state = initialWorkspaceTabsState();
     state = workspaceTabsReducer(state, { type: "scroll", tab: "threads", offset: 640 });
@@ -63,5 +75,26 @@ describe("workspace root navigation", () => {
     expect(state.tabs.threads).toMatchObject({ query: "keyboard", searchMode: "expanded" });
     expect(state.tabs.pullRequests.searchMode).toBe("resting");
     expect(workspaceTabsReducer(state, { type: "select", tab: "pullRequests" })).toBe(state);
+  });
+  it("returns from Usage without losing list state", () => {
+    let state = workspaceTabsReducer(initialWorkspaceTabsState(), {
+      type: "query",
+      query: "retained",
+      tab: "threads",
+    });
+    for (const tab of ["usage"] as const) {
+      state = workspaceTabsReducer(state, { type: "select", tab });
+      expect(state.selectedTab).toBe(tab);
+      expect(workspaceTabsReducer(state, { type: "search" })).toBe(state);
+    }
+    state = workspaceTabsReducer(state, { type: "select", tab: "threads" });
+    expect(state.tabs.threads.query).toBe("retained");
+  });
+  it("opens Settings on native reselection instead of selecting its overflow section", () => {
+    const order = ["threads", "pullRequests", "usage"] as const;
+    expect(workspaceTabForNativeSlot(order, "settings")).toBe("settings");
+    expect(workspaceTabForNativeSlot(order, "first")).toBe("threads");
+    expect(workspaceTabForNativeSlot(order, "third")).toBe("usage");
+    expect(workspaceTabForNativeSlot(order, "removed")).toBeNull();
   });
 });
