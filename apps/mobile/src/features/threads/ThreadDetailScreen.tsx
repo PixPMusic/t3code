@@ -1,4 +1,5 @@
 import { useSidebarWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
+import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import {
   isAtomCommandInterrupted,
   settlePromise,
@@ -106,6 +107,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceContentWidth } from "../layout/workspace-content-width";
 import { useNativeWorkspaceColumnsSupported } from "../../native/NativeWorkspaceColumns";
 import {
+  useDeviceType,
   useDuoBottomBarInset,
   useNativeColumnLayoutMetrics,
   useNativeLayoutMetrics,
@@ -455,6 +457,15 @@ function ThreadVisitWatermark(props: {
 
 export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetailScreenProps) {
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
+  const deviceType = useDeviceType();
+  const workspace = useWorkspaceTabs();
+  const sidebarSearchActive =
+    deviceType === "duo-unfolded" &&
+    workspace?.state.tabs[workspace.state.selectedTab].searchMode === "active";
+  // Keep the last input owner through keyboard dismissal, so closing sidebar
+  // search cannot briefly lift the composer into the keyboard's closing frame.
+  const [composerOwnsKeyboard, setComposerOwnsKeyboard] = useState(false);
+  if (sidebarSearchActive && composerOwnsKeyboard) setComposerOwnsKeyboard(false);
   const navigation = useNavigation();
   const { session: voiceInputSession } = useGlobalVoiceInput();
   const reportedModelSelection = useThreadReportedModelSelection(props.selectedThreadDetailRef);
@@ -514,6 +525,8 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   const handleOwnedInputFocusChange = (focused: boolean) => {
     ownedInputFocusedRef.current = focused;
     if (focused) {
+      if (deviceType === "duo-folded" || deviceType === "duo-unfolded")
+        setComposerOwnsKeyboard(true);
       setKeyboardStateSuspect(false);
     }
   };
@@ -1441,7 +1454,11 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
       {showContent ? (
         <KeyboardStickyView
           // Waiting for a visibility render misses the first keyboard frames.
-          enabled={Platform.OS === "ios" || !keyboardStateSuspect}
+          enabled={
+            Platform.OS === "ios"
+              ? deviceType !== "duo-unfolded" || (composerOwnsKeyboard && !sidebarSearchActive)
+              : !keyboardStateSuspect
+          }
           pointerEvents="box-none"
           style={{ position: "absolute", bottom: 0, left: 0, right: 0, top: 0 }}
           offset={{ closed: 0, opened: composerKeyboardOffset }}
