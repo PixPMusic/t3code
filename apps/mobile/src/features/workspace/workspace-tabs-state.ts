@@ -106,6 +106,13 @@ export function workspaceTabsReducer(
 export const WORKSPACE_TOOLBAR = { height: 48, expandedGap: 10, edge: 16, gap: 8 };
 export const WORKSPACE_DOCK = { height: 48, tabsWidth: 176, gap: 12, bottomGap: 6 };
 
+export function workspaceDockBottomClearance(input: {
+  readonly bottomInset: number;
+  readonly keyboardHeight: number;
+}) {
+  return 64 + Math.max(input.bottomInset, input.keyboardHeight) + 16;
+}
+
 export function workspaceSearchBottomClearance(input: {
   readonly bottomInset: number;
   readonly bottomBarInset?: number;
