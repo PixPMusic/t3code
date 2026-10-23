@@ -76,12 +76,30 @@ export function WorkspaceToolbar(props: {
     [tab.searchMode, enterSearch, workspace, selectedTab],
   );
   useHardwareKeyboardCommand("focusSearch", focusSearch);
+  // The sidebar remains visible while its detail owns navigation focus.
+  const searchHostVisible = focused || primaryColumn?.presented === true;
   const restoreSearch = useCallback(() => {
-    if (focused && searchVisible && isTabActive(selectedTab) && tab.searchMode !== "resting") {
+    if (
+      searchHostVisible &&
+      searchVisible &&
+      isTabActive(selectedTab) &&
+      tab.searchMode !== "resting"
+    ) {
       searchRef.current?.setText(tab.query);
-      if (bottomSearch) searchRef.current?.setActive(true);
+      if (bottomSearch) {
+        searchRef.current?.setActive(true);
+        if (tab.searchMode === "active") searchRef.current?.focus();
+      }
     }
-  }, [focused, bottomSearch, isTabActive, selectedTab, tab.searchMode, tab.query, searchVisible]);
+  }, [
+    searchHostVisible,
+    bottomSearch,
+    isTabActive,
+    selectedTab,
+    tab.searchMode,
+    tab.query,
+    searchVisible,
+  ]);
   useFocusEffect(
     useCallback(() => {
       const frame = requestAnimationFrame(restoreSearch);
