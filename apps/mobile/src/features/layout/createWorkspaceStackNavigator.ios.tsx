@@ -78,15 +78,17 @@ function ColumnScreen(props: {
   readonly navigation: ViewProps["navigation"];
 }) {
   const { descriptor } = props;
+  const [presented, setPresented] = useState(false);
   const primaryColumn = useMemo(
     () =>
       props.primary
         ? {
+            presented,
             selectedThreadKey: props.selectedThreadKey ?? null,
             selectedPullRequestKey: props.selectedPullRequestKey ?? null,
           }
         : null,
-    [props.primary, props.selectedThreadKey, props.selectedPullRequestKey],
+    [props.primary, props.selectedThreadKey, props.selectedPullRequestKey, presented],
   );
   const key = descriptor.route.key;
   return (
@@ -101,10 +103,12 @@ function ColumnScreen(props: {
         props.navigation.emit({ type: "transitionStart", target: key, data: { closing: false } });
       }}
       onDidAppear={() => {
+        setPresented(true);
         props.onAppearance("didAppear", key);
         props.navigation.emit({ type: "transitionEnd", target: key, data: { closing: false } });
       }}
       onWillDisappear={() => {
+        setPresented(false);
         props.onAppearance("willDisappear", key);
         props.navigation.emit({ type: "transitionStart", target: key, data: { closing: true } });
       }}
