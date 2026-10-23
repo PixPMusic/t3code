@@ -15,12 +15,14 @@ import { useWorkspaceState } from "../../state/workspace";
 import { FabScrollContext } from "./FabScrollContext";
 import { updateFabScroll } from "./fab-scroll";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
+import { ThreadUndoNoticeHeightContext } from "./thread-undo-notice-layout";
 
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
   const insets = useSafeAreaInsets();
   const { appearance } = useAppearancePreferences();
   const { fontScale } = useWindowDimensions();
   const [layoutWidth, setLayoutWidth] = useState<number | null>(null);
+  const [undoNoticeHeight, setUndoNoticeHeight] = useState(0);
   const { state } = useWorkspaceState();
   const [expanded, setExpanded] = useState(true);
   const scrollState = useRef({ anchor: 0, expanded: true });
@@ -40,7 +42,9 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   // keeps Material's 16dp corner margin; the bottom bar already consumes the gesture inset.
   return (
     <View className="flex-1" onLayout={(event) => setLayoutWidth(event.nativeEvent.layout.width)}>
-      <FabScrollContext value={onScroll}>{props.children}</FabScrollContext>
+      <ThreadUndoNoticeHeightContext value={setUndoNoticeHeight}>
+        <FabScrollContext value={onScroll}>{props.children}</FabScrollContext>
+      </ThreadUndoNoticeHeightContext>
       {!props.disabled && !props.sidebar && state.hasConnections && layoutWidth !== null ? (
         <NewThreadButton
           key={`${appearance.baseFontSize}:${fontScale}:${layoutWidth}`}
@@ -48,7 +52,10 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
           expanded={expanded}
           onPress={props.onStartNewTask}
           className="absolute"
-          style={androidHomeFabPosition(insets.bottom, props.sidebar)}
+          style={[
+            androidHomeFabPosition(insets.bottom, props.sidebar),
+            undoNoticeHeight > 0 ? { bottom: insets.bottom + undoNoticeHeight + 24 } : null,
+          ]}
         />
       ) : null}
     </View>
