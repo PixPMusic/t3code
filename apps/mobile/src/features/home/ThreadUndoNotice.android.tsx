@@ -1,16 +1,19 @@
 import { useLayoutEffect, useState } from "react";
-import { View } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
+  Easing,
+  FadeOut,
   ReduceMotion,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type EntryAnimationsValues,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Toast } from "../../components/ui/Toast";
+import { MOBILE_MOTION } from "../../lib/designTokens";
 import {
   dismissThreadUndoNotice,
   readThreadUndoNotice,
@@ -18,6 +21,19 @@ import {
 } from "./thread-undo-notice";
 
 const SWIPE_TIMING = { duration: 160, reduceMotion: ReduceMotion.System };
+const ENTER_TIMING = {
+  duration: MOBILE_MOTION.enter,
+  easing: Easing.out(Easing.cubic),
+  reduceMotion: ReduceMotion.System,
+};
+const NOTICE_EXITING = FadeOut.duration(MOBILE_MOTION.exit).reduceMotion(ReduceMotion.System);
+const noticeEntering = (values: EntryAnimationsValues) => {
+  "worklet";
+  return {
+    initialValues: { originY: values.targetOriginY + values.targetHeight + 12 },
+    animations: { originY: withTiming(values.targetOriginY, ENTER_TIMING) },
+  };
+};
 
 export function ThreadUndoNotice(props: { readonly visible: boolean }) {
   const notice = useThreadUndoNotice();
@@ -74,11 +90,13 @@ function SwipeableUndoNotice(props: {
     transform: [{ translateX: translation.value }],
   }));
 
+  // Clip the entrance above navigation; the notice intentionally covers the anchored FAB.
   return (
-    <View
-      className="absolute inset-x-3 z-[100]"
+    <Animated.View
+      className="absolute inset-x-3 z-[100] overflow-hidden"
       style={{ bottom: insets.bottom + 12 }}
       pointerEvents="box-none"
+      exiting={NOTICE_EXITING}
       onLayout={(event) => {
         width.set(event.nativeEvent.layout.width);
       }}
@@ -86,6 +104,7 @@ function SwipeableUndoNotice(props: {
       <GestureDetector gesture={gesture}>
         <Animated.View
           collapsable={false}
+          entering={noticeEntering}
           accessible
           accessibilityRole="alert"
           accessibilityLiveRegion="assertive"
@@ -102,6 +121,6 @@ function SwipeableUndoNotice(props: {
           />
         </Animated.View>
       </GestureDetector>
-    </View>
+    </Animated.View>
   );
 }
