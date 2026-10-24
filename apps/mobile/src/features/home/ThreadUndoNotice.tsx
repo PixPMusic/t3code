@@ -4,11 +4,11 @@ import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Toast } from "../../components/ui/Toast";
 import {
+  useDeviceType,
   useDuoBottomBarInset,
   useNativeLayoutMetrics,
   useNativeColumnLayoutMetrics,
 } from "../../native/native-layout-metrics";
-import { useCompactWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
 import { workspaceSearchBottomClearance } from "../workspace/workspace-tabs-state";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import {
@@ -23,11 +23,11 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
   const columnMetrics = useNativeColumnLayoutMetrics();
   const rootMetrics = useNativeLayoutMetrics();
   const workspace = useWorkspaceTabs();
-  const compactTabs = useCompactWorkspaceTabs();
+  const deviceType = useDeviceType();
   const keyboardHeight = useKeyboardState((keyboard) => keyboard.height);
   const horizontalInsets =
     Platform.OS === "ios"
-      ? compactTabs
+      ? deviceType === "phone"
         ? { left: 29, right: 23 }
         : { left: 20, right: 20 }
       : { left: 12, right: 12 };
