@@ -37,22 +37,28 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
   const [instance, setInstance] = useState({ notice, key: 0 });
   if (instance.notice !== notice) setInstance({ notice, key: instance.key + 1 });
   if (!props.visible || notice === null) return null;
+  const foldedResting =
+    rootMetrics?.hasHinge &&
+    rootMetrics.horizontalSizeClass === "compact" &&
+    workspace?.state.tabs.threads.searchMode === "resting";
   const bottom =
     Platform.OS === "ios"
-      ? rootMetrics?.hasHinge && rootMetrics.verticalBarEdge !== "none"
-        ? // The column's safe area already includes UIKit's search toolbar in this posture.
-          workspaceSearchBottomClearance({
-            bottomInset: rootMetrics.safeArea.bottom,
-            bottomBarInset: rootMetrics.bottomBarInset,
-            keyboardHeight,
-          }) -
-          16 +
-          8
-        : Math.max(
-            insets.bottom,
-            columnMetrics?.safeArea.bottom ?? 0,
-            (workspace?.bottomClearance ?? 0) - workspacePadding,
-          ) + 8
+      ? foldedResting
+        ? Math.max(rootMetrics.safeArea.bottom, keyboardHeight) + 8
+        : rootMetrics?.hasHinge && rootMetrics.verticalBarEdge !== "none"
+          ? // The column's safe area already includes UIKit's search toolbar in this posture.
+            workspaceSearchBottomClearance({
+              bottomInset: rootMetrics.safeArea.bottom,
+              bottomBarInset: rootMetrics.bottomBarInset,
+              keyboardHeight,
+            }) -
+            16 +
+            8
+          : Math.max(
+              insets.bottom,
+              columnMetrics?.safeArea.bottom ?? 0,
+              (workspace?.bottomClearance ?? 0) - workspacePadding,
+            ) + 8
       : insets.bottom + 12;
   return (
     <View
