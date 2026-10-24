@@ -60,7 +60,8 @@ function ToastContent(props: ToastProps) {
   }, [props.message]);
   return (
     <GlassSurface
-      tintColor={Platform.OS === "ios" ? "transparent" : undefined}
+      chrome={Platform.OS === "ios" ? "none" : undefined}
+      tintColor={Platform.OS === "ios" ? null : undefined}
       className={Platform.OS === "ios" ? "bg-transparent p-3" : "p-3"}
       style={{ borderRadius: MOBILE_SHAPE.toast }}
     >
