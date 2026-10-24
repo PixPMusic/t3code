@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Toast } from "../../components/ui/Toast";
-import { useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics";
+import {
+  useDuoBottomBarInset,
+  useNativeColumnLayoutMetrics,
+} from "../../native/native-layout-metrics";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import {
   dismissThreadUndoNotice,
@@ -15,6 +18,8 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
   const insets = useSafeAreaInsets();
   const columnMetrics = useNativeColumnLayoutMetrics();
   const workspace = useWorkspaceTabs();
+  // The Duo's native tab pill extends above the 48-point toolbar reservation.
+  const workspacePadding = useDuoBottomBarInset() === undefined ? 16 : 8;
   // Replacing a notice must also cancel the native gesture tracking the old one.
   const [instance, setInstance] = useState({ notice, key: 0 });
   if (instance.notice !== notice) setInstance({ notice, key: instance.key + 1 });
@@ -24,8 +29,7 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
       ? Math.max(
           insets.bottom,
           columnMetrics?.safeArea.bottom ?? 0,
-          // Workspace content clearance includes 16 points of padding above its controls.
-          (workspace?.bottomClearance ?? 0) - 16,
+          (workspace?.bottomClearance ?? 0) - workspacePadding,
         ) + 8
       : insets.bottom + 12;
   return (
