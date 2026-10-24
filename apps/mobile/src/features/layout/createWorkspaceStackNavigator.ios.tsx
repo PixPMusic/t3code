@@ -189,7 +189,7 @@ function WorkspaceColumns(
   const selectedTab = useWorkspaceTabs()?.state.selectedTab;
   const openNewTask = startNewTask;
   // The cover detail rail needs room for thread tools above the fixed tabs.
-  // The unfolded Duo keeps compose beside its sidebar control.
+  // The unfolded Duo keeps compose in its detail bar.
   const detailCompose =
     deviceType === "duo-unfolded" && selectedTab !== "pullRequests" ? openNewTask : undefined;
   const inspector = use(NativeWorkspaceInspectorContext);
