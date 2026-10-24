@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Toast } from "../../components/ui/Toast";
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
 import { MOBILE_MOTION } from "../../lib/designTokens";
+import { APP_BAR_HEIGHT } from "../../lib/layoutMetrics";
 import type { GitActionProgress } from "../../state/use-vcs-action-state";
 
 export function GitActionProgressOverlay(props: {
@@ -19,7 +20,8 @@ export function GitActionProgressOverlay(props: {
   const { progress, onDismiss } = props;
   const openPullRequest = props.onOpenPullRequest;
   const insets = useSafeAreaInsets();
-  const headerHeight = useContext(HeaderHeightContext) ?? insets.top;
+  // Keyboard-copy feedback sits outside the screen's native header context.
+  const headerHeight = useContext(HeaderHeightContext) ?? insets.top + APP_BAR_HEIGHT;
   const toolbar = useToolbarLayout();
   const top =
     Platform.OS === "android"
