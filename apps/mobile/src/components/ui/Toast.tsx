@@ -1,5 +1,5 @@
 import { MOBILE_MOTION, MOBILE_SHAPE } from "../../lib/designTokens";
-import { useEffect, useLayoutEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { AccessibilityInfo, Platform, StyleSheet, View, useWindowDimensions } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import Animated, {
@@ -17,6 +17,7 @@ import Animated, {
 import { AppText } from "./AppText";
 import { Button } from "./Button";
 import { GlassSurface } from "./GlassSurface";
+import { useControlTheme } from "./useControlTheme";
 import { IconButton } from "./IconButton";
 import { AppActivityIndicator } from "./AppActivityIndicator";
 import { SymbolView } from "./AppSymbol";
@@ -34,18 +35,16 @@ export interface ToastProps {
 
 /** The owning screen places and dismisses feedback; actions are never implicit. */
 export function Toast(props: ToastProps) {
-  const content = <ToastContent {...props} />;
   return props.dismissMode === "swipe" && props.onDismiss ? (
-    <SwipeableToast message={props.message} onDismiss={props.onDismiss}>
-      {content}
-    </SwipeableToast>
+    <SwipeableToast {...props} onDismiss={props.onDismiss} />
   ) : (
-    content
+    <ToastContent {...props} />
   );
 }
 
-function ToastContent(props: ToastProps) {
+function ToastContent(props: ToastProps & { readonly glassReady?: boolean }) {
   const { fontScale } = useWindowDimensions();
+  const { colorScheme } = useControlTheme();
   // Explicit single-line notices reserve the action's width and truncate the text.
   const inlineAction = props.singleLine || (!props.description && fontScale < 1.5);
   const message =
@@ -58,9 +57,9 @@ function ToastContent(props: ToastProps) {
   useEffect(() => {
     if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(props.message);
   }, [props.message]);
-  return (
+  const surface = (
     <GlassSurface
-      chrome={Platform.OS === "ios" ? "none" : undefined}
+      key={props.glassReady === false ? "entering" : "settled"}
       tintColor={Platform.OS === "ios" ? null : undefined}
       className={Platform.OS === "ios" ? "bg-transparent p-3" : "p-3"}
       style={{ borderRadius: MOBILE_SHAPE.toast }}
@@ -100,6 +99,25 @@ function ToastContent(props: ToastProps) {
       {action && !inlineAction ? <View className="mt-2 self-end">{action}</View> : null}
     </GlassSurface>
   );
+  return Platform.OS === "ios" ? (
+    <View
+      style={{
+        borderRadius: MOBILE_SHAPE.toast,
+        boxShadow: [
+          {
+            offsetX: 0,
+            offsetY: 14,
+            blurRadius: 28,
+            color: colorScheme === "dark" ? "rgba(0, 0, 0, 0.22)" : "rgba(0, 0, 0, 0.08)",
+          },
+        ],
+      }}
+    >
+      {surface}
+    </View>
+  ) : (
+    surface
+  );
 }
 
 const SWIPE_TIMING = { duration: 160, reduceMotion: ReduceMotion.System };
@@ -109,19 +127,23 @@ const ENTER_TIMING = {
   reduceMotion: ReduceMotion.System,
 };
 const TOAST_EXITING = FadeOut.duration(MOBILE_MOTION.exit).reduceMotion(ReduceMotion.System);
-const toastEntering = (values: EntryAnimationsValues) => {
-  "worklet";
-  return {
-    initialValues: { originY: values.targetOriginY + values.targetHeight + 12 },
-    animations: { originY: withTiming(values.targetOriginY, ENTER_TIMING) },
-  };
-};
-
-function SwipeableToast(props: {
-  readonly message: string;
-  readonly onDismiss: () => void;
-  readonly children: ReactNode;
-}) {
+function SwipeableToast(props: ToastProps & { readonly onDismiss: () => void }) {
+  const [glassReady, setGlassReady] = useState(Platform.OS !== "ios");
+  const finishEntering = useCallback(() => setGlassReady(true), []);
+  // UIKit can skip glass on a moving host; remount the surface after entry so its blur installs.
+  const toastEntering = useMemo(
+    () => (values: EntryAnimationsValues) => {
+      "worklet";
+      return {
+        initialValues: { originY: values.targetOriginY + values.targetHeight + 12 },
+        animations: { originY: withTiming(values.targetOriginY, ENTER_TIMING) },
+        callback: (finished: boolean) => {
+          if (finished) runOnJS(finishEntering)();
+        },
+      };
+    },
+    [finishEntering],
+  );
   const { onDismiss } = props;
   const translation = useSharedValue(0);
   const width = useSharedValue(0);
@@ -159,7 +181,7 @@ function SwipeableToast(props: {
   }));
   return (
     <Animated.View
-      className="overflow-hidden"
+      className={Platform.OS === "android" ? "overflow-hidden" : undefined}
       pointerEvents="box-none"
       exiting={TOAST_EXITING}
       onAccessibilityEscape={onDismiss}
@@ -184,7 +206,7 @@ function SwipeableToast(props: {
               style={StyleSheet.absoluteFill}
             />
           ) : null}
-          {props.children}
+          <ToastContent {...props} glassReady={glassReady} />
         </Animated.View>
       </GestureDetector>
     </Animated.View>
