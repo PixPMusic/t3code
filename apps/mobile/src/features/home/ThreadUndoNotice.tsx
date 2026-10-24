@@ -1,11 +1,15 @@
 import { useState } from "react";
+import { useKeyboardState } from "react-native-keyboard-controller";
 import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Toast } from "../../components/ui/Toast";
 import {
   useDuoBottomBarInset,
+  useNativeLayoutMetrics,
   useNativeColumnLayoutMetrics,
 } from "../../native/native-layout-metrics";
+import { useCompactWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
+import { workspaceSearchBottomClearance } from "../workspace/workspace-tabs-state";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import {
   dismissThreadUndoNotice,
@@ -17,7 +21,16 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
   const notice = useThreadUndoNotice();
   const insets = useSafeAreaInsets();
   const columnMetrics = useNativeColumnLayoutMetrics();
+  const rootMetrics = useNativeLayoutMetrics();
   const workspace = useWorkspaceTabs();
+  const compactTabs = useCompactWorkspaceTabs();
+  const keyboardHeight = useKeyboardState((keyboard) => keyboard.height);
+  const horizontalInsets =
+    Platform.OS === "ios"
+      ? compactTabs
+        ? { left: 29, right: 23 }
+        : { left: 20, right: 20 }
+      : { left: 12, right: 12 };
   // The Duo's native tab pill extends above the 48-point toolbar reservation.
   const workspacePadding = useDuoBottomBarInset() === undefined ? 16 : 8;
   // Replacing a notice must also cancel the native gesture tracking the old one.
@@ -26,18 +39,27 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
   if (!props.visible || notice === null) return null;
   const bottom =
     Platform.OS === "ios"
-      ? Math.max(
-          insets.bottom,
-          columnMetrics?.safeArea.bottom ?? 0,
-          (workspace?.bottomClearance ?? 0) - workspacePadding,
-        ) + 8
+      ? rootMetrics?.hasHinge && rootMetrics.verticalBarEdge !== "none"
+        ? // The column's safe area already includes UIKit's search toolbar in this posture.
+          workspaceSearchBottomClearance({
+            bottomInset: rootMetrics.safeArea.bottom,
+            bottomBarInset: rootMetrics.bottomBarInset,
+            keyboardHeight,
+          }) -
+          16 +
+          8
+        : Math.max(
+            insets.bottom,
+            columnMetrics?.safeArea.bottom ?? 0,
+            (workspace?.bottomClearance ?? 0) - workspacePadding,
+          ) + 8
       : insets.bottom + 12;
   return (
     <View
       key={instance.key}
       collapsable={false}
-      className="absolute inset-x-3 z-[100]"
-      style={{ bottom }}
+      className="absolute z-[100]"
+      style={{ bottom, ...horizontalInsets }}
       pointerEvents="box-none"
     >
       <Toast
