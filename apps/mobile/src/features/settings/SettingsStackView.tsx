@@ -67,7 +67,9 @@ export function SettingsStackView(props: ComponentProps<typeof NativeStackView>)
       }
     : descriptor.options;
   const listVisible = split;
-  const detailLeft = split ? (layout.listPaneWidth ?? 320) + (layout.listPaneGap ?? 1) : 0;
+  const detailLeft = split
+    ? (layout.listPaneWidth ?? 320) + (layout.listPaneGap ?? (Platform.OS === "android" ? 0 : 1))
+    : 0;
   return (
     <View className="flex-1 bg-header">
       {/* Both stacks keep their controllers and form state while the window collapses. */}
@@ -124,7 +126,7 @@ export function SettingsStackView(props: ComponentProps<typeof NativeStackView>)
                       {Platform.OS === "android" ? (
                         <AppBar title="" sidebar={false} hideBottomBorder />
                       ) : null}
-                      <ScreenContent>
+                      <ScreenContent insetHorizontal>
                         <View className="flex-1 items-center justify-center bg-sheet px-8">
                           <EmptyState
                             title="Select a setting"

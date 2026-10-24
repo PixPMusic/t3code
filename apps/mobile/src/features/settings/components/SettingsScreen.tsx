@@ -73,7 +73,9 @@ export function SettingsScreen(
         {props.formSheet ? (
           props.children
         ) : (
-          <SettingsScreenContent>{props.children}</SettingsScreenContent>
+          <SettingsScreenContent insetHorizontal={pane?.split}>
+            {props.children}
+          </SettingsScreenContent>
         )}
       </ScreenScrollViewBottomInset>
     </View>
