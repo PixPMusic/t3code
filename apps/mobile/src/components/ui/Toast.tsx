@@ -106,8 +106,8 @@ function ToastContent(props: ToastProps & { readonly glassReady?: boolean }) {
         boxShadow: [
           {
             offsetX: 0,
-            offsetY: 14,
-            blurRadius: 28,
+            offsetY: 0,
+            blurRadius: 8,
             color: colorScheme === "dark" ? "rgba(0, 0, 0, 0.22)" : "rgba(0, 0, 0, 0.08)",
           },
         ],
