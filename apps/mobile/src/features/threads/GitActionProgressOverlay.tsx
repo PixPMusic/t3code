@@ -1,14 +1,14 @@
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
 import * as Haptics from "expo-haptics";
-import { useEffect, useRef } from "react";
+import { HeaderHeightContext } from "@react-navigation/elements";
+import { useContext, useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import Animated, { FadeIn, FadeOut, ReduceMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Toast } from "../../components/ui/Toast";
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
 import { MOBILE_MOTION } from "../../lib/designTokens";
-import { APP_BAR_HEIGHT } from "../../lib/layoutMetrics";
 import type { GitActionProgress } from "../../state/use-vcs-action-state";
 
 export function GitActionProgressOverlay(props: {
@@ -19,11 +19,12 @@ export function GitActionProgressOverlay(props: {
   const { progress, onDismiss } = props;
   const openPullRequest = props.onOpenPullRequest;
   const insets = useSafeAreaInsets();
+  const headerHeight = useContext(HeaderHeightContext) ?? insets.top;
   const toolbar = useToolbarLayout();
   const top =
     Platform.OS === "android"
       ? toolbar.paddingTop + toolbar.height + toolbar.paddingBottom + 8
-      : insets.top + APP_BAR_HEIGHT + 8;
+      : headerHeight + 8;
   const prevPhaseRef = useRef(progress.phase);
 
   useEffect(() => {
