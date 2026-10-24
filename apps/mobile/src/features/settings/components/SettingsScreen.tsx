@@ -1,5 +1,5 @@
 import { useNavigation, useNavigationState, useRoute } from "@react-navigation/native";
-import type { ReactNode } from "react";
+import { use, type ReactNode } from "react";
 import { Platform, View } from "react-native";
 
 import type { AppBarProps } from "../../../components/ui/AppBar.types";
@@ -11,6 +11,8 @@ import { useDeviceType } from "../../../native/native-layout-metrics";
 import { NativeStackScreenOptions } from "../../../native/StackHeader";
 import { useCompactWorkspaceTabs } from "../../workspace/useSystemWorkspaceTabBar";
 import { ScreenScrollViewBottomInset } from "../../../components/ui/ScreenScrollView";
+import { useAdaptiveWorkspaceLayout } from "../../layout/adaptive-workspace-context";
+import { SettingsPaneContext } from "../settings-pane-context";
 
 export { SettingsScreenContent };
 
@@ -28,10 +30,13 @@ export function SettingsScreen(
   const surface = useWorkspaceSurface();
   const deviceType = useDeviceType();
   const compactTabs = useCompactWorkspaceTabs();
+  const pane = use(SettingsPaneContext);
+  const { layout } = useAdaptiveWorkspaceLayout();
   const cover = deviceType === "duo-folded";
   // Android opens Settings as a workspace tab; its root page has nothing to go back to.
   const workspaceRoot =
     props.workspaceRoot ||
+    pane?.role === "list" ||
     (Platform.OS === "android" && workspace !== null && index === 0 && route.name === "Settings");
 
   return (
@@ -56,7 +61,15 @@ export function SettingsScreen(
           }}
         />
       ) : null}
-      <ScreenScrollViewBottomInset value={deviceType === "pad" || compactTabs ? 80 : 0}>
+      <ScreenScrollViewBottomInset
+        value={
+          pane?.split && pane.role === "detail"
+            ? 0
+            : deviceType === "pad" || compactTabs || layout.primarySidebarOverlaysContent
+              ? 80
+              : 0
+        }
+      >
         {props.formSheet ? (
           props.children
         ) : (

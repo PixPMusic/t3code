@@ -9,7 +9,7 @@ import { NativeLayoutObserver } from "./NativeLayoutObserver";
 export function NativeColumnContent(props: {
   readonly children: ReactNode;
   readonly primary?: boolean;
-  readonly insetHorizontally?: boolean;
+  readonly insetHorizontally?: boolean | "left" | "right";
   readonly backgroundColor?: ColorValue;
 }) {
   const [metrics, setMetrics] = useState<NativeLayoutMetrics | null>(null);
@@ -22,7 +22,13 @@ export function NativeColumnContent(props: {
     >
       <SafeAreaProvider style={{ flex: 1 }}>
         <SafeAreaView
-          edges={props.insetHorizontally === false ? [] : ["left", "right"]}
+          edges={
+            props.insetHorizontally === false
+              ? []
+              : typeof props.insetHorizontally === "string"
+                ? [props.insetHorizontally]
+                : ["left", "right"]
+          }
           style={{ flex: 1 }}
         >
           {/* Observe the inset body. UIKit can reserve other columns in its safe area. */}

@@ -4,6 +4,7 @@ import { PullRequestGuideStopScreen } from "./features/pull-requests/guide/PullR
 import { PullRequestInlineCommentScreen } from "./features/pull-requests/PullRequestInlineCommentScreen";
 import { PullRequestDiscussionScreen } from "./features/pull-requests/PullRequestDiscussionScreen";
 import { createV5SheetStackNavigator } from "./native/createV5StackNavigator";
+import { createSettingsStackNavigator } from "./features/settings/createSettingsStackNavigator";
 import { createWorkspaceStackNavigator } from "./features/layout/createWorkspaceStackNavigator";
 import {
   createPathConfigForStaticNavigation,
@@ -223,7 +224,7 @@ const THREAD_SETTINGS_SHEET_OPTIONS = {
   nativeContentInsetHorizontally: false,
 };
 
-const SettingsContentStack = createV5SheetStackNavigator({
+const SettingsContentStack = createSettingsStackNavigator({
   initialRouteName: "Settings",
   screenOptions: {
     ...GLASS_HEADER_OPTIONS,
