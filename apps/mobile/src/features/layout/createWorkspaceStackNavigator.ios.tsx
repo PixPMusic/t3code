@@ -149,8 +149,14 @@ function ColumnScreen(props: {
 function WorkspaceColumns(
   props: ViewProps & { readonly primary: Route; readonly detail: Route[] },
 ) {
-  const { layout, panes, togglePrimarySidebar, toggleAuxiliaryPane, startNewTask } =
-    useAdaptiveWorkspaceLayout();
+  const {
+    layout,
+    panes,
+    togglePrimarySidebar,
+    setPrimarySidebarVisible,
+    toggleAuxiliaryPane,
+    startNewTask,
+  } = useAdaptiveWorkspaceLayout();
   const deviceType = useDeviceType();
   // Split screens must remain mounted while UIKit animates a detached route away.
   const [screens, setScreens] = useState({
@@ -259,7 +265,7 @@ function WorkspaceColumns(
     <Split.Host
       ref={hostRef}
       testID="adaptive-workspace-layout"
-      preferredSplitBehavior="tile"
+      preferredSplitBehavior={layout.primarySidebarOverlaysContent ? "overlay" : "tile"}
       primaryBackgroundStyle={deviceType === "pad" ? "none" : "default"}
       topColumnForCollapsing={compactColumn}
       onCollapse={() => {
@@ -274,9 +280,16 @@ function WorkspaceColumns(
         // collapsed split already carries the sidebar the expanded one will show.
         (layout.usesSplitView ? panes.primarySidebarVisible : panes.primarySidebarWhenExpanded) ||
         (!layout.usesSplitView && !activeDetailKey)
-          ? "oneBesideSecondary"
+          ? layout.primarySidebarOverlaysContent
+            ? "oneOverSecondary"
+            : "oneBesideSecondary"
           : "secondaryOnly"
       }
+      onDisplayModeWillChange={({ nativeEvent }) => {
+        if (!layout.primarySidebarOverlaysContent) return;
+        if (nativeEvent.nextDisplayMode === "oneOverSecondary") setPrimarySidebarVisible(true);
+        else if (nativeEvent.nextDisplayMode === "secondaryOnly") setPrimarySidebarVisible(false);
+      }}
       displayModeButtonVisibility="never"
       presentsWithGesture
       showInspector={inspector.visible}
