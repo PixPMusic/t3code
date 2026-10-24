@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -238,7 +239,7 @@ class T3WorkspaceNavigationView(
           alpha = { fraction },
         )
       }
-      Box(
+      Column(
         Modifier
           .fillMaxHeight()
           .width(lerp(RAIL_WIDTH, EXPANDED_RAIL_WIDTH, progress.coerceAtLeast(0f)))
@@ -247,40 +248,42 @@ class T3WorkspaceNavigationView(
           .padding(top = safeAreaTop.dp, bottom = safeAreaBottom.dp + 12.dp)
           .selectableGroup(),
       ) {
-        Column {
-          // As tall as the list toolbar so the menu lines up with the toolbar's actions.
-          Box(
-            Modifier.height(headerHeight.dp).padding(start = RAIL_INSET),
-            contentAlignment = Alignment.CenterStart,
+        // As tall as the list toolbar so the menu lines up with the toolbar's actions.
+        Box(
+          Modifier.height(headerHeight.dp).padding(start = RAIL_INSET),
+          contentAlignment = Alignment.CenterStart,
+        ) {
+          IconButton(
+            onClick = { expanded = !expanded },
+            modifier = Modifier.semantics {
+              contentDescription =
+                if (expanded) "Collapse navigation rail" else "Expand navigation rail"
+            },
           ) {
-            IconButton(
-              onClick = { expanded = !expanded },
-              modifier = Modifier.semantics {
-                contentDescription =
-                  if (expanded) "Collapse navigation rail" else "Expand navigation rail"
-              },
-            ) {
-              Icon(
-                painterResource(R.drawable.t3_menu),
-                contentDescription = null,
-                tint = Color(unselectedColor),
-              )
-            }
-          }
-          if (selectedTab == "threads") {
-            newThreadButton(fraction) {
-              expanded = false
-              onNewThread(emptyMap<String, Any>())
-            }
+            Icon(
+              painterResource(R.drawable.t3_menu),
+              contentDescription = null,
+              tint = Color(unselectedColor),
+            )
           }
         }
-        Column(Modifier.align(Alignment.CenterStart)) {
-          tabs.forEach { tab ->
-            railItem(tab, fraction) {
-              expanded = false
-              onTabSelected(mapOf("tab" to tab))
-            }
+        if (selectedTab == "threads") {
+          newThreadButton(fraction) {
+            expanded = false
+            onNewThread(emptyMap<String, Any>())
           }
+        }
+        Spacer(Modifier.weight(1f))
+        tabs.forEach { tab ->
+          railItem(tab, fraction) {
+            expanded = false
+            onTabSelected(mapOf("tab" to tab))
+          }
+        }
+        Spacer(Modifier.weight(1f))
+        // Balance the FAB above so destinations stay centered below the menu when it hides.
+        if (selectedTab == "threads") {
+          Spacer(Modifier.height(FAB_SIZE + 12.dp))
         }
       }
     }
