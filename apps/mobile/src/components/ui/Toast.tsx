@@ -22,21 +22,22 @@ import { IconButton } from "./IconButton";
 import { AppActivityIndicator } from "./AppActivityIndicator";
 import { SymbolView } from "./AppSymbol";
 
-export interface ToastProps {
+export type ToastProps = {
   readonly message: string;
   readonly description?: string;
   readonly singleLine?: boolean;
   readonly tone?: "default" | "success" | "danger";
   readonly busy?: boolean;
   readonly action?: { readonly label: string; readonly onPress: () => void };
-  readonly onDismiss?: () => void;
-  readonly dismissMode?: "button" | "swipe";
-}
+} & (
+  | { readonly dismissMode: "swipe"; readonly onDismiss: () => void }
+  | { readonly dismissMode?: "button"; readonly onDismiss?: () => void }
+);
 
 /** The owning screen places and dismisses feedback; actions are never implicit. */
 export function Toast(props: ToastProps) {
-  return props.dismissMode === "swipe" && props.onDismiss ? (
-    <SwipeableToast {...props} onDismiss={props.onDismiss} />
+  return props.dismissMode === "swipe" ? (
+    <SwipeableToast {...props} />
   ) : (
     <ToastContent {...props} />
   );
