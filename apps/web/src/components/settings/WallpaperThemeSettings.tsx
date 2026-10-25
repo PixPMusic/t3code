@@ -49,23 +49,21 @@ export function WallpaperThemeSettings({
   if (!bridge?.getWallpaperThemeColors) return null;
 
   return (
-    <Collapsible
-      open={expanded}
-      onOpenChange={setExpanded}
-      className="rounded-xl border border-border/70"
-    >
-      <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
-        <ChevronRightIcon
-          aria-hidden
-          className={cn("size-4 shrink-0 text-muted-foreground", expanded && "rotate-90")}
-        />
-        <span className="flex-1 text-sm font-medium">Material You</span>
-        <span className="text-xs text-muted-foreground">Experimental</span>
-      </CollapsibleTrigger>
-      <CollapsiblePanel>
-        {expanded ? <WallpaperThemePicker onSaved={onSaved} /> : null}
-      </CollapsiblePanel>
-    </Collapsible>
+    <div className="rounded-xl border border-border/70">
+      <Collapsible open={expanded} onOpenChange={setExpanded}>
+        <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring rounded-xl">
+          <ChevronRightIcon
+            aria-hidden
+            className={cn("size-4 shrink-0 text-muted-foreground", expanded && "rotate-90")}
+          />
+          <span className="flex-1 text-sm font-medium">Material You</span>
+          <span className="text-xs text-muted-foreground">Experimental</span>
+        </CollapsibleTrigger>
+        <CollapsiblePanel>
+          {expanded ? <WallpaperThemePicker onSaved={onSaved} /> : null}
+        </CollapsiblePanel>
+      </Collapsible>
+    </div>
   );
 }
 
@@ -207,7 +205,7 @@ function WallpaperThemePicker({ onSaved }: { onSaved: (theme: ThemeDefinition) =
                   aria-label={`Preview ${theme.label}`}
                   aria-pressed={selectedSeed === seed}
                   disabled={pendingSource !== null}
-                  className="space-y-2 rounded-lg border border-border/70 p-2 transition-colors hover:bg-accent/10 aria-pressed:border-ring aria-pressed:ring-1 aria-pressed:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  className="space-y-2 rounded-lg border border-border/70 p-2 transition-colors hover:bg-accent/10 aria-pressed:border-ring aria-pressed:ring-1 aria-pressed:ring-inset aria-pressed:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
                   onClick={() => setSelectedSeed(seed)}
                 >
                   <div className="flex justify-center gap-1">
