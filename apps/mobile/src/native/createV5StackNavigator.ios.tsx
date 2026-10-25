@@ -37,6 +37,7 @@ import {
 } from "./workspace-stack-projection";
 
 export type V5StackViewProps = ComponentProps<typeof NativeStackView>;
+type Route = V5StackViewProps["state"]["routes"][number];
 
 export function modalEnvelopeOptions(options: NativeStackNavigationOptions) {
   return {
@@ -55,7 +56,7 @@ export function modalEnvelopeOptions(options: NativeStackNavigationOptions) {
 /** Keep outgoing screens until UIKit completes its pop, as required by v5. */
 export function V5CardStackView(
   props: V5StackViewProps & {
-    readonly onRootVisibilityChange?: (visible: boolean) => void;
+    readonly onRootReturnChange?: (source: Route | null) => void;
     /** The card native Back is popping, which the router still shows until the pop finishes. */
     readonly onNativePopChange?: (key: string | null) => void;
   },
@@ -179,7 +180,12 @@ export function V5CardStackView(
                 if (preventedRoutes[route.key]?.preventRemove) descriptor.navigation.goBack();
               }}
               onWillAppear={() => {
-                if (index === 0) props.onRootVisibilityChange?.(true);
+                if (index === 0) {
+                  const source = props.navigation
+                    .getState()
+                    .routes.find((current) => current.key === nativePopSource.current);
+                  props.onRootReturnChange?.(source ?? null);
+                }
                 props.navigation.emit({
                   type: "transitionStart",
                   target: route.key,
@@ -217,7 +223,7 @@ export function V5CardStackView(
                 });
               }}
               onWillDisappear={() => {
-                if (index === 0) props.onRootVisibilityChange?.(false);
+                if (index === 0) props.onRootReturnChange?.(null);
                 const state = props.navigation.getState();
                 // Only native Back leaves the disappearing card active; JS navigation already changed history.
                 if (state.index > 0 && state.routes[state.index]?.key === route.key) {

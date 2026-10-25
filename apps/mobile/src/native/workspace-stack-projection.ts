@@ -21,6 +21,11 @@ export function projectWorkspaceStack(
   return { primary, detail, overlays };
 }
 
+export function workspaceDetailHidesTabs(detail: readonly Route[], returningFrom: Route | null) {
+  // Params can select another thread without changing its route key.
+  return detail.length > 0 && detail.at(-1) !== returningFrom;
+}
+
 /** Native callbacks can arrive after a JS pop or replace; those must not pop the next screen. */
 export function nativeWorkspacePopCount(
   state: Pick<NavigationState, "index" | "routes">,

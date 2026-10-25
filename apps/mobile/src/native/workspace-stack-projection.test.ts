@@ -8,6 +8,7 @@ import {
   nativeWorkspacePopAction,
   nativeWorkspacePopCount,
   projectWorkspaceStack,
+  workspaceDetailHidesTabs,
   partitionStackPresentations,
   reconcileStackScreens,
   type CollapsedSplitColumn,
@@ -82,6 +83,49 @@ describe("workspace router projection", () => {
       overlays: [],
     });
     expect(state.routes[0]).toBe(thread);
+  });
+});
+
+describe("compact workspace tab visibility", () => {
+  it("hides tabs on thread entry before Home's native disappearance arrives", () => {
+    const primaryVisibleRoute = home;
+    expect(workspaceDetailHidesTabs([], primaryVisibleRoute)).toBe(false);
+    const opened = projectWorkspaceStack(history([home, thread]), () => false);
+    expect(workspaceDetailHidesTabs(opened.detail, primaryVisibleRoute)).toBe(true);
+  });
+
+  it("shows tabs during native Back to Home and hides them when the swipe cancels", () => {
+    const state = history([home, thread]);
+    expect(workspaceDetailHidesTabs([thread], thread)).toBe(false);
+    expect(workspaceDetailHidesTabs([thread], null)).toBe(true);
+    expect(nativeStackPopAction(state, thread.key, thread.key)).toBeNull();
+    expect(state.routes).toEqual([home, thread]);
+  });
+
+  it("does not carry native Back visibility into a new route or a same-key selection", () => {
+    const reopened = { ...thread, key: "reopened-thread" };
+    const reselected = { ...thread, params: { threadId: "another-thread" } };
+    expect(workspaceDetailHidesTabs([thread, reopened], thread)).toBe(true);
+    expect(workspaceDetailHidesTabs([reopened], thread)).toBe(true);
+    expect(workspaceDetailHidesTabs([reselected], thread)).toBe(true);
+  });
+
+  it("keeps detail pages hidden and returns tabs after the native pop commits", () => {
+    expect(workspaceDetailHidesTabs([thread, files], null)).toBe(true);
+    expect(workspaceDetailHidesTabs([thread, files], thread)).toBe(true);
+    expect(workspaceDetailHidesTabs([thread], null)).toBe(true);
+    expect(workspaceDetailHidesTabs([], thread)).toBe(false);
+  });
+
+  it("uses the workspace below a modal and hides tabs on a cold-linked detail", () => {
+    const modal = { key: "connect", name: "ConnectOnboarding" };
+    const projected = projectWorkspaceStack(
+      history([home, thread, modal]),
+      (route) => route.name === modal.name,
+    );
+    expect(workspaceDetailHidesTabs(projected.detail, null)).toBe(true);
+    expect(workspaceDetailHidesTabs(projected.detail, thread)).toBe(false);
+    expect(workspaceDetailHidesTabs([thread], null)).toBe(true);
   });
 });
 

@@ -59,6 +59,7 @@ import {
   collapsedSplitTransition,
   nativeWorkspacePopAction,
   projectWorkspaceStack,
+  workspaceDetailHidesTabs,
   partitionStackPresentations,
   reconcileStackScreens,
   type CollapsedSplitColumn,
@@ -443,9 +444,9 @@ function WorkspaceColumns(
 function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean }) {
   const { layout } = useAdaptiveWorkspaceLayout();
   const workspace = useWorkspaceTabs()!;
-  // Native dismiss commits the route pop after the transition. Restore the dock
-  // when the primary screen starts appearing, including interactive back gestures.
-  const [primaryVisible, setPrimaryVisible] = useState(false);
+  // Native Back reveals Home before the router pops. Scope that exception to its
+  // outgoing route so a new selection hides the dock before native callbacks arrive.
+  const [returningFrom, setReturningFrom] = useState<Route | null>(null);
   const metrics = useNativeLayoutMetrics();
   const projection = projectWorkspaceStack(props.state, (route) => {
     const presentation = props.descriptors[route.key]?.options.presentation;
@@ -469,8 +470,7 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
       <WorkspaceNativeTabs
         hidden={
           !workspacePage &&
-          projection.detail.length > 0 &&
-          !primaryVisible &&
+          workspaceDetailHidesTabs(projection.detail, returningFrom) &&
           !layout.usesSplitView &&
           (metrics?.verticalBarEdge ?? "none") === "none"
         }
@@ -485,8 +485,8 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
         ) : (
           <V5CardStackView
             {...props}
-            onRootVisibilityChange={setPrimaryVisible}
             onNativePopChange={setNativelyPoppingWorkspaceRoute}
+            onRootReturnChange={setReturningFrom}
             descriptors={descriptors}
             state={{
               ...props.state,
