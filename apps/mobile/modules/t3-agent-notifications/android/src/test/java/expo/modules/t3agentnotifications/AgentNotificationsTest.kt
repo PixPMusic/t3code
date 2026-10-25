@@ -456,7 +456,7 @@ class AgentNotificationsTest {
           },
           card.extras.getString(NotificationCompat.EXTRA_SHORT_CRITICAL_TEXT)
         )
-        assertEquals(0, card.actions?.size ?: 0)
+        assertEquals(if (Build.VERSION.SDK_INT >= 36) 1 else 0, card.actions?.size ?: 0)
       }
     }
   }
@@ -745,7 +745,13 @@ class AgentNotificationChannelsTest {
       completedCard.notification.extras.getString(NotificationCompat.EXTRA_SHORT_CRITICAL_TEXT)
     )
 
-    AgentNotifications.dismiss(context)
+    if (promoted) {
+      val dismiss = completedCard.notification.actions.single()
+      assertEquals("Dismiss", dismiss.title.toString())
+      AgentActivityDismissReceiver().onReceive(context, shadowOf(dismiss.actionIntent).savedIntent)
+    } else {
+      AgentNotifications.dismiss(context)
+    }
     AgentNotifications.receive(context, finished)
     assertTrue(manager.activeNotifications.isEmpty())
 

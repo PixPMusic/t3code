@@ -270,10 +270,8 @@ object AgentNotifications {
       .setDeleteIntent(dismissIntent)
     presentation.applyTo(builder, context)
     val action = presentation.action
-    if (action != null) {
-      if (openThread != null) builder.addAction(0, action, openThread)
-      builder.addAction(0, "Dismiss", dismissIntent)
-    }
+    if (action != null && openThread != null) builder.addAction(0, action, openThread)
+    if (ongoing) builder.addAction(0, "Dismiss", dismissIntent)
     manager(context).notify(ACTIVITY_TAG, ACTIVITY_ID, builder.build())
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
       // Notification timeouts were added in API 26. One inexact alarm also
