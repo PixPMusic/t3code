@@ -3,6 +3,7 @@ package expo.modules.t3agentnotifications
 import android.app.Activity
 import android.app.AlarmManager
 import android.app.Application
+import android.app.NotificationChannel
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.ComponentName
@@ -659,5 +660,49 @@ class AgentNotificationsTest {
     shadowOf(manager).setNotificationsEnabled(true)
     AgentNotifications.receive(context, message)
     assertEquals(2, manager.activeNotifications.size)
+  }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [26, 33, 36], manifest = Config.NONE)
+class AgentNotificationChannelsTest {
+  @Test
+  fun mutedAlertChannelKeepsRegisteredActivityUpdatingAndClearsItOnCompletion() {
+    val context = RuntimeEnvironment.getApplication()
+    val manager = context.getSystemService(NotificationManager::class.java)
+    shadowOf(manager).setNotificationsEnabled(true)
+    AgentNotifications.clear(context)
+    AgentNotifications.configure(context, "device", "user", "t3code-dev", true)
+    val running = mapOf(
+      "device_id" to "device",
+      "user_id" to "user",
+      "updated_at" to System.currentTimeMillis().toString(),
+      "active" to "true",
+      "activity_title" to "Agent activity"
+    )
+    manager.createNotificationChannel(
+      NotificationChannel("agent-alerts", "Agent alerts", NotificationManager.IMPORTANCE_NONE)
+    )
+    AgentNotifications.receive(context, running)
+    assertEquals("t3-agent-activity", manager.activeNotifications.single().tag)
+
+    AgentNotifications.configure(context, "device", "user", "t3code-dev", true)
+    AgentNotifications.receive(
+      context,
+      running + mapOf(
+        "activity_phase" to "waiting_for_approval",
+        "activity_attention_count" to "1"
+      )
+    )
+    val card = manager.activeNotifications.single().notification
+    assertEquals("Approve", card.extras.getString(NotificationCompat.EXTRA_SHORT_CRITICAL_TEXT))
+
+    val finished = running + mapOf(
+      "active" to "false",
+      "activity_expires_at" to (System.currentTimeMillis() + 900000).toString()
+    )
+    AgentNotifications.receive(context, finished)
+    AgentNotifications.receive(context, finished)
+    assertTrue(manager.activeNotifications.isEmpty())
   }
 }
