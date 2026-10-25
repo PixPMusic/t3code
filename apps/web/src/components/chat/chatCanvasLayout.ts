@@ -4,18 +4,13 @@ import {
   type PreviewMiniPlayerFrame,
   type PreviewMiniPlayerObstacles,
 } from "../preview/previewMiniPlayerLayout";
-import type {
-  PreviewMiniPlayerPosition,
-  PreviewMiniPlayerSize,
-  PreviewMiniPlayerState,
-} from "~/previewMiniPlayerStore";
+import type { PreviewMiniPlayerPosition, PreviewMiniPlayerSize } from "~/previewMiniPlayerStore";
 
 export interface ChatCanvasPreview {
   readonly key: string;
   readonly width: number | null;
   readonly position: PreviewMiniPlayerPosition | null;
   readonly source: PreviewMiniPlayerSize;
-  readonly lastInteraction?: PreviewMiniPlayerState["lastInteraction"];
 }
 
 const GAP = 12;
@@ -58,15 +53,15 @@ export function resolveChatCanvasLayout({
   let frame: PreviewMiniPlayerFrame | null = null;
   let overlapsChat = false;
   if (preview && container.width > 0 && container.height > 0) {
+    const explicitlySized = preview.width !== null;
     frame = resolvePreviewMiniPlayerFrame({ ...preview, container });
     // Reserve a chat lane only if the preview still has room to drag.
     const minimumPreviewX =
-      preview.lastInteraction === "resize" ||
-      container.width <= padding + minChatWidth + frame.width + GAP * 2
+      explicitlySized || container.width <= padding + minChatWidth + frame.width + GAP * 2
         ? GAP
         : padding + minChatWidth + GAP;
     if (preview.position === null) frame = { ...frame, y: container.height - frame.height - GAP };
-    if (preview.lastInteraction === "resize" && composerHeight > 0) {
+    if (explicitlySized && composerHeight > 0) {
       const laneWidth = Math.min(normalWidth, minChatWidth);
       const transitionWidth = Math.max(GAP, normalWidth - laneWidth);
       const lift = Math.min(
@@ -98,7 +93,7 @@ export function resolveChatCanvasLayout({
             bottom: Math.max(detailsCard.bottom, findBar.bottom),
           }
         : (detailsCard ?? findBar);
-    const cardObstacle = preview.lastInteraction === "resize" ? findBar : dragObstacle;
+    const cardObstacle = preview.position === null ? dragObstacle : findBar;
     frame = {
       ...frame,
       ...clampPreviewMiniPlayerPosition(
@@ -129,7 +124,7 @@ export function resolveChatCanvasLayout({
     }
     if (nextChat) chat = nextChat;
     else overlapsChat = true;
-    if (overlapsChat && preview.lastInteraction === "resize") {
+    if (overlapsChat && explicitlySized) {
       const width = Math.min(normalWidth, minChatWidth);
       chat = {
         left: padding,

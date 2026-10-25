@@ -116,8 +116,10 @@ function fitPreviewMiniPlayerWidth(
   const width = Math.min(
     Math.max(
       desiredWidth,
-      PREVIEW_MINI_PLAYER_MIN_SIZE.width,
-      PREVIEW_MINI_PLAYER_MIN_SIZE.height * aspectRatio,
+      Math.min(
+        PREVIEW_MINI_PLAYER_MIN_SIZE.width,
+        PREVIEW_MINI_PLAYER_MIN_SIZE.height * aspectRatio,
+      ),
     ),
     Math.max(1, max.width),
     Math.max(1, max.height * aspectRatio),
