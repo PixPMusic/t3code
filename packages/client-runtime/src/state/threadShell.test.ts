@@ -1,5 +1,6 @@
 import {
   EnvironmentId,
+  MessageId,
   ProjectId,
   RunId,
   RuntimeRequestId,
@@ -106,6 +107,93 @@ describe("v2 thread shell lists", () => {
     expect(registry.get(threads.threadShellsAtom)).toHaveLength(3);
     dispose();
     registry.dispose();
+  });
+
+  it("does not notify navigation subscribers for streaming-only updates", () => {
+    const { registry, threads, snapshotAtom } = makeHarness([environmentId, remoteEnvironmentId]);
+    const runId = RunId.make("navigation-run");
+    const running: OrchestrationV2ThreadShell = {
+      ...v2ThreadShell,
+      latestRunId: runId,
+      activeRunId: runId,
+      status: "running",
+      itemCount: 1,
+      visibleItemCount: 1,
+    };
+    const setThread = (thread: OrchestrationV2ThreadShell, sequence: number) =>
+      registry.set(snapshotAtom(environmentId), {
+        ...v2ShellSnapshot,
+        snapshotSequence: sequence,
+        threads: [thread],
+      });
+    setThread(running, 1);
+    let notifications = 0;
+    const dispose = registry.subscribe(threads.navigationThreadShellsAtom, () => notifications++);
+    try {
+      const before = registry.get(threads.navigationThreadShellsAtom);
+      notifications = 0;
+      for (let index = 1; index <= 100; index++) {
+        const updatedAt = DateTime.add(v2Now, { seconds: index });
+        setThread(
+          {
+            ...running,
+            updatedAt,
+            itemCount: index + 1,
+            visibleItemCount: index + 1,
+            latestVisibleMessage: {
+              id: MessageId.make("streaming-message"),
+              role: "assistant",
+              text: `Chunk ${index}`,
+              updatedAt,
+            },
+          },
+          index + 1,
+        );
+        registry.get(threads.navigationThreadShellsAtom);
+      }
+      expect(notifications).toBe(0);
+      expect(registry.get(threads.navigationThreadShellsAtom)).toBe(before);
+      expect(
+        registry.get(threads.threadShellAtom({ environmentId, threadId: running.id }))?.itemCount,
+      ).toBe(101);
+
+      setThread({ ...running, title: "Renamed" }, 102);
+      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.title).toBe("Renamed");
+      expect(notifications).toBe(1);
+      expect(registry.get(threads.navigationThreadShellsAtom)[1]).toBe(before[1]);
+
+      setThread({ ...running, itemCount: 0, visibleItemCount: 0 }, 103);
+      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.itemCount).toBe(0);
+      setThread(running, 104);
+      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.itemCount).toBe(1);
+      const waiting = { ...running, status: "waiting" as const };
+      setThread(waiting, 105);
+      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.source.status).toBe("waiting");
+      setThread(
+        {
+          ...waiting,
+          pendingRuntimeRequest: {
+            id: RuntimeRequestId.make("navigation-approval"),
+            kind: "command",
+            createdAt: v2Now,
+          },
+        },
+        106,
+      );
+      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.hasPendingApprovals).toBe(true);
+      const completed = { ...running, activeRunId: null, status: "completed" as const };
+      setThread(completed, 107);
+      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.source.status).toBe("completed");
+      const updatedAt = DateTime.add(v2Now, { seconds: 108 });
+      setThread({ ...completed, updatedAt }, 108);
+      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.updatedAt).toBe(
+        DateTime.formatIso(updatedAt),
+      );
+      expect(notifications).toBe(7);
+    } finally {
+      dispose();
+      registry.dispose();
+    }
   });
 
   it("keeps a live subagent question inside the parent without flagging its thread", () => {
