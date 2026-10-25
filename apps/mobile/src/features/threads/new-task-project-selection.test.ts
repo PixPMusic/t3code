@@ -2,7 +2,6 @@ import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
-import type { HomeProjectScope } from "../home/homeThreadList";
 import {
   newTaskDestination,
   resolveDraftProjectSelection,
@@ -37,19 +36,6 @@ function makeProject(
     scripts: [],
     createdAt: "2026-07-01T00:00:00.000Z",
     updatedAt: "2026-07-01T00:00:00.000Z",
-  };
-}
-
-function makeScope(projects: ReadonlyArray<EnvironmentProject>): HomeProjectScope {
-  return {
-    key: "github.com/t3tools/t3code",
-    title: "T3 Code",
-    representative: projects[0]!,
-    projects,
-    projectRefs: projects.map((project) => ({
-      environmentId: project.environmentId,
-      projectId: project.id,
-    })),
   };
 }
 
@@ -95,60 +81,89 @@ describe("resolveEnvironmentProjectMatch", () => {
 });
 
 describe("resolveDraftProjectSelection", () => {
-  it("selects one logical project even when it has multiple physical workspaces", () => {
-    const projects = [makeProject("t3code"), makeProject("t3code-2"), makeProject("t3code-3")];
-    expect(resolveDraftProjectSelection(null, projects, [makeScope(projects)])).toEqual({
-      kind: "select",
-      project: projects[0],
+  it("keeps the picker even when only one project is available", () => {
+    expect(resolveDraftProjectSelection(null, [makeProject("only")])).toEqual({ kind: "pick" });
+  });
+
+  it("preserves an explicit project selection", () => {
+    expect(resolveDraftProjectSelection("environment:chosen", [makeProject("chosen")])).toEqual({
+      kind: "preserve",
     });
   });
 
-  it("does not preserve a project key that is missing from the catalog", () => {
-    const project = makeProject("t3code");
-    expect(
-      resolveDraftProjectSelection("environment:removed", [project], [makeScope([project])]),
-    ).toEqual({
-      kind: "select",
-      project,
+  it("returns to the picker when the selected project is missing", () => {
+    expect(resolveDraftProjectSelection("environment:removed", [makeProject("only")])).toEqual({
+      kind: "pick",
     });
   });
 });
 
 describe("newTaskDestination", () => {
-  it("opens the current thread's project directly in split view", () => {
+  const request = { draft: { requestId: "request" } };
+
+  it.each([undefined, false])("opens the picker when the preference is %s", (useLastProject) => {
     const projects = [makeProject("first"), makeProject("current", "other-environment")];
-    expect(newTaskDestination(true, projects, projects[1], "request")).toEqual({
+    expect(
+      newTaskDestination(useLastProject, projects, projects[1], "request", {
+        environmentId: "environment",
+        projectId: "first",
+      }),
+    ).toEqual(request);
+  });
+
+  it("uses the current thread or draft project when enabled", () => {
+    const projects = [makeProject("first"), makeProject("current", "other-environment")];
+    expect(
+      newTaskDestination(true, projects, projects[1], "request", {
+        environmentId: "environment",
+        projectId: "first",
+      }),
+    ).toEqual({
       draft: { requestId: "request", environmentId: "other-environment", projectId: "current" },
     });
   });
-  it.each([true, false])(
-    "leaves the draft unassigned when there is no current project (split view: %s)",
-    (usesSplitView) => {
-      const projects = [makeProject("first"), makeProject("second")];
-      expect(newTaskDestination(usesSplitView, projects, undefined, "request")).toEqual({
-        draft: { requestId: "request" },
-      });
-    },
-  );
-  it.each([true, false])(
-    "leaves the draft unassigned when the current project is stale (split view: %s)",
-    (usesSplitView) => {
-      const projects = [makeProject("first"), makeProject("second")];
-      const currentProject = makeProject("first", "removed-environment");
-      expect(newTaskDestination(usesSplitView, projects, currentProject, "request")).toEqual({
-        draft: { requestId: "request" },
-      });
-    },
-  );
-  it("keeps the picker when there are no projects", () => {
-    expect(newTaskDestination(true, [], undefined, "request")).toEqual({
-      draft: { requestId: "request" },
+
+  it("remembers the last project from Home without relying on project order", () => {
+    const projects = [makeProject("same-id"), makeProject("same-id", "other-environment")];
+    expect(
+      newTaskDestination(true, projects, undefined, "request", {
+        environmentId: "other-environment",
+        projectId: "same-id",
+      }),
+    ).toEqual({
+      draft: { requestId: "request", environmentId: "other-environment", projectId: "same-id" },
     });
   });
-  it("opens the same draft route in compact view", () => {
-    const project = makeProject("current");
-    expect(newTaskDestination(false, [project], project, "request")).toEqual({
-      draft: { requestId: "request", environmentId: "environment", projectId: "current" },
+
+  it("uses the remembered project when the current project is stale", () => {
+    const project = makeProject("remembered");
+    expect(
+      newTaskDestination(true, [project], makeProject("removed"), "request", {
+        environmentId: "environment",
+        projectId: "remembered",
+      }),
+    ).toEqual({
+      draft: { requestId: "request", environmentId: "environment", projectId: "remembered" },
     });
+  });
+
+  it.each([
+    undefined,
+    { environmentId: "removed-environment", projectId: "first" },
+    { environmentId: "environment", projectId: "removed" },
+  ])("keeps the picker when the last project is missing or stale: %s", (lastProject) => {
+    const projects = [makeProject("first"), makeProject("second")];
+    expect(
+      newTaskDestination(true, projects, makeProject("removed"), "request", lastProject),
+    ).toEqual(request);
+  });
+
+  it("keeps the picker when no projects are available", () => {
+    expect(
+      newTaskDestination(true, [], undefined, "request", {
+        environmentId: "environment",
+        projectId: "removed",
+      }),
+    ).toEqual(request);
   });
 });

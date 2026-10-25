@@ -8,6 +8,7 @@ import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavi
 import { submittedThreadParams } from "./thread-route-state";
 import { ThreadScreenBinding, ThreadScreenFallback } from "./ThreadScreenHost";
 import { draftThreadShell } from "./draft-thread-shell";
+import { useRememberThreadProject } from "./useRememberThreadProject";
 import { connectionTone } from "../connection/connectionTone";
 import { AppBar } from "../../components/ui/AppBar";
 import { ThreadId } from "@t3tools/contracts";
@@ -166,6 +167,12 @@ export function NewTaskDraftScreen(props: {
     reserveShare,
   } = useIncomingShare();
   const { projectScopes, selectedProject, selectedProjectKey, setProject } = flow;
+  useRememberThreadProject(
+    selectedProject &&
+      selectedProjectKey === `${selectedProject.environmentId}:${selectedProject.id}`
+      ? selectedProject
+      : null,
+  );
   const selectedProjectLabel = (() => {
     if (!selectedProject) return null;
     const scope = projectScopes.find((candidate) =>
@@ -498,18 +505,12 @@ export function NewTaskDraftScreen(props: {
       return;
     }
 
-    const selection = resolveDraftProjectSelection(selectedProjectKey, projects, projectScopes);
+    const selection = resolveDraftProjectSelection(selectedProjectKey, projects);
     if (selection.kind === "preserve") {
       return;
     }
-    if (selection.kind === "select") {
-      setProject(selection.project);
-      return;
-    }
-
     navigation.dispatch(CommonActions.navigate("NewTaskProject"));
   }, [
-    projectScopes,
     projects,
     flow.draftKey,
     props.initialProjectRef,

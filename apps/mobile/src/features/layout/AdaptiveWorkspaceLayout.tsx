@@ -528,17 +528,19 @@ function AdaptiveWorkspaceLayoutContent(
           candidate.environmentId === first(params?.environmentId) &&
           candidate.id === first(params?.threadId),
       );
-    const draft = params?.draft;
-    const draftEnvironmentId = first(draft?.environmentId);
-    const draftProjectId = first(draft?.projectId);
     const currentProject = thread
       ? { environmentId: thread.environmentId, id: thread.projectId }
-      : projects.find(
-          (project) =>
-            project.environmentId === draftEnvironmentId && project.id === draftProjectId,
-        );
+      : undefined;
+    const preferences = appAtomRegistry.get(mobilePreferencesAtom);
+    const saved = AsyncResult.isSuccess(preferences) ? preferences.value : undefined;
     handleSelectThreadRoute(
-      newTaskDestination(layout.usesSplitView, projects, currentProject, uuidv4()),
+      newTaskDestination(
+        saved?.useLastProjectForNewThreads,
+        projects,
+        currentProject,
+        uuidv4(),
+        saved?.lastThreadProject,
+      ),
     );
   };
 

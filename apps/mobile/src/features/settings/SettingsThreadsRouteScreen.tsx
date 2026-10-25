@@ -46,12 +46,37 @@ export function SettingsThreadsRouteScreen() {
           contentContainerClassName="gap-6 px-5 pt-4"
           contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
         >
+          <NewThreadSettingsSection />
           <AutoSettleSettingsRows />
           <BetaSettingsSection />
           <LegacySettingsSection />
         </ScrollView>
       </SettingsScreen>
     </>
+  );
+}
+
+function NewThreadSettingsSection() {
+  const preferences = useAtomValue(mobilePreferencesAtom);
+  const savePreferences = useAtomSet(updateMobilePreferencesAtom);
+  const ready = AsyncResult.isSuccess(preferences) && !preferences.waiting;
+
+  return (
+    <SettingsSection
+      title="New threads"
+      footer="Start in the last project you used on this device. When off, choose a project each time."
+    >
+      <SettingsSwitchRow
+        icon="square.and.pencil"
+        label="Use last project for new threads"
+        value={
+          AsyncResult.isSuccess(preferences) &&
+          preferences.value.useLastProjectForNewThreads === true
+        }
+        disabled={!ready}
+        onValueChange={(value) => savePreferences({ useLastProjectForNewThreads: value })}
+      />
+    </SettingsSection>
   );
 }
 
