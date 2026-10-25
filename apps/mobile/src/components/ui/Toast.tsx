@@ -61,6 +61,7 @@ function ToastContent(props: ToastProps & { readonly glassReady?: boolean }) {
   const surface = (
     <GlassSurface
       key={props.glassReady === false ? "entering" : "settled"}
+      chrome={Platform.OS === "ios" && colorScheme === "dark" ? "none" : undefined}
       tintColor={Platform.OS === "ios" ? null : undefined}
       className={Platform.OS === "ios" ? "bg-transparent p-3" : "p-3"}
       style={{ borderRadius }}
