@@ -365,18 +365,9 @@ function MiniPlayerShell({
       key: sourceKey,
       width: miniPlayer.width,
       position: miniPlayer.position,
-      lastInteraction: miniPlayer.lastInteraction,
       source: { width: sourceWidth, height: sourceHeight },
     });
-  }, [
-    reportPreview,
-    sourceKey,
-    miniPlayer.width,
-    miniPlayer.position,
-    miniPlayer.lastInteraction,
-    sourceWidth,
-    sourceHeight,
-  ]);
+  }, [reportPreview, sourceKey, miniPlayer.width, miniPlayer.position, sourceWidth, sourceHeight]);
   useLayoutEffect(() => () => clearPreview?.(sourceKey), [clearPreview, sourceKey]);
 
   const radius = frame ? cornerRadius(frame) : PREVIEW_MINI_PLAYER_CORNER_RADIUS;
