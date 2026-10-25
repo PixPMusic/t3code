@@ -23,6 +23,7 @@ import { Alert } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Dialog, DialogHeader, DialogPanel, DialogPopup, DialogTitle } from "../ui/dialog";
 import { ThemeSearchSection } from "./ThemeSearchSection";
+import { WallpaperThemeSettings } from "./WallpaperThemeSettings";
 
 /**
  * The guard runs on the size before the bytes are ever read: a large file
@@ -404,6 +405,16 @@ export function ThemeImportDialog({
             }}
             open={open}
           />
+
+          {open ? (
+            <WallpaperThemeSettings
+              onSaved={(theme) => {
+                if (!onImported(theme)) return false;
+                onOpenChange(false);
+                return true;
+              }}
+            />
+          ) : null}
 
           <div className="flex items-center gap-3" aria-hidden>
             <div className="h-px flex-1 bg-border" />
