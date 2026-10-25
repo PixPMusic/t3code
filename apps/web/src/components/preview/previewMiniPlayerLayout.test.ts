@@ -76,6 +76,24 @@ describe("resolvePreviewMiniPlayerFrame", () => {
     ).toMatchObject({ width: 240, height: 150 });
   });
 
+  it.each([
+    { source: { width: 1600, height: 900 }, width: 267 },
+    { source: { width: 2100, height: 900 }, width: 350 },
+  ])("keeps wide previews at least 150 pixels tall", ({ source, width }) => {
+    expect(
+      resolvePreviewMiniPlayerFrame({ width: 1, position: null, source, container }),
+    ).toMatchObject({ width, height: 150 });
+    expect(
+      resizePreviewMiniPlayer({
+        start: { x: 12, y: 12, width: 400, height: (400 * source.height) / source.width },
+        direction: "east",
+        delta: { x: -399, y: 0 },
+        source,
+        container,
+      }),
+    ).toMatchObject({ width, height: 150 });
+  });
+
   it("shrinks to the space above the composer without losing the stored width", () => {
     const frame = resolvePreviewMiniPlayerFrame({
       width: 800,

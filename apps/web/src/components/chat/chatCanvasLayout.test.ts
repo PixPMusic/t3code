@@ -23,6 +23,63 @@ const expectClear = (result: ReturnType<typeof resolve>) => {
 };
 
 describe("chat canvas layout", () => {
+  it.each([
+    { canvasWidth: 744, previewWidth: 240 },
+    { canvasWidth: 900, previewWidth: null },
+    { canvasWidth: 900, previewWidth: 240 },
+    { canvasWidth: 952, previewWidth: 400 },
+  ])(
+    "keeps chat fixed with a $previewWidth preview in a compact $canvasWidth pixel canvas",
+    ({ canvasWidth, previewWidth }) => {
+      const original = resolve(canvasWidth, null).chat;
+      for (const x of [12, canvasWidth / 2, canvasWidth - 252]) {
+        const result = resolve(canvasWidth, {
+          ...preview,
+          width: previewWidth,
+          position: { x, y: 200 },
+          source: { width: 390, height: 844 },
+        });
+        expect(result.chat).toEqual(original);
+        expect(result.overlapsChat).toBe(true);
+      }
+    },
+  );
+
+  it("reflows chat once the canvas has room for the minimum side-by-side layout", () => {
+    const result = resolve(953, {
+      ...preview,
+      width: 240,
+      position: { x: 701, y: 200 },
+    });
+    expect(result.chat).toMatchObject({ left: 48, width: 641 });
+    expectClear(result);
+  });
+
+  it.each([1012, 1040, 1100])(
+    "overlays a preview when details already constrain chat in a %spx canvas",
+    (width) => {
+      const layout = (preview: ChatCanvasPreview | null) =>
+        resolveChatCanvasLayout({
+          container: { width, height: 900 },
+          maxChatWidth: 736,
+          composerHeight: 180,
+          detailsCard: { left: width - 292, right: width - 12, bottom: 400 },
+          preview,
+        });
+      const original = layout(null).chat;
+      for (const x of [12, width / 2, width - 412]) {
+        const result = layout({
+          ...preview,
+          width: 400,
+          position: { x, y: 200 },
+          source: { width: 768, height: 1024 },
+        });
+        expect(result.chat).toEqual(original);
+        expect(result.overlapsChat).toBe(true);
+      }
+    },
+  );
+
   it("folds details around a manually dragged preview and expands them after moving away", () => {
     const container = { width: 1584, height: 988 };
     const detailsCard = { left: 1292, right: 1572, bottom: 400 };
