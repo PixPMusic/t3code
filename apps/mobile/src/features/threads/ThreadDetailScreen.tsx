@@ -925,7 +925,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   const composerOverlapHeight =
     composerHeight ??
     COMPOSER_COLLAPSED_CHROME +
-      (deviceType === "pad" || hasSidebarTabBar ? 14 : 0) +
+      (!isProviderSubagent && (deviceType === "pad" || hasSidebarTabBar) ? 14 : 0) +
       composerBottomInset;
   const [collapsedUserInputRequestId, setCollapsedUserInputRequestId] =
     useState<RuntimeRequestId | null>(null);
