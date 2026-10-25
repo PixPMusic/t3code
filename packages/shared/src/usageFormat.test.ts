@@ -98,10 +98,28 @@ describe("usage source messages", () => {
     ]);
   });
 
-  it("omits missing and healthy sources and diagnostics handled by an action", () => {
+  it("includes cached diagnostics when a transcript directory is missing", () => {
+    const source = malformedSource(1);
+    const missing = malformedSource(2, {
+      fingerprint: { ...source.fingerprint, hostId: "other-demo-host" },
+      status: "missing",
+      scannedFiles: 0,
+      skippedFiles: 1,
+      distinctSessions: 0,
+      message:
+        "No transcript directory on this environment. 2 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
+    });
+
+    expect(usageSourceMessages([source, missing, missing])).toEqual([
+      "No transcript directory on this environment.",
+      "3 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
+    ]);
+  });
+
+  it("omits empty missing sources, healthy sources, and diagnostics handled by an action", () => {
     expect(
       usageSourceMessages([
-        malformedSource(1, { status: "missing" }),
+        malformedSource(0, { status: "missing" }),
         malformedSource(1, { status: "ok" }),
         malformedSource(1, { action: "enableCursorKeychain" }),
       ]),
