@@ -33,7 +33,11 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
       : { left: 12, right: 12 };
   // The Duo's native tab pill extends above the 48-point toolbar reservation.
   const workspacePadding =
-    useDuoBottomBarInset() === undefined ? (deviceType === "phone" ? 32 : 16) : 8;
+    useDuoBottomBarInset() === undefined
+      ? deviceType === "phone" && keyboardHeight === 0
+        ? 32
+        : 16
+      : 8;
   // Replacing a notice must also cancel the native gesture tracking the old one.
   const [instance, setInstance] = useState({ notice, key: 0 });
   if (instance.notice !== notice) setInstance({ notice, key: instance.key + 1 });
