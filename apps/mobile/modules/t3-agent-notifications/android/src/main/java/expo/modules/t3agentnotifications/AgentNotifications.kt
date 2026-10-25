@@ -229,11 +229,7 @@ object AgentNotifications {
     val remainingMs = (expiresAt - System.currentTimeMillis()).coerceAtMost(MAX_LIFETIME_MS)
     val wasActive = prefs.getBoolean("lastActive", false)
     prefs.edit().putBoolean("lastActive", active).apply()
-    val alertsEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-      manager(context).getNotificationChannel(ALERT_CHANNEL)?.importance !=
-      NotificationManager.IMPORTANCE_NONE
-    val activityAllowed = prefs.getBoolean("ongoing", false) && (active || alertsEnabled)
-    if (remainingMs <= 0 || !activityAllowed) {
+    if (remainingMs <= 0 || !prefs.getBoolean("ongoing", false)) {
       cancelActivity(context)
       prefs.edit().putBoolean("dismissed", false).apply()
       return
@@ -261,13 +257,15 @@ object AgentNotifications {
     )
     val presentation = ActivityPresentation(data, active)
     val openThread = contentIntent(context, scheme, data["activity_path"], ACTIVITY_ID)
+    // Retained results still need Android's ongoing flag to remain promoted.
+    val ongoing = active || Build.VERSION.SDK_INT >= 36
     val builder = base(context, ACTIVITY_CHANNEL)
-      .setOngoing(active).setOnlyAlertOnce(true).setSilent(true)
+      .setOngoing(ongoing).setOnlyAlertOnce(true).setSilent(true)
       .setTimeoutAfter(remainingMs)
       // Live Updates must remain uncolorized to qualify for promotion.
       .setColorized(false)
-      .setRequestPromotedOngoing(active)
-      .setShortCriticalText(presentation.chip)
+      .setRequestPromotedOngoing(ongoing)
+      .setShortCriticalText(if (ongoing) presentation.chip else null)
       .setContentIntent(openThread)
       .setDeleteIntent(dismissIntent)
     presentation.applyTo(builder, context)
