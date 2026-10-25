@@ -66,7 +66,7 @@ import {
   FolderIcon,
   ListFilterIcon,
   PlusIcon,
-  ServerIcon,
+  BanIcon,
   SettingsIcon,
 } from "lucide-react";
 import {
@@ -244,6 +244,7 @@ import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
 import { SidebarEnvironmentFilter } from "./sidebar/SidebarEnvironmentFilter";
+import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
 import { TooltipProvider } from "./ui/tooltip";
 import { composerDraftHasUserContent, DraftId, useComposerDraftStore } from "../composerDraftStore";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
@@ -910,6 +911,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     projectScopeItems,
     environments,
   } = useSidebarLookups(excludedEnvironmentIds);
+  const selectedEnvironments = environments.filter(
+    (environment) => !excludedEnvironmentIds.has(environment.environmentId),
+  );
   const knownEnvironmentIds = new Set(environments.map((environment) => environment.environmentId));
   if (
     [...excludedEnvironmentIds].some((environmentId) => !knownEnvironmentIds.has(environmentId))
@@ -2998,18 +3002,20 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                   <ComboboxTrigger
                     render={
                       <SidebarHeaderIconButton
-                        className={excludedEnvironmentIds.size > 0 ? "w-11" : undefined}
+                        className={excludedEnvironmentIds.size > 0 ? "w-auto" : undefined}
                         label={
                           (scopedProjectGroups.length > 0
                             ? `Filter threads by project: ${scopedProjectGroups.map((project) => project.displayName).join(", ")}`
                             : "Filter threads by project") +
-                          (excludedEnvironmentIds.size > 0 ? " (environment filter active)" : "")
+                          (excludedEnvironmentIds.size > 0
+                            ? ` (environments: ${selectedEnvironments.map((environment) => environment.label).join(", ") || "none"})`
+                            : "")
                         }
                       />
                     }
                   >
-                    <span className="flex shrink-0 items-center gap-1">
-                      {scopedProjectGroups.length > 1 ? (
+                    <span className="flex shrink-0 items-center gap-1 px-1.5">
+                      {scopedProjectGroups.length > 1 && excludedEnvironmentIds.size === 0 ? (
                         <span className="flex shrink-0 -space-x-1.5">
                           {scopedProjectGroups.slice(0, 2).map((project) => (
                             <ProjectFavicon
@@ -3027,7 +3033,27 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         <ListFilterIcon className="size-4" />
                       )}
                       {excludedEnvironmentIds.size > 0 ? (
-                        <ServerIcon aria-hidden className="size-4" />
+                        selectedEnvironments.length === 0 ? (
+                          <BanIcon aria-hidden className="size-4" />
+                        ) : (
+                          <>
+                            {selectedEnvironments.slice(0, 2).map((environment) => (
+                              <EnvironmentMachineIcon
+                                key={environment.environmentId}
+                                aria-hidden
+                                kind={
+                                  environmentMachineById.get(environment.environmentId) ?? "server"
+                                }
+                                className="size-4"
+                              />
+                            ))}
+                            {selectedEnvironments.length > 2 ? (
+                              <span aria-hidden className="text-xs">
+                                +
+                              </span>
+                            ) : null}
+                          </>
+                        )
                       ) : null}
                     </span>
                   </ComboboxTrigger>
