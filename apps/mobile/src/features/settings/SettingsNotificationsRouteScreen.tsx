@@ -22,11 +22,15 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import { supportsAgentAwarenessPush } from "../agent-awareness/capabilities";
 import {
+  openAndroidAgentAlertSettings,
   openAndroidLiveUpdateSettings,
   supportsAndroidLiveUpdateSettings,
 } from "../agent-awareness/androidNotifications";
 import { setLiveActivityUpdatesEnabled } from "../agent-awareness/liveActivityPreferences";
-import { requestAgentNotificationPermission } from "../agent-awareness/notificationPermissions";
+import {
+  isAgentAlertChannelEnabled,
+  requestAgentNotificationPermission,
+} from "../agent-awareness/notificationPermissions";
 import {
   getAgentAwarenessRegistrationStatus,
   refreshAgentAwarenessRegistration,
@@ -106,13 +110,16 @@ function ConfiguredSettingsNotificationsRouteScreen() {
       setNotificationStatus("unsupported");
       return;
     }
-    const result = await settlePromise(() => Notifications.getPermissionsAsync());
+    const result = await settlePromise(async () => {
+      const permission = await Notifications.getPermissionsAsync();
+      return permission.granted && (await isAgentAlertChannelEnabled());
+    });
     if (result._tag === "Failure") {
       reportAtomCommandResult(result, { label: "notification permission refresh" });
       setNotificationStatus("disabled");
       return;
     }
-    setNotificationStatus(result.value.granted ? "enabled" : "disabled");
+    setNotificationStatus(result.value ? "enabled" : "disabled");
   };
 
   useEffect(() => {
@@ -146,6 +153,16 @@ function ConfiguredSettingsNotificationsRouteScreen() {
     );
   }, [isLoaded, isSignedIn, preferencesResult]);
 
+  const openAlertSettings = async () => {
+    const result = await settlePromise(openAndroidAgentAlertSettings);
+    if (result._tag === "Failure") {
+      Dialog.alert(
+        "Couldn't open Settings",
+        "Open Android Settings, select T3 Code, then select Agent alerts in Notifications.",
+      );
+    }
+  };
+
   const requestNotifications = async () => {
     const result = await settleAsyncResult(() =>
       runtime.runPromiseExit(
@@ -167,6 +184,16 @@ function ConfiguredSettingsNotificationsRouteScreen() {
       return;
     }
     if (result.value.type === "granted") {
+      const channel = await settlePromise(isAgentAlertChannelEnabled);
+      if (channel._tag === "Failure") {
+        reportAtomCommandResult(channel, { label: "notification channel refresh" });
+        return;
+      }
+      if (!channel.value) {
+        setNotificationStatus("disabled");
+        void openAlertSettings();
+        return;
+      }
       setNotificationStatus("enabled");
       if (getAgentAwarenessRegistrationStatus() === "registered") {
         Dialog.alert("Notifications enabled", "Agent notifications are enabled for this device.");
@@ -247,7 +274,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
         );
         return;
       }
-      setNotificationStatus("enabled");
+      await refreshNotifications();
     }
     const tokenResult = await settlePromise(() => getToken(resolveRelayClerkTokenOptions()));
     if (tokenResult._tag === "Failure") {
@@ -317,6 +344,11 @@ function ConfiguredSettingsNotificationsRouteScreen() {
         return;
       }
       void requestNotifications();
+      return;
+    }
+
+    if (Platform.OS === "android") {
+      void openAlertSettings();
       return;
     }
 
@@ -403,14 +435,20 @@ function ConfiguredSettingsNotificationsRouteScreen() {
         <SettingsSection title="Agent activity">
           <SettingsSwitchRow
             icon="bell.badge"
-            label="Device Notifications"
+            label={Platform.OS === "android" ? "Agent Alerts" : "Device Notifications"}
             disabled={
               !agentAwarenessPlatform.supported ||
               !agentAwarenessPushAvailable ||
               notificationStatus === "checking" ||
               notificationStatus === "unsupported"
             }
-            subtitle={agentAwarenessSubtitle}
+            subtitle={
+              Platform.OS === "android" &&
+              Number(Platform.Version) >= 26 &&
+              agentAwarenessPushAvailable
+                ? "Separate from ongoing agent activity"
+                : agentAwarenessSubtitle
+            }
             value={
               agentAwarenessPushAvailable && notificationStatus === "enabled" && deviceRegistered
             }

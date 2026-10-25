@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import * as Application from "expo-application";
 import { requireOptionalNativeModule } from "expo";
 import { Linking, Platform } from "react-native";
 
@@ -48,6 +49,17 @@ export function setAndroidThreadOnScreen(path: string | null): void {
 
 export function supportsAndroidLiveUpdateSettings(): boolean {
   return Platform.OS === "android" && Number(Platform.Version) >= 36;
+}
+
+export async function openAndroidAgentAlertSettings(): Promise<void> {
+  if (Number(Platform.Version) < 26 || !Application.applicationId) {
+    await Linking.openSettings();
+    return;
+  }
+  await Linking.sendIntent("android.settings.CHANNEL_NOTIFICATION_SETTINGS", [
+    { key: "android.provider.extra.APP_PACKAGE", value: Application.applicationId },
+    { key: "android.provider.extra.CHANNEL_ID", value: "agent-alerts" },
+  ]);
 }
 
 export async function openAndroidLiveUpdateSettings(): Promise<void> {

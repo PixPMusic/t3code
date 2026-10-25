@@ -25,7 +25,10 @@ export function makeRelayDeviceRegistrationRequest(
   ),
 ): RelayDeviceRegistrationRequest {
   const pushAvailable = supportsAgentAwarenessPush();
-  const liveActivitiesEnabled = pushAvailable && input.preferences.liveActivitiesEnabled !== false;
+  const liveActivitiesEnabled =
+    pushAvailable &&
+    input.preferences.liveActivitiesEnabled !== false &&
+    (input.platform !== "android" || Boolean(input.pushToken));
   return {
     deviceId: input.deviceId,
     label: input.label,

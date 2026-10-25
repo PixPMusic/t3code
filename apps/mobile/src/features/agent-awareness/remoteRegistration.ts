@@ -44,6 +44,7 @@ import {
 } from "./agentLiveActivity";
 import { resolveCloudPublicConfig } from "../cloud/publicConfig";
 import { supportsAgentAwarenessPush } from "./capabilities";
+import { isAgentAlertChannelEnabled } from "./notificationPermissions";
 import { makeRelayDeviceRegistrationRequest, resolveApsEnvironment } from "./registrationPayload";
 
 const REMOTE_ACTIVITY_REGISTRATION_RETRY_MS = 15_000;
@@ -262,8 +263,19 @@ const nativePushTokenRegistration = Effect.fn("remoteRegistration.nativePushToke
     if (!permissions.granted) {
       return { notificationsEnabled: false, pushToken: null };
     }
+    const alertsEnabled =
+      Platform.OS === "android"
+        ? yield* Effect.tryPromise({
+            try: isAgentAlertChannelEnabled,
+            catch: (cause) =>
+              new AgentAwarenessOperationError({
+                operation: "read-notification-permissions",
+                cause,
+              }),
+          })
+        : true;
     if (observedPushToken) {
-      return { notificationsEnabled: true, pushToken: observedPushToken };
+      return { notificationsEnabled: alertsEnabled, pushToken: observedPushToken };
     }
     const token = yield* Effect.tryPromise({
       try: () => Notifications.getDevicePushTokenAsync(),
@@ -284,7 +296,7 @@ const nativePushTokenRegistration = Effect.fn("remoteRegistration.nativePushToke
       token?.type === Platform.OS && typeof token.data === "string" && token.data.trim().length > 0
         ? token.data.trim()
         : null;
-    return { notificationsEnabled: pushToken !== null, pushToken };
+    return { notificationsEnabled: alertsEnabled && pushToken !== null, pushToken };
   },
 );
 
