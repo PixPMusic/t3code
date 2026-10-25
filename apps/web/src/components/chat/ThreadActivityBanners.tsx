@@ -63,11 +63,8 @@ export function goalBannerItem(input: {
     variant: "default",
     priority: "activity",
     icon: <TargetIcon />,
-    title:
-      presentation.usage === null
-        ? presentation.title
-        : `${presentation.title} · ${presentation.usage}`,
-    description: presentation.objective,
+    title: `${presentation.title}: ${presentation.objective}`,
+    description: presentation.usage === null ? undefined : `· ${presentation.usage}`,
     actions: isWorking ? undefined : (
       <>
         {presentation.canResume ? (
