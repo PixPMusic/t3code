@@ -35,6 +35,7 @@ export function ListToggleRow(
             accessibilityHint={props.description}
             disabled={props.disabled}
             onValueChange={props.onValueChange}
+            style={{ alignSelf: "center" }}
             value={props.value}
           />
         )

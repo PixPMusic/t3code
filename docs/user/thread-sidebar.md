@@ -11,7 +11,7 @@ Its branch and workspace mode come from your configured defaults. To continue in
 an existing worktree, use **New thread in this worktree** from the branch toolbar.
 
 On mobile, new threads open the project picker. Turn on **Settings → Thread behavior →
-Use last project for new threads** to reuse the last project you opened or chose on that device,
+Use last project** to reuse the last project you opened or chose on that device,
 including after restarting the app. Project-specific actions always use the project you chose.
 
 When you change a new thread's project, T3 Code stays in the current environment

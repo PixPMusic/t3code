@@ -62,13 +62,11 @@ function NewThreadSettingsSection() {
   const ready = AsyncResult.isSuccess(preferences) && !preferences.waiting;
 
   return (
-    <SettingsSection
-      title="New threads"
-      footer="Start in the last project you used on this device. When off, choose a project each time."
-    >
+    <SettingsSection title="New threads">
       <SettingsSwitchRow
         icon="square.and.pencil"
-        label="Use last project for new threads"
+        label="Use last project"
+        subtitle="Start in the last project you used on this device."
         value={
           AsyncResult.isSuccess(preferences) &&
           preferences.value.useLastProjectForNewThreads === true
