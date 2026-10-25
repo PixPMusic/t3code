@@ -556,25 +556,19 @@ function AdaptiveWorkspaceLayoutContent(
     const thread = appAtomRegistry
       .get(environmentThreadShells.navigationThreadShellsAtom)
       .find((candidate) => candidate.environmentId === environmentId && candidate.id === threadId);
-    const currentRoute = navigation
-      .getState()
-      ?.routes.find((route) => route.key === props.workspaceRouteKey);
-    const draft =
-      currentRoute?.name === "Thread"
-        ? (currentRoute.params as ReactNavigation.RootParamList["Thread"])?.draft
-        : undefined;
-    const first = (value: string | string[] | undefined) =>
-      Array.isArray(value) ? value[0] : value;
-    const draftEnvironmentId = first(draft?.environmentId);
-    const draftProjectId = first(draft?.projectId);
     const currentProject = thread
       ? { environmentId: thread.environmentId, id: thread.projectId }
-      : projects.find(
-          (project) =>
-            project.environmentId === draftEnvironmentId && project.id === draftProjectId,
-        );
+      : undefined;
+    const preferences = appAtomRegistry.get(mobilePreferencesAtom);
+    const saved = AsyncResult.isSuccess(preferences) ? preferences.value : undefined;
     handleSelectThreadRoute(
-      newTaskDestination(layout.usesSplitView, projects, currentProject, uuidv4()),
+      newTaskDestination(
+        saved?.useLastProjectForNewThreads,
+        projects,
+        currentProject,
+        uuidv4(),
+        saved?.lastThreadProject,
+      ),
     );
   };
 
