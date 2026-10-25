@@ -101,38 +101,55 @@ describe("resolveDraftProjectSelection", () => {
 describe("newTaskDestination", () => {
   const request = { draft: { requestId: "request" } };
 
-  it.each([undefined, false])("opens the picker when the preference is %s", (useLastProject) => {
+  it("opens the picker when the preference is disabled", () => {
     const projects = [makeProject("first"), makeProject("current", "other-environment")];
     expect(
-      newTaskDestination(useLastProject, projects, projects[1], "request", {
+      newTaskDestination(false, projects, projects[1], "request", {
         environmentId: "environment",
         projectId: "first",
       }),
     ).toEqual(request);
   });
 
-  it("uses the current thread or draft project when enabled", () => {
-    const projects = [makeProject("first"), makeProject("current", "other-environment")];
-    expect(
-      newTaskDestination(true, projects, projects[1], "request", {
-        environmentId: "environment",
-        projectId: "first",
-      }),
-    ).toEqual({
-      draft: { requestId: "request", environmentId: "other-environment", projectId: "current" },
-    });
-  });
+  it.each([undefined, true])(
+    "uses the current project when the preference is %s",
+    (useLastProject) => {
+      const projects = [makeProject("first"), makeProject("current", "other-environment")];
+      expect(
+        newTaskDestination(useLastProject, projects, projects[1], "request", {
+          environmentId: "environment",
+          projectId: "first",
+        }),
+      ).toEqual({
+        draft: { requestId: "request", environmentId: "other-environment", projectId: "current" },
+      });
+    },
+  );
 
-  it("remembers the last project from Home without relying on project order", () => {
-    const projects = [makeProject("same-id"), makeProject("same-id", "other-environment")];
+  it.each([undefined, true])(
+    "remembers the last project from Home when the preference is %s",
+    (useLastProject) => {
+      const projects = [makeProject("same-id"), makeProject("same-id", "other-environment")];
+      expect(
+        newTaskDestination(useLastProject, projects, undefined, "request", {
+          environmentId: "other-environment",
+          projectId: "same-id",
+        }),
+      ).toEqual({
+        draft: { requestId: "request", environmentId: "other-environment", projectId: "same-id" },
+      });
+    },
+  );
+
+  it("opens the picker by default when no last project exists", () => {
     expect(
-      newTaskDestination(true, projects, undefined, "request", {
-        environmentId: "other-environment",
-        projectId: "same-id",
-      }),
-    ).toEqual({
-      draft: { requestId: "request", environmentId: "other-environment", projectId: "same-id" },
-    });
+      newTaskDestination(
+        undefined,
+        [makeProject("first"), makeProject("second")],
+        undefined,
+        "request",
+      ),
+    ).toEqual(request);
   });
 
   it("uses the remembered project when the current project is stale", () => {

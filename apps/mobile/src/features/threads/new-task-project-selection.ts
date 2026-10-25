@@ -98,18 +98,19 @@ export function newTaskDestination(
   requestId: string,
   lastProject?: { readonly environmentId: string; readonly projectId: string },
 ) {
-  const project = useLastProject
-    ? (projects.find(
-        (candidate) =>
-          candidate.environmentId === currentProject?.environmentId &&
-          candidate.id === currentProject.id,
-      ) ??
-      projects.find(
-        (candidate) =>
-          candidate.environmentId === lastProject?.environmentId &&
-          candidate.id === lastProject.projectId,
-      ))
-    : undefined;
+  const project =
+    useLastProject !== false
+      ? (projects.find(
+          (candidate) =>
+            candidate.environmentId === currentProject?.environmentId &&
+            candidate.id === currentProject.id,
+        ) ??
+        projects.find(
+          (candidate) =>
+            candidate.environmentId === lastProject?.environmentId &&
+            candidate.id === lastProject.projectId,
+        ))
+      : undefined;
   return project
     ? {
         draft: {

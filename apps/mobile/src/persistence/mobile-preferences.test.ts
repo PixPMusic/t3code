@@ -37,7 +37,7 @@ const makeStore = Effect.fn("test.makePreferencesStore")(function* (initial: unk
 });
 
 describe("new-thread project preferences", () => {
-  it.effect("leaves the preference off for existing installations", () =>
+  it.effect("keeps missing new-thread preferences unset for existing installations", () =>
     Effect.gen(function* () {
       const openStore = yield* makeStore({ workingShelfEnabled: true });
       const store = yield* openStore;

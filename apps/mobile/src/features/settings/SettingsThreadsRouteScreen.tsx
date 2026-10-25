@@ -69,7 +69,7 @@ function NewThreadSettingsSection() {
         subtitle="Start in the last project you used on this device."
         value={
           AsyncResult.isSuccess(preferences) &&
-          preferences.value.useLastProjectForNewThreads === true
+          preferences.value.useLastProjectForNewThreads !== false
         }
         disabled={!ready}
         onValueChange={(value) => savePreferences({ useLastProjectForNewThreads: value })}
