@@ -519,6 +519,16 @@ export const PickedThemeFileSchema = Schema.Struct({
   text: Schema.String,
 });
 
+export const DesktopWallpaperThemeSourceSchema = Schema.Literals(["wallpaper", "image", "accent"]);
+export type DesktopWallpaperThemeSource = typeof DesktopWallpaperThemeSourceSchema.Type;
+export const DesktopWallpaperThemeColorSchema = Schema.String.check(
+  Schema.isPattern(/^#[0-9a-f]{6}$/i),
+);
+export const DesktopWallpaperThemeColorsSchema = Schema.NonEmptyArray(
+  DesktopWallpaperThemeColorSchema,
+).check(Schema.isMaxLength(4), Schema.isUnique());
+export type DesktopWallpaperThemeColors = typeof DesktopWallpaperThemeColorsSchema.Type;
+
 export interface DesktopWslDistro {
   name: string;
   isDefault: boolean;
@@ -1078,6 +1088,10 @@ export interface DesktopBridge {
   pickFolder: (options?: PickFolderOptions) => Promise<string | null>;
   pickProjectFavicon?: (initialPath?: string) => Promise<string | null>;
   pickThemeFiles?: () => Promise<readonly PickedThemeFile[] | null>;
+  /** Extracts up to four ranked colors locally. Null means the image picker was cancelled. */
+  getWallpaperThemeColors?: (
+    source: DesktopWallpaperThemeSource,
+  ) => Promise<DesktopWallpaperThemeColors | null>;
   setTheme: (theme: DesktopTheme) => Promise<void>;
   showContextMenu: <T extends string>(
     items: readonly ContextMenuItem<T>[],
