@@ -636,9 +636,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   // The pill already adds its own gutter; iPad and Duo align its edge with the native bar.
   const alignedBottomInset =
     bottomBarInset ??
-    (Platform.OS === "ios" && Platform.isPad
-      ? Math.max(bottomSafeArea, 12) - (hasSidebarTabBar ? 5 : 0)
-      : undefined);
+    (Platform.OS === "ios" && Platform.isPad ? Math.max(bottomSafeArea, 12) - 5 : undefined);
   // The Duo's floating sidebar pill ends three points below the composer's usual gutter.
   const composerBottomInset = Math.max(
     0,
@@ -921,7 +919,10 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
     (props.historyControls?.hasMoreHistory === true &&
       props.selectedThread.latestUserMessageAt !== null);
   const composerOverlapHeight =
-    composerHeight ?? COMPOSER_COLLAPSED_CHROME + (hasSidebarTabBar ? 14 : 0) + composerBottomInset;
+    composerHeight ??
+    COMPOSER_COLLAPSED_CHROME +
+      (deviceType === "pad" || hasSidebarTabBar ? 14 : 0) +
+      composerBottomInset;
   const [collapsedUserInputRequestId, setCollapsedUserInputRequestId] =
     useState<RuntimeRequestId | null>(null);
   const activeUserInputRequestId = props.activePendingUserInput?.requestId ?? null;
