@@ -98,6 +98,7 @@ import {
 import { workspaceTabNavigationState } from "../workspace/workspace-tab-navigation";
 import type { WorkspaceTab } from "../workspace/workspace-tabs-state";
 import { workspaceRoutesOf } from "./workspace-overlay-routes";
+import { SettingsWorkspaceLayout } from "../settings/SettingsWorkspaceLayout";
 
 export { useAdaptiveWorkspaceLayout };
 
@@ -905,7 +906,9 @@ function AdaptiveWorkspaceLayoutContent(
                         compactAndroidSettings ? { ...safeAreaInsets, bottom: 0 } : safeAreaInsets
                       }
                     >
-                      <View className="flex-1">{props.children}</View>
+                      <View className="flex-1">
+                        <SettingsWorkspaceLayout>{props.children}</SettingsWorkspaceLayout>
+                      </View>
                     </SafeAreaInsetsContext>
                     {compactAndroidSettings ? (
                       <AndroidWorkspaceNavigation onNewThread={handleStartNewTask} />
