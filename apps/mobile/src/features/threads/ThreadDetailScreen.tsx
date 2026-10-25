@@ -115,6 +115,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceContentWidth } from "../layout/workspace-content-width";
+import { useAdaptiveWorkspaceLayout } from "../layout/adaptive-workspace-context";
 import { useNativeWorkspaceColumnsSupported } from "../../native/NativeWorkspaceColumns";
 import {
   useDeviceType,
@@ -504,6 +505,7 @@ const COMPOSER_HEIGHT_SETTLE_MS = 220;
 
 export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetailScreenProps) {
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
+  const { layout } = useAdaptiveWorkspaceLayout();
   const deviceType = useDeviceType();
   const workspace = useWorkspaceTabs();
   const sidebarSearchActive =
@@ -636,7 +638,9 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   // The pill already adds its own gutter; iPad and Duo align its edge with the native bar.
   const alignedBottomInset =
     bottomBarInset ??
-    (Platform.OS === "ios" && Platform.isPad ? Math.max(bottomSafeArea, 12) - 5 : undefined);
+    (Platform.OS === "ios" && Platform.isPad
+      ? Math.max(bottomSafeArea, 12) - (layout.usesSplitView ? 5 : 0)
+      : undefined);
   // The Duo's floating sidebar pill ends three points below the composer's usual gutter.
   const composerBottomInset = Math.max(
     0,
