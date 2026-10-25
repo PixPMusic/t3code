@@ -2,7 +2,7 @@ import { settlePromise } from "@t3tools/client-runtime/state/runtime";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
 import type { ComponentType } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -244,12 +244,17 @@ function JavaScriptSourceFileSurface(props: SourceFileSurfaceProps) {
   const listRef = useRef<FlatList<string>>(null);
   const [lineScroll] = useState(createSourceLineScroll);
   const retryLineScroll = useCallback(() => lineScroll.retry(listRef.current), [lineScroll]);
+  const handleViewableLines = useCallback(
+    ({ viewableItems }: { viewableItems: ReadonlyArray<{ readonly index?: number | null }> }) =>
+      lineScroll.onViewableItemsChanged(listRef.current, viewableItems),
+    [lineScroll],
+  );
   const { isPullRefreshing, handlePullToRefresh } = useSourceFileRefresh(props.onRefresh);
   const refreshControl = props.onRefresh ? (
     <RefreshControl refreshing={isPullRefreshing} onRefresh={() => void handlePullToRefresh()} />
   ) : undefined;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (targetIndex === null) {
       return;
     }
@@ -345,8 +350,15 @@ function JavaScriptSourceFileSurface(props: SourceFileSurfaceProps) {
       }}
       renderItem={renderLine}
       onScrollToIndexFailed={(info) => lineScroll.onScrollToIndexFailed(listRef.current, info)}
-      onViewableItemsChanged={retryLineScroll}
+      onViewableItemsChanged={handleViewableLines}
       onContentSizeChange={retryLineScroll}
+      onScroll={(event) =>
+        lineScroll.onScroll(
+          event.nativeEvent.contentOffset.y,
+          event.nativeEvent.layoutMeasurement.height,
+        )
+      }
+      onScrollBeginDrag={lineScroll.cancel}
     />
   );
 
