@@ -585,6 +585,39 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
     height: state.height,
     isVisible: state.isVisible,
   }));
+  const accessoryInsets = { left: insets.left, right: insets.right };
+  if (
+    Platform.OS === "ios" &&
+    nativeColumnMetrics?.hasHinge &&
+    nativeColumnMetrics.verticalBarEdge !== "none" &&
+    // In short landscape columns, UIKit's floating tabs sit beside this row.
+    nativeColumnMetrics.width < nativeColumnMetrics.height
+  ) {
+    const edge = nativeColumnMetrics.verticalBarEdge;
+    const top = nativeColumnMetrics.height - keyboardState.height - TERMINAL_ACCESSORY_HEIGHT;
+    // UIKit reserves the whole rail in its safe area. At keyboard height, keep
+    // clearance only for occlusions that actually overlap the accessory row.
+    accessoryInsets[edge] = 0;
+    for (const region of nativeColumnMetrics.reservedRegions) {
+      if (
+        region.kind !== "occlusion" ||
+        region.y >= top + TERMINAL_ACCESSORY_HEIGHT ||
+        region.y + region.height <= top
+      )
+        continue;
+      if (edge === "left" && region.x < insets.left) {
+        accessoryInsets.left = Math.max(accessoryInsets.left, region.x + region.width);
+      } else if (
+        edge === "right" &&
+        region.x + region.width > nativeColumnMetrics.width - insets.right
+      ) {
+        accessoryInsets.right = Math.max(
+          accessoryInsets.right,
+          nativeColumnMetrics.width - region.x,
+        );
+      }
+    }
+  }
   const isAccessoryVisible = canOperateTerminal && keyboardState.isVisible && !isAccessoryDismissed;
   // Android's terminal owns an EditText; turning off autoFocus also clears its native focus.
   const terminalAutoFocus =
@@ -1173,6 +1206,8 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
             // reservation is zero when UIKit has already inset the body or moved the bar.
             paddingTop:
               Platform.OS === "ios" ? (nativeColumnMetrics?.safeArea.top ?? insets.top) : 0,
+            paddingLeft: Platform.OS === "ios" ? insets.left : 0,
+            paddingRight: Platform.OS === "ios" ? insets.right : 0,
             paddingBottom:
               Platform.OS === "android" && !keyboardState.isVisible ? insets.bottom : 0,
           }}
@@ -1304,7 +1339,19 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
                       minHeight: TERMINAL_ACCESSORY_HEIGHT,
                     }}
                   >
-                    <ComposerToolbarRow paddingBottom={4} paddingHorizontal={8} paddingTop={4}>
+                    <ComposerToolbarRow
+                      paddingBottom={4}
+                      paddingHorizontal={8}
+                      paddingTop={4}
+                      style={
+                        Platform.OS === "ios"
+                          ? {
+                              paddingLeft: 8 + accessoryInsets.left,
+                              paddingRight: 8 + accessoryInsets.right,
+                            }
+                          : undefined
+                      }
+                    >
                       <ComposerToolbarScroller
                         contentPaddingRight={2}
                         fadeOpaque={terminalTheme.background}
@@ -1351,7 +1398,7 @@ export function ThreadTerminalRouteScreen(props: ThreadTerminalRouteScreenProps)
                     borderRadius: 28,
                     opacity: pressed ? 0.72 : 1,
                     position: "absolute",
-                    right: 16,
+                    right: 16 + insets.right,
                   })}
                 >
                   <GlassSurface
