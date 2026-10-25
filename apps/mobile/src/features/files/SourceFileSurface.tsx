@@ -356,6 +356,7 @@ function JavaScriptSourceFileSurface(props: SourceFileSurfaceProps) {
         lineScroll.onScroll(
           event.nativeEvent.contentOffset.y,
           event.nativeEvent.layoutMeasurement.height,
+          listRef.current,
         )
       }
       onScrollBeginDrag={lineScroll.cancel}

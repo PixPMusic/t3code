@@ -53,11 +53,14 @@ function setup() {
     replaceDocument(count: number) {
       lineCount = count;
     },
+    reportScroll(offset: number, height: number) {
+      scroll.onScroll(offset, height, mounted ? list : null);
+    },
     reportViewable(offset: number, height: number, indices: readonly number[]) {
       visibleIndex = indices[0] ?? visibleIndex;
       highestMeasuredIndex = Math.max(highestMeasuredIndex, ...indices);
       if (unmeasuredIndex !== null && indices.includes(unmeasuredIndex)) unmeasuredIndex = null;
-      scroll.onScroll(offset, height);
+      scroll.onScroll(offset, height, mounted ? list : null);
       scroll.onViewableItemsChanged(
         mounted ? list : null,
         indices.map((index) => ({ index })),
@@ -171,4 +174,36 @@ it("finishes an already visible target without waiting for another viewability e
   state.reportViewable(480, 240, [20, 21, 22]);
   state.measureThrough(100);
   expect(state.visibleIndex).toBe(20);
+});
+
+it("keeps moving through a tall wrapped row without changed viewable indices", async () => {
+  const state = setup();
+  state.acceptApproximationFor(899);
+  state.scroll.scrollToLine(899);
+  state.reportViewable(21_000, 240, [898]);
+  const firstOffset = state.requestedOffset!;
+
+  state.reportScroll(firstOffset, 240);
+  await Promise.resolve();
+  expect(state.requestedOffset).toBeGreaterThan(firstOffset);
+  const nextOffset = state.requestedOffset!;
+  state.reportScroll(nextOffset, 240);
+  await Promise.resolve();
+  expect(state.requestedOffset).toBeGreaterThan(nextOffset);
+
+  state.reportViewable(22_000, 240, [899]);
+  expect(state.visibleIndex).toBe(899);
+});
+
+it("cancels queued scroll recovery when the source list unmounts", async () => {
+  const state = setup();
+  state.acceptApproximationFor(899);
+  state.scroll.scrollToLine(899);
+  state.reportViewable(21_000, 240, [898]);
+  const offset = state.requestedOffset!;
+
+  state.reportScroll(offset, 240);
+  state.unmount();
+  await Promise.resolve();
+  expect(state.requestedOffset).toBe(offset);
 });

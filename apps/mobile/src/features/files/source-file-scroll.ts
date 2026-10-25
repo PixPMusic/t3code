@@ -25,6 +25,26 @@ export function createSourceLineScroll() {
     list?.scrollToIndex({ index, animated: false, viewPosition: 0.3 });
     if (visibleItems.some((item) => item.index === index)) pendingIndex = null;
   };
+  const recoverFromViewport = (list: SourceLineList | null) => {
+    const index = target(list);
+    if (index === null) return;
+    if (visibleItems.some((item) => item.index === index)) {
+      pendingIndex = null;
+      list?.scrollToIndex({ index, animated: false, viewPosition: 0.3 });
+      return;
+    }
+    const first = visibleItems[0]?.index;
+    const last = visibleItems.at(-1)?.index;
+    if (first == null || last == null || last < first) return;
+    // An accepted scroll can still use an estimate for an unmeasured row.
+    // Correct from the actual viewport rather than repeating that same estimate.
+    const rowHeight = viewportHeight > 0 ? viewportHeight / (last - first + 1) : averageItemLength;
+    if (rowHeight <= 0) return;
+    list?.scrollToOffset({
+      offset: Math.max(0, scrollOffset + (index - first) * rowHeight),
+      animated: false,
+    });
+  };
 
   return {
     scrollToLine,
@@ -45,34 +65,22 @@ export function createSourceLineScroll() {
       const index = target(list);
       if (index !== null) scrollToLine(list, index);
     },
-    onScroll(offset: number, height: number) {
+    onScroll(offset: number, height: number, list: SourceLineList | null) {
+      const moved = offset !== scrollOffset;
       scrollOffset = offset;
       viewportHeight = height;
+      if (moved && pendingIndex !== null) {
+        // RN updates viewability after our scroll handler, and skips its callback
+        // while the viewport stays inside one tall row. Use the updated rows.
+        queueMicrotask(() => recoverFromViewport(list));
+      }
     },
     onViewableItemsChanged(
       list: SourceLineList | null,
       items: ReadonlyArray<{ readonly index?: number | null }>,
     ) {
       visibleItems = items;
-      const index = target(list);
-      if (index === null) return;
-      if (items.some((item) => item.index === index)) {
-        pendingIndex = null;
-        list?.scrollToIndex({ index, animated: false, viewPosition: 0.3 });
-        return;
-      }
-      const first = items[0]?.index;
-      const last = items.at(-1)?.index;
-      if (first == null || last == null || last < first) return;
-      // An accepted scroll can still use an estimate for an unmeasured row.
-      // Correct from the actual viewport rather than repeating that same estimate.
-      const rowHeight =
-        viewportHeight > 0 ? viewportHeight / (last - first + 1) : averageItemLength;
-      if (rowHeight <= 0) return;
-      list?.scrollToOffset({
-        offset: Math.max(0, scrollOffset + (index - first) * rowHeight),
-        animated: false,
-      });
+      recoverFromViewport(list);
     },
     cancel() {
       pendingIndex = null;
