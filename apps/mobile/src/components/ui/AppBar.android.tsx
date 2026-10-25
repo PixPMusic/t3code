@@ -131,6 +131,7 @@ export function AppBar(props: AppBarProps) {
                 type="monochrome"
               />
               <TextInput
+                allowFontScaling={false}
                 accessibilityLabel={search.placeholder}
                 autoCapitalize="none"
                 onChangeText={search.onChangeText}

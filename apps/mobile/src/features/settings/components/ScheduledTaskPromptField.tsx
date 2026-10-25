@@ -30,6 +30,7 @@ export function ScheduledTaskPromptField(props: {
       <Text className="text-sm text-foreground-muted">Prompt</Text>
       <View className="relative">
         <TextInput
+          allowFontScaling={false}
           accessibilityLabel="Prompt"
           value={props.value}
           onChangeText={props.onChange}

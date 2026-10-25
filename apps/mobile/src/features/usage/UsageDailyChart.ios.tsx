@@ -1,5 +1,5 @@
 import { Chart, Host, type ChartDataPoint } from "@expo/ui/swift-ui";
-import { frame } from "@expo/ui/swift-ui/modifiers";
+import { dynamicTypeSize, frame } from "@expo/ui/swift-ui/modifiers";
 
 import type { DailyTotals } from "@t3tools/shared/usageMerge";
 
@@ -25,7 +25,7 @@ export function UsageDailyChart({ days, daily, metric, height }: UsageDailyChart
   );
 
   return (
-    <Host style={{ height, width: "100%" }}>
+    <Host modifiers={[dynamicTypeSize("large")]} style={{ height, width: "100%" }}>
       <Chart
         type="bar"
         data={data}

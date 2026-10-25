@@ -11,5 +11,12 @@ export function NativeThemeHost(
     () => (systemColorsActive ? undefined : createNativeThemeColors(colors)),
     [colors, systemColorsActive],
   );
-  return <Host {...props} colorScheme={colorScheme} colorOverrides={colorOverrides} />;
+  return (
+    <Host
+      allowFontScaling={false}
+      {...props}
+      colorScheme={colorScheme}
+      colorOverrides={colorOverrides}
+    />
+  );
 }

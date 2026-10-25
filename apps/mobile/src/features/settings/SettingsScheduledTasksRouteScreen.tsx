@@ -157,6 +157,7 @@ function FormField(props: {
     >
       <Text className="text-sm text-foreground-muted">{props.label}</Text>
       <RNTextInput
+        allowFontScaling={false}
         accessibilityLabel={props.label}
         value={props.value}
         readOnly={props.disabled}

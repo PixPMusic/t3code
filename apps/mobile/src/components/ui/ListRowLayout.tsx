@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Platform, useWindowDimensions, View } from "react-native";
+import { Platform, View } from "react-native";
 
 import { cn } from "../../lib/cn";
 import { AppText } from "./AppText";
@@ -22,8 +22,6 @@ export function ListRowLayout({
   accessory,
   tone = "default",
 }: ListRowContentProps & { readonly accessory?: ReactNode; readonly tone?: "default" | "danger" }) {
-  const { fontScale } = useWindowDimensions();
-  const stackDetail = fontScale >= 1.5;
   return (
     <View
       className={cn(
@@ -55,13 +53,8 @@ export function ListRowLayout({
             {description}
           </AppText>
         ) : null}
-        {detail && stackDetail ? (
-          <AppText textRole="footnote" className="text-foreground-muted">
-            {detail}
-          </AppText>
-        ) : null}
       </View>
-      {detail && !stackDetail ? (
+      {detail ? (
         <AppText
           textRole="footnote"
           className="max-w-[40%] shrink text-right text-foreground-muted"

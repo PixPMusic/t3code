@@ -194,6 +194,7 @@ function PaletteRow(props: {
       </View>
       {props.index < 9 ? (
         <NativeText
+          allowFontScaling={false}
           className={cn("w-8 shrink-0 text-right text-sm tabular-nums", mutedForegroundClassName)}
         >
           ⌘{props.index + 1}
@@ -591,6 +592,7 @@ export function CommandPalette(props: {
                     type="monochrome"
                   />
                   <TextInput
+                    allowFontScaling={false}
                     ref={inputRef}
                     accessibilityLabel="Search commands, projects, and threads"
                     placeholder="Search commands, projects, and threads…"

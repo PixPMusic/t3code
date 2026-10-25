@@ -1046,6 +1046,7 @@ function ThreadSettingsMainContent(props: {
                   />
                 </View>
                 <TextInput
+                  allowFontScaling={false}
                   accessibilityLabel="Find a model"
                   autoCapitalize="none"
                   autoCorrect={false}

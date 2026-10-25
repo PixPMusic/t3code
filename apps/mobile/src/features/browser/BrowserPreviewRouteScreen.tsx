@@ -246,6 +246,7 @@ function BrowserAddressBar({
         onPress={() => onCommand({ type: "history", delta: 1 })}
       />
       <TextInput
+        allowFontScaling={false}
         accessibilityLabel="Address"
         editable={ready}
         value={draft ?? url}

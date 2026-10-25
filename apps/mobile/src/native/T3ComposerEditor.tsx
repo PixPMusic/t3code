@@ -41,6 +41,7 @@ export function ComposerEditor({
   return (
     <TextInputWrapper onPaste={handlePaste} style={[{ minHeight: 0 }, style]}>
       <TextInput
+        allowFontScaling={false}
         ref={inputRef}
         {...props}
         editable={(props.editable ?? true) && !readOnly}

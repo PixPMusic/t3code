@@ -77,6 +77,7 @@ export function DiffTokenText(props: {
   if (!props.tokens || props.tokens.length === 0) {
     return (
       <NativeText
+        allowFontScaling={false}
         numberOfLines={1}
         selectable
         className={cn("font-normal text-foreground", props.className)}
@@ -93,6 +94,7 @@ export function DiffTokenText(props: {
 
   return (
     <NativeText
+      allowFontScaling={false}
       numberOfLines={1}
       selectable
       className={cn("font-normal text-foreground", props.className)}
@@ -119,6 +121,7 @@ export function DiffTokenText(props: {
 
           return (
             <NativeText
+              allowFontScaling={false}
               key={`${start}:${token.content.length}:${token.color ?? ""}:${token.fontStyle ?? ""}`}
               selectable
               style={{

@@ -166,6 +166,7 @@ function ProviderAccount({
   function field(name: string, label: string, secret: boolean) {
     return (
       <TextInput
+        allowFontScaling={false}
         accessibilityLabel={label}
         className="rounded-lg border border-border-subtle px-3 py-2 text-base text-foreground"
         placeholderTextColorClassName="accent-foreground-muted"

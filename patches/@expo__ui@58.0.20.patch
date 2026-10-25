@@ -14,18 +14,20 @@ index d58b54f..1920b1a 100644
        Content { props ->
          HorizontalFloatingToolbarContent(props)
 diff --git a/android/src/main/java/expo/modules/ui/HostView.kt b/android/src/main/java/expo/modules/ui/HostView.kt
-index 4887034..6eaf039 100644
 --- a/android/src/main/java/expo/modules/ui/HostView.kt
 +++ b/android/src/main/java/expo/modules/ui/HostView.kt
-@@ -69,6 +69,7 @@ internal enum class ExpoLayoutDirection(val value: String) : Enumerable {
+@@ -67,8 +67,10 @@
+ 
+ @OptimizedComposeProps
  internal data class HostProps(
++  val allowFontScaling: MutableState<Boolean> = mutableStateOf(true),
    val colorScheme: MutableState<ExpoColorScheme?> = mutableStateOf(null),
    val seedColor: MutableState<android.graphics.Color?> = mutableStateOf(null),
 +  val colorOverrides: MutableState<Map<String, android.graphics.Color>?> = mutableStateOf(null),
    val layoutDirection: MutableState<ExpoLayoutDirection> = mutableStateOf(ExpoLayoutDirection.LeftToRight),
    val useViewportSizeMeasurement: MutableState<Boolean> = mutableStateOf(false),
    val ignoreSafeAreaKeyboardInsets: MutableState<Boolean> = mutableStateOf(false),
-@@ -153,9 +154,60 @@ internal class HostView(context: Context, appContext: AppContext) :
+@@ -153,15 +155,68 @@
      val seededScheme = remember(seedArgb, isDark) {
        seedArgb?.let { seedColorScheme(it, isDark) }
      }
@@ -87,6 +89,14 @@ index 4887034..6eaf039 100644
      val layoutDirection = props.layoutDirection.value.toLayoutDirection()
  
      // Material3's `MaterialTheme` does not provide `LocalContentColor` — only `Surface` does — so
+     // without this a `Text` or `Icon` with no explicit color falls back to the `Color.Black`
+     // default of `LocalContentColor` and is unreadable in the dark color scheme.
++    val density = LocalDensity.current
+     CompositionLocalProvider(
++      LocalDensity provides if (props.allowFontScaling.value) density else Density(density.density, 1f),
+       LocalLayoutDirection provides layoutDirection,
+       LocalContentColor provides colorScheme.onSurface
+     ) {
 diff --git a/android/src/main/java/expo/modules/ui/TopAppBarView.kt b/android/src/main/java/expo/modules/ui/TopAppBarView.kt
 new file mode 100644
 index 0000000..4ed0132
@@ -141,18 +151,20 @@ index 0000000..4ed0132
 +  )
 +}
 diff --git a/build/jetpack-compose/Host/index.d.ts b/build/jetpack-compose/Host/index.d.ts
-index b586b65..e32f6e0 100644
 --- a/build/jetpack-compose/Host/index.d.ts
 +++ b/build/jetpack-compose/Host/index.d.ts
-@@ -1,6 +1,7 @@
+@@ -1,7 +1,10 @@
  import { type Ref } from 'react';
  import { type ColorSchemeName, type ColorValue, type StyleProp, type ViewStyle } from 'react-native';
  import { type PrimitiveBaseProps } from '../layout';
 +import type { MaterialColors } from '../colors';
  export interface HostProps extends PrimitiveBaseProps {
++    /** Whether text follows the system font size. Defaults to true. */
++    allowFontScaling?: boolean;
      /**
       * When true, the host view will update its size in the React Native view tree to match the content's layout from Jetpack Compose.
-@@ -41,6 +42,7 @@ export interface HostProps extends PrimitiveBaseProps {
+      * Can be only set once on mount.
+@@ -41,6 +44,7 @@
       * available to descendants via `useMaterialColors()`.
       */
      seedColor?: ColorValue;
@@ -251,10 +263,9 @@ index 2457ed1..fdc8eb1 100644
  export * from './AlertDialog';
  export * from './Badge';
 diff --git a/src/jetpack-compose/Host/index.tsx b/src/jetpack-compose/Host/index.tsx
-index e994f6e..d0ed70a 100644
 --- a/src/jetpack-compose/Host/index.tsx
 +++ b/src/jetpack-compose/Host/index.tsx
-@@ -12,7 +12,7 @@ import {
+@@ -12,10 +12,12 @@
  import { NativeTreeContext, useWarnIfNestedHost } from '../../NativeTreeContext';
  import { TextInputHostProvider, useTextInputHostRef } from '../../keyboard';
  import { useMergeRefs } from '../../utils/useMergeRefs';
@@ -263,17 +274,22 @@ index e994f6e..d0ed70a 100644
  import { type PrimitiveBaseProps } from '../layout';
  
  export interface HostProps extends PrimitiveBaseProps {
-@@ -52,6 +52,9 @@ export interface HostProps extends PrimitiveBaseProps {
++  /** Whether text follows the system font size. Defaults to true. */
++  allowFontScaling?: boolean;
+   /**
+    * When true, the host view will update its size in the React Native view tree to match the content's layout from Jetpack Compose.
+    * Can be only set once on mount.
+@@ -51,6 +53,9 @@
+    * available to descendants via `useMaterialColors()`.
     */
    seedColor?: ColorValue;
- 
++
 +  /** Explicit Material roles, applied after the seed or system palette. */
 +  colorOverrides?: Partial<MaterialColors>;
-+
+ 
    /**
     * The layout direction for the content.
-    * Defaults to the current locale direction from I18nManager.
-@@ -93,6 +96,7 @@ export function Host(props: HostProps) {
+@@ -93,6 +98,7 @@
      layoutDirection,
      colorScheme,
      seedColor,
@@ -281,7 +297,7 @@ index e994f6e..d0ed70a 100644
      ref,
      children,
      ...restProps
-@@ -102,8 +106,8 @@ export function Host(props: HostProps) {
+@@ -102,8 +108,8 @@
    const systemScheme = useRNColorScheme();
    const resolvedScheme = schemeString ?? (systemScheme === 'dark' ? 'dark' : 'light');
    const palette = useMemo(
@@ -292,7 +308,7 @@ index e994f6e..d0ed70a 100644
    );
    const hostRef = useTextInputHostRef();
    const mergedRef = useMergeRefs(ref, hostRef);
-@@ -123,6 +127,7 @@ export function Host(props: HostProps) {
+@@ -123,6 +129,7 @@
            }
            colorScheme={schemeString}
            seedColor={seedColor}

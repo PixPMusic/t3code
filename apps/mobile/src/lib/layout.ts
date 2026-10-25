@@ -19,22 +19,13 @@ export const ANDROID_READING_MAX_WIDTH = 640;
 // min-h-8 uses the 14px rem configured in metro.config.js.
 export const THREAD_WORK_ROW_MIN_HEIGHT = 28;
 
-export function deriveThreadWorkLogSizing(input: {
-  readonly baseFontSize: number;
-  readonly fontScale: number;
-}) {
+export function deriveThreadWorkLogSizing(input: { readonly baseFontSize: number }) {
   const lineHeight = scaledTypographyLineHeight(MOBILE_TYPOGRAPHY.footnote, input.baseFontSize);
   return {
-    textSizeKey: `${input.baseFontSize}:${input.fontScale}`,
-    estimatedRowHeight: Math.max(
-      THREAD_WORK_ROW_MIN_HEIGHT,
-      Math.ceil(lineHeight * input.fontScale),
-    ),
-    // Accessibility scaling can exceed authored line heights; leave those rows measured.
+    textSizeKey: `${input.baseFontSize}`,
+    estimatedRowHeight: Math.max(THREAD_WORK_ROW_MIN_HEIGHT, lineHeight),
     fixedRowHeight:
-      input.fontScale <= 1 && lineHeight <= THREAD_WORK_ROW_MIN_HEIGHT
-        ? THREAD_WORK_ROW_MIN_HEIGHT
-        : undefined,
+      lineHeight <= THREAD_WORK_ROW_MIN_HEIGHT ? THREAD_WORK_ROW_MIN_HEIGHT : undefined,
   };
 }
 

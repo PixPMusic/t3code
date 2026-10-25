@@ -26,6 +26,7 @@ export function AppText({ className, textRole, ...props }: AppTextProps) {
       )}
       selectionColorClassName={Platform.OS === "android" ? "accent-focus/32" : undefined}
       {...props}
+      allowFontScaling={false}
     />
   );
 }
@@ -48,6 +49,7 @@ export function AppTextInput({ className, ref, ...props }: AppTextInputProps) {
       cursorColorClassName={"accent-focus"}
       selectionHandleColorClassName={Platform.OS === "android" ? "accent-focus" : undefined}
       {...props}
+      allowFontScaling={false}
     />
   );
 }

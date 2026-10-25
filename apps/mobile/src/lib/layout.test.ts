@@ -11,28 +11,24 @@ import {
 
 describe("thread work-log text sizing", () => {
   it.each([
-    { baseFontSize: 16, fontScale: 1.25, estimatedRowHeight: 28 },
-    { baseFontSize: 22, fontScale: 2, estimatedRowHeight: 52 },
+    { baseFontSize: 16, fontScale: 0.85, estimatedRowHeight: 28, fixedRowHeight: 28 },
+    { baseFontSize: 22, fontScale: 2, estimatedRowHeight: 28, fixedRowHeight: 28 },
+    { baseFontSize: 11, fontScale: 3.2, estimatedRowHeight: 28, fixedRowHeight: 28 },
   ])(
-    "measures accessibility text instead of locking it to the estimate: %j",
-    ({ estimatedRowHeight, ...settings }) => {
+    "sizes work rows from the app's text preference regardless of system size: %j",
+    ({ estimatedRowHeight, fixedRowHeight, ...settings }) => {
       expect(deriveThreadWorkLogSizing(settings)).toMatchObject({
         estimatedRowHeight,
-        fixedRowHeight: undefined,
+        fixedRowHeight,
       });
     },
   );
 
   it("invalidates native text measurements even when the minimum row height is unchanged", () => {
-    const original = deriveThreadWorkLogSizing({ baseFontSize: 16, fontScale: 1 });
-    for (const settings of [
-      { baseFontSize: 16, fontScale: 1.1 },
-      { baseFontSize: 17, fontScale: 1 },
-    ]) {
-      const resized = deriveThreadWorkLogSizing(settings);
-      expect(resized.estimatedRowHeight).toBe(original.estimatedRowHeight);
-      expect(resized.textSizeKey).not.toBe(original.textSizeKey);
-    }
+    const original = deriveThreadWorkLogSizing({ baseFontSize: 16 });
+    const resized = deriveThreadWorkLogSizing({ baseFontSize: 17 });
+    expect(resized.estimatedRowHeight).toBe(original.estimatedRowHeight);
+    expect(resized.textSizeKey).not.toBe(original.textSizeKey);
   });
 });
 

@@ -1,10 +1,5 @@
 import { useCallback, useRef, useState, type ComponentProps } from "react";
-import {
-  useWindowDimensions,
-  View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from "react-native";
+import { View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NewThreadButton } from "../../components/NewThreadButton";
 import {
@@ -19,7 +14,6 @@ import { useAppearancePreferences } from "../settings/appearance/AppearancePrefe
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
   const insets = useSafeAreaInsets();
   const { appearance } = useAppearancePreferences();
-  const { fontScale } = useWindowDimensions();
   const [layoutWidth, setLayoutWidth] = useState<number | null>(null);
   const { state } = useWorkspaceState();
   const [expanded, setExpanded] = useState(true);
@@ -43,7 +37,7 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
       <FabScrollContext value={onScroll}>{props.children}</FabScrollContext>
       {!props.disabled && !props.sidebar && state.hasConnections && layoutWidth !== null ? (
         <NewThreadButton
-          key={`${appearance.baseFontSize}:${fontScale}:${layoutWidth}`}
+          key={`${appearance.baseFontSize}:${layoutWidth}`}
           extended
           expanded={expanded}
           onPress={props.onStartNewTask}

@@ -10,7 +10,7 @@ import {
   type PullRequestListLine,
 } from "@t3tools/client-runtime/thread-pull-requests";
 import { memo, useMemo } from "react";
-import { Pressable, useWindowDimensions, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
@@ -83,7 +83,7 @@ export const LinkedPullRequestRow = memo(function LinkedPullRequestRow(props: {
   const { shortLabel, singular } = (
     sourceControlClients.findByChangeRequestUrl(link.url) ?? sourceControlClients.get(undefined)
   ).changeRequest;
-  const metaLineHeight = useScaledTextRole("label").lineHeight * useWindowDimensions().fontScale;
+  const metaLineHeight = useScaledTextRole("label").lineHeight;
   const row = (
     <Pressable
       accessibilityRole="button"

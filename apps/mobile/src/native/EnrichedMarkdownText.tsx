@@ -305,6 +305,7 @@ export function MobileEnrichedMarkdownText(props: SelectableMarkdownTextProps) {
         }}
       >
         <EnrichedMarkdownText
+          allowFontScaling={false}
           markdown={markdown}
           markdownStyle={markdownStyle}
           onLinksChange={onLinksChange}

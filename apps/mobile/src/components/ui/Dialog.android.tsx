@@ -12,7 +12,7 @@ import {
 } from "@expo/ui/jetpack-compose";
 
 import { useAppearancePreferences } from "../../features/settings/appearance/AppearancePreferencesProvider";
-import { useScaledTextRole } from "../../features/settings/appearance/useScaledTextRole";
+import { MOBILE_TYPOGRAPHY } from "../../lib/typography";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { themeColorWithContrast } from "../../lib/mobileTheme";
@@ -129,9 +129,9 @@ export function Host() {
 
 function DialogPresentation(props: DialogPresentationProps) {
   const { themeVariables: colors } = useAppearancePreferences();
-  const titleTypography = useScaledTextRole("title");
-  const bodyTypography = useScaledTextRole("footnote");
-  const inputTypography = useScaledTextRole("body");
+  const titleTypography = MOBILE_TYPOGRAPHY.title;
+  const bodyTypography = MOBILE_TYPOGRAPHY.footnote;
+  const inputTypography = MOBILE_TYPOGRAPHY.body;
   const inputState = useNativeState(props.inputInitialValue ?? "");
   const inputSelection = useNativeState({ start: 0, end: props.inputInitialValue?.length ?? 0 });
   const confirm = () => {
@@ -175,7 +175,7 @@ function DialogPresentation(props: DialogPresentationProps) {
     );
   };
   return (
-    <NativeThemeHost ignoreSafeAreaKeyboardInsets style={{ height: 0, width: 0 }}>
+    <NativeThemeHost allowFontScaling ignoreSafeAreaKeyboardInsets style={{ height: 0, width: 0 }}>
       <AlertDialog
         onDismissRequest={props.onCancel}
         properties={{

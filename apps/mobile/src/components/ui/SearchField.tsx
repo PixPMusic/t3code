@@ -39,6 +39,7 @@ export function SearchField({
         tintColorClassName="accent-foreground-muted"
       />
       <TextInput
+        allowFontScaling={false}
         ref={inputRef}
         accessibilityLabel={accessibilityLabel}
         autoFocus={autoFocus}

@@ -64,6 +64,7 @@ const HighlightedSourceLine = function HighlightedSourceLine(props: {
       style={{ minHeight: props.codeSurface.rowHeight }}
     >
       <NativeText
+        allowFontScaling={false}
         className="select-none pr-3 text-right text-foreground-tertiary"
         style={{
           width: props.codeSurface.gutterWidth,
@@ -75,6 +76,7 @@ const HighlightedSourceLine = function HighlightedSourceLine(props: {
         {props.index + 1}
       </NativeText>
       <NativeText
+        allowFontScaling={false}
         selectable
         selectionColorClassName={Platform.OS === "android" ? "accent-focus/32" : undefined}
         numberOfLines={props.wordBreak ? undefined : 1}
@@ -104,6 +106,7 @@ const HighlightedSourceLine = function HighlightedSourceLine(props: {
 
                 return (
                   <NativeText
+                    allowFontScaling={false}
                     key={`${start}:${token.content.length}:${token.color ?? ""}`}
                     selectable
                     selectionColorClassName={

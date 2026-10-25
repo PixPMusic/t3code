@@ -105,6 +105,7 @@ export function CustomSnoozeSheet(props: {
             <View className="gap-3">
               <AppText>Snooze for</AppText>
               <TextInput
+                allowFontScaling={false}
                 accessibilityLabel="Duration"
                 className="min-h-12 rounded-xl bg-subtle px-3 text-base text-foreground"
                 keyboardType="decimal-pad"

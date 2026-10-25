@@ -10,7 +10,7 @@ import {
 import { defaultMinSize, padding, size, width } from "@expo/ui/jetpack-compose/modifiers";
 import type { MenuAction } from "@react-native-menu/menu";
 import { Pressable } from "react-native";
-import { resolveScaledTextRole } from "../../lib/appearancePreferences";
+import { MOBILE_TYPOGRAPHY } from "../../lib/typography";
 
 import { useAndroidControlSizing } from "./useAndroidControlSizing";
 import { useAppearancePreferences } from "../../features/settings/appearance/AppearancePreferencesProvider";
@@ -56,10 +56,10 @@ function MenuIcon(props: {
 }
 
 export function MenuPopup(props: MenuPopupProps) {
-  const { appearance, themeVariables: colors } = useAppearancePreferences();
+  const { themeVariables: colors } = useAppearancePreferences();
   const { scale, menuItemHeight } = useAndroidControlSizing();
-  const body = resolveScaledTextRole("body", appearance.baseFontSize);
-  const caption = resolveScaledTextRole("caption", appearance.baseFontSize);
+  const body = MOBILE_TYPOGRAPHY.body;
+  const caption = MOBILE_TYPOGRAPHY.caption;
   const foreground = colors["--color-foreground"];
   const muted = colors["--color-foreground-muted"];
   // A fixed native item height clips wrapped labels; a minimum lets each row grow.
@@ -149,6 +149,7 @@ export function MenuPopup(props: MenuPopupProps) {
   if (props.inline) {
     return (
       <NativeThemeHost
+        allowFontScaling
         ignoreSafeAreaKeyboardInsets
         matchContents
         style={{ width: props.menuWidth }}
@@ -159,6 +160,7 @@ export function MenuPopup(props: MenuPopupProps) {
   }
   return (
     <NativeThemeHost
+      allowFontScaling
       ignoreSafeAreaKeyboardInsets
       style={{
         position: "absolute",

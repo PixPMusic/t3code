@@ -29,6 +29,7 @@ export function WorkspaceSearchField({
       <View className="flex-1 flex-row items-center pl-4">
         <SymbolView name="magnifyingglass" size={20} tintColorClassName="accent-icon-muted" />
         <TextInput
+          allowFontScaling={false}
           ref={ref}
           accessibilityLabel={label}
           placeholder={label}

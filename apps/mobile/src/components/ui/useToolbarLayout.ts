@@ -1,4 +1,3 @@
-import { useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useScaledTextRole } from "../../features/settings/appearance/useScaledTextRole";
@@ -13,12 +12,11 @@ export function useToolbarLayout(embedded = false, singleLine = false) {
   const title = useScaledTextRole("title");
   const subtitle = useScaledTextRole("label");
   const { scale } = useAndroidControlSizing();
-  const { fontScale } = useWindowDimensions();
   return {
     height: Math.ceil(
       singleLine
-        ? Math.max(48, 48 * scale, title.lineHeight * fontScale + 1)
-        : Math.max(48, 56 * scale, (title.lineHeight + subtitle.lineHeight) * fontScale + 1),
+        ? Math.max(48, 48 * scale, title.lineHeight + 1)
+        : Math.max(48, 56 * scale, title.lineHeight + subtitle.lineHeight + 1),
     ),
     paddingTop: embedded ? 8 * scale : Math.max(insets.top, 12 * scale),
     paddingBottom: 7 * scale,

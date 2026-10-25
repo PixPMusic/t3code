@@ -15,6 +15,7 @@ import {
   clipped,
   font,
   datePickerStyle,
+  dynamicTypeSize,
   foregroundStyle,
   frame,
   labelsHidden,
@@ -85,6 +86,7 @@ export function CustomSnoozeSheet(props: {
 
   return (
     <Host
+      modifiers={[dynamicTypeSize("large")]}
       style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
       colorScheme={themeAppearance}
       seedColor={colors["--color-primary"]}
@@ -108,6 +110,7 @@ export function CustomSnoozeSheet(props: {
             onSubmit={submit}
           >
             <Host
+              modifiers={[dynamicTypeSize("large")]}
               matchContents={{ vertical: true }}
               colorScheme={themeAppearance}
               style={{ width: popoverWidth }}

@@ -242,6 +242,7 @@ export function DictationElapsedTime(props: {
 }) {
   return (
     <SystemText
+      allowFontScaling={false}
       className={cn("text-xs", props.className)}
       numberOfLines={1}
       style={{ fontVariant: ["tabular-nums"] }}

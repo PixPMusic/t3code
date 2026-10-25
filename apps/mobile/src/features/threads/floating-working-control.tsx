@@ -564,6 +564,7 @@ export function WorkingTimer(props: { readonly startedAt: string }) {
   const nowMs = useVisibleSecondClock(true);
   return (
     <SystemText
+      allowFontScaling={false}
       className="shrink text-xs text-foreground"
       numberOfLines={1}
       style={{ fontVariant: ["tabular-nums"], fontWeight: "500" }}

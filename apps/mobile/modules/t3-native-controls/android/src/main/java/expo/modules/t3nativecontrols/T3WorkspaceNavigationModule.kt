@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +55,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
@@ -165,30 +167,34 @@ class T3WorkspaceNavigationView(
           ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool
         )
         setContent {
-          MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
-            if (rail) {
-              rail()
-            } else {
-              NavigationBar(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = Color(containerColor),
-                tonalElevation = androidx.compose.ui.unit.Dp(0f),
-                windowInsets = WindowInsets(0),
-              ) {
-                tabs.forEach { tab ->
-                  NavigationBarItem(
-                    selected = selectedTab == tab,
-                    onClick = { onTabSelected(mapOf("tab" to tab)) },
-                    icon = { Icon(tabIconPainter(tab), contentDescription = null) },
-                    label = { Text(tabTitle(tab), fontSize = (12 * textScale).sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                      selectedIconColor = Color(selectedColor),
-                      selectedTextColor = Color(selectedColor),
-                      indicatorColor = Color(indicatorColor),
-                      unselectedIconColor = Color(unselectedColor),
-                      unselectedTextColor = Color(unselectedColor),
-                    ),
-                  )
+          CompositionLocalProvider(
+            LocalDensity provides Density(LocalDensity.current.density, 1f)
+          ) {
+            MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
+              if (rail) {
+                rail()
+              } else {
+                NavigationBar(
+                  modifier = Modifier.fillMaxSize(),
+                  containerColor = Color(containerColor),
+                  tonalElevation = androidx.compose.ui.unit.Dp(0f),
+                  windowInsets = WindowInsets(0),
+                ) {
+                  tabs.forEach { tab ->
+                    NavigationBarItem(
+                      selected = selectedTab == tab,
+                      onClick = { onTabSelected(mapOf("tab" to tab)) },
+                      icon = { Icon(tabIconPainter(tab), contentDescription = null) },
+                      label = { Text(tabTitle(tab), fontSize = (12 * textScale).sp) },
+                      colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color(selectedColor),
+                        selectedTextColor = Color(selectedColor),
+                        indicatorColor = Color(indicatorColor),
+                        unselectedIconColor = Color(unselectedColor),
+                        unselectedTextColor = Color(unselectedColor),
+                      ),
+                    )
+                  }
                 }
               }
             }

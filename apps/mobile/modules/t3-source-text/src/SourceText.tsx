@@ -23,7 +23,7 @@ export function SourceText({ style, children, nativeTextRef, ...props }: SourceT
   if (Platform.OS !== "ios") {
     const { onSelectionChange: _onSelectionChange, ...textProps } = props;
     return (
-      <Text ref={nativeTextRef} style={style} {...textProps}>
+      <Text ref={nativeTextRef} style={style} {...textProps} allowFontScaling={false}>
         {children}
       </Text>
     );
@@ -45,7 +45,12 @@ export function SourceText({ style, children, nativeTextRef, ...props }: SourceT
   }
   return (
     <TextAncestorContext.Provider value={contextValue}>
-      <T3SourceTextNativeComponent allowFontScaling selectable {...props} style={flattenedStyle}>
+      <T3SourceTextNativeComponent
+        selectable
+        {...props}
+        allowFontScaling={false}
+        style={flattenedStyle}
+      >
         {runs}
       </T3SourceTextNativeComponent>
     </TextAncestorContext.Provider>

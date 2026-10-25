@@ -1,6 +1,6 @@
 import { MOBILE_SHAPE } from "../../lib/designTokens";
 import { useEffect } from "react";
-import { AccessibilityInfo, Platform, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Platform, View } from "react-native";
 
 import { AppText } from "./AppText";
 import { Button } from "./Button";
@@ -19,10 +19,7 @@ export interface ToastProps {
 }
 
 export function Toast(props: ToastProps) {
-  const { fontScale } = useWindowDimensions();
-  // A one-line message keeps its action on the same row. Descriptions and
-  // accessibility text sizes need the full width, so the action moves below.
-  const inlineAction = !props.description && fontScale < 1.5;
+  const inlineAction = !props.description;
   const action = props.action ? (
     <Button label={props.action.label} onPress={props.action.onPress} />
   ) : null;

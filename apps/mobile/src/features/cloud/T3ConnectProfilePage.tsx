@@ -147,7 +147,9 @@ export function T3ConnectProfilePage() {
       ) : isInitialLoad ? (
         <View className="flex-row items-center gap-3 px-6 py-4">
           <AppActivityIndicator colorClassName={"accent-clerk-foreground-muted"} size="small" />
-          <Text className="text-base text-clerk-foreground-muted">Loading environments</Text>
+          <Text allowFontScaling={false} className="text-base text-clerk-foreground-muted">
+            Loading environments
+          </Text>
         </View>
       ) : environments.length > 0 ? (
         environments.map((environment) => (
@@ -196,7 +198,10 @@ export function T3ConnectProfilePage() {
         />
       )}
 
-      <Text className="px-6 pt-6 text-xs leading-normal text-clerk-foreground-muted">
+      <Text
+        allowFontScaling={false}
+        className="px-6 pt-6 text-xs leading-normal text-clerk-foreground-muted"
+      >
         Connections on this device are managed in Settings.
       </Text>
     </ScrollView>
@@ -209,7 +214,10 @@ const ENVIRONMENT_MENU_ACTIONS = [
 
 function ClerkSectionHeader(props: { readonly children: string }) {
   return (
-    <Text className="min-h-4 border-b border-clerk-border px-6 pt-8 pb-4 text-xs font-medium tracking-[0.3px] text-clerk-foreground-muted uppercase">
+    <Text
+      allowFontScaling={false}
+      className="min-h-4 border-b border-clerk-border px-6 pt-8 pb-4 text-xs font-medium tracking-[0.3px] text-clerk-foreground-muted uppercase"
+    >
       {props.children}
     </Text>
   );
@@ -226,10 +234,18 @@ function ClerkRow(props: {
       className="flex-row items-center gap-3 border-b border-clerk-border px-6 py-4"
     >
       <View className="min-w-0 flex-1 gap-0.5">
-        <Text className="min-h-[22px] text-base text-clerk-foreground" numberOfLines={1}>
+        <Text
+          allowFontScaling={false}
+          className="min-h-[22px] text-base text-clerk-foreground"
+          numberOfLines={1}
+        >
           {props.title}
         </Text>
-        <Text className="min-h-5 text-sm text-clerk-foreground-muted" numberOfLines={2}>
+        <Text
+          allowFontScaling={false}
+          className="min-h-5 text-sm text-clerk-foreground-muted"
+          numberOfLines={2}
+        >
           {props.subtitle}
         </Text>
       </View>
@@ -245,7 +261,9 @@ function ClerkButtonRow(props: { readonly label: string; readonly onPress: () =>
       onPress={props.onPress}
       className="border-b border-clerk-border px-6 py-4 active:opacity-60"
     >
-      <Text className="text-base font-semibold text-clerk-foreground">{props.label}</Text>
+      <Text allowFontScaling={false} className="text-base font-semibold text-clerk-foreground">
+        {props.label}
+      </Text>
     </Pressable>
   );
 }
