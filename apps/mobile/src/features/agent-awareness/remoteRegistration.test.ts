@@ -732,63 +732,71 @@ describe("makeRelayDeviceRegistrationRequest", () => {
       );
     },
   );
-  it.effect("keeps Android push delivery registered when only the alert channel is blocked", () => {
-    vi.mocked(loadPreferences).mockResolvedValue({ liveActivitiesEnabled: true });
-    vi.spyOn(Platform, "OS", "get").mockReturnValue("android");
-    vi.spyOn(Platform, "Version", "get").mockReturnValue(36);
-    vi.mocked(Notifications.getDevicePushTokenAsync).mockResolvedValue({
-      type: "android",
-      data: "fcm-token",
-    });
-    vi.mocked(Notifications.getNotificationChannelAsync).mockResolvedValue({
-      id: "agent-alerts",
-      name: "Agent alerts",
-      importance: Notifications.AndroidImportance.NONE,
-    } as Awaited<ReturnType<typeof Notifications.getNotificationChannelAsync>>);
-    const registrations: unknown[] = [];
-    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
-      const request = new Request(input, init);
-      if (request.url.endsWith("/v1/client/dpop-token")) {
-        return Response.json({
-          access_token: "dpop",
-          issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
-          token_type: "DPoP",
-          expires_in: 300,
-          scope: "mobile:registration",
-        });
+  it.effect.each(["blocked", "unavailable"] as const)(
+    "keeps Android push delivery registered when the alert channel is %s",
+    (channelState) => {
+      vi.mocked(loadPreferences).mockResolvedValue({ liveActivitiesEnabled: true });
+      vi.spyOn(Platform, "OS", "get").mockReturnValue("android");
+      vi.spyOn(Platform, "Version", "get").mockReturnValue(36);
+      vi.mocked(Notifications.getDevicePushTokenAsync).mockResolvedValue({
+        type: "android",
+        data: "fcm-token",
+      });
+      vi.mocked(Notifications.getNotificationChannelAsync).mockResolvedValue({
+        id: "agent-alerts",
+        name: "Agent alerts",
+        importance: Notifications.AndroidImportance.NONE,
+      } as Awaited<ReturnType<typeof Notifications.getNotificationChannelAsync>>);
+      if (channelState === "unavailable") {
+        vi.mocked(Notifications.getNotificationChannelAsync).mockRejectedValue(
+          new Error("Android channel lookup failed"),
+        );
       }
-      registrations.push(await request.json());
-      return Response.json({ ok: true });
-    });
-    Constants.expoConfig!.extra = { relay: { url: "https://relay.example.test" } };
-    setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk"), "user-a");
-    return Effect.gen(function* () {
-      yield* runBackgroundOperations();
-      expect(registrations.at(-1)).toMatchObject({
-        pushToken: "fcm-token",
-        preferences: { notificationsEnabled: false, liveActivitiesEnabled: true },
+      const registrations: unknown[] = [];
+      vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(input, init);
+        if (request.url.endsWith("/v1/client/dpop-token")) {
+          return Response.json({
+            access_token: "dpop",
+            issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+            token_type: "DPoP",
+            expires_in: 300,
+            scope: "mobile:registration",
+          });
+        }
+        registrations.push(await request.json());
+        return Response.json({ ok: true });
       });
-      expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
+      Constants.expoConfig!.extra = { relay: { url: "https://relay.example.test" } };
+      setAgentAwarenessRelayTokenProvider(() => Promise.resolve("clerk"), "user-a");
+      return Effect.gen(function* () {
+        yield* runBackgroundOperations();
+        expect(registrations.at(-1)).toMatchObject({
+          pushToken: "fcm-token",
+          preferences: { notificationsEnabled: false, liveActivitiesEnabled: true },
+        });
+        expect(getAgentAwarenessRegistrationStatus()).toBe("registered");
 
-      const listener = vi.mocked(Notifications.addPushTokenListener).mock.calls.at(-1)![0];
-      listener({ type: "android", data: "rotated-fcm-token" });
-      yield* runBackgroundOperations();
-      expect(registrations.at(-1)).toMatchObject({
-        pushToken: "rotated-fcm-token",
-        preferences: { notificationsEnabled: false, liveActivitiesEnabled: true },
-      });
+        const listener = vi.mocked(Notifications.addPushTokenListener).mock.calls.at(-1)![0];
+        listener({ type: "android", data: "rotated-fcm-token" });
+        yield* runBackgroundOperations();
+        expect(registrations.at(-1)).toMatchObject({
+          pushToken: "rotated-fcm-token",
+          preferences: { notificationsEnabled: false, liveActivitiesEnabled: true },
+        });
 
-      vi.mocked(Notifications.getNotificationChannelAsync).mockResolvedValue(null);
-      yield* refreshAgentAwarenessRegistration();
-      expect(registrations.at(-1)).toMatchObject({
-        pushToken: "fcm-token",
-        preferences: { notificationsEnabled: true },
-      });
-    }).pipe(
-      Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch),
-      Effect.provide(layerRelayTest),
-    );
-  });
+        vi.mocked(Notifications.getNotificationChannelAsync).mockResolvedValue(null);
+        yield* refreshAgentAwarenessRegistration();
+        expect(registrations.at(-1)).toMatchObject({
+          pushToken: "fcm-token",
+          preferences: { notificationsEnabled: true },
+        });
+      }).pipe(
+        Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch),
+        Effect.provide(layerRelayTest),
+      );
+    },
+  );
   it.effect("preserves relay rejection errors with React Native response headers", () => {
     vi.spyOn(Platform, "OS", "get").mockReturnValue("android");
     vi.mocked(Notifications.getDevicePushTokenAsync).mockResolvedValue({

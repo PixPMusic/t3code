@@ -274,7 +274,7 @@ const nativePushTokenRegistration = Effect.fn("remoteRegistration.nativePushToke
                 operation: "read-notification-permissions",
                 cause,
               }),
-          })
+          }).pipe(Effect.orElseSucceed(() => false))
         : true);
     if (observedPushToken) {
       return {
