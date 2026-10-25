@@ -55,11 +55,14 @@ function setup() {
 function UsageProbe({ window }: { readonly window: UsageSummaryInput }) {
   const usage = useUsage(window);
   return (
-    <output>
-      {usage.shown === null
-        ? "Loading usage"
-        : `${usage.shown.window.resolution ?? "day"} usage: ${usage.selectedEnvironments[0]?.error ?? "ready"}`}
-    </output>
+    <>
+      <output>
+        {usage.shown === null
+          ? "Loading usage"
+          : `${usage.shown.window.resolution ?? "day"} usage: ${usage.selectedEnvironments[0]?.error ?? "ready"}`}
+      </output>
+      <output>{usage.shown?.window.sinceDay ?? "No shown window"}</output>
+    </>
   );
 }
 
@@ -96,4 +99,5 @@ it("keeps the previous view while another window of the same resolution loads", 
     <UsageProbe window={{ ...window, sinceDay: UsageDay.make("2026-10-01") }} />,
   );
   await expect.element(screen.getByText("day usage: ready")).toBeVisible();
+  await expect.element(screen.getByText("2026-10-16")).toBeVisible();
 });
