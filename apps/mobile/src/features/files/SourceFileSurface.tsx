@@ -2,7 +2,7 @@ import { settlePromise } from "@t3tools/client-runtime/state/runtime";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
 import type { ComponentType } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -37,6 +37,7 @@ import { SourceText } from "@t3tools/mobile-source-text";
 
 import { boundedSelectableSourceTokens, prepareSourceFileDocument } from "./source-file-document";
 import { sourceHighlightAtom } from "./sourceHighlightingState";
+import { createSourceLineScroll } from "./source-file-scroll";
 
 interface SourceFileSurfaceProps {
   readonly contents: string;
@@ -241,6 +242,8 @@ function JavaScriptSourceFileSurface(props: SourceFileSurfaceProps) {
   const { normalizedContents, lines, status, targetIndex, tokens } = useSourceFileModel(props);
   const selectableTokens = props.selectable ? boundedSelectableSourceTokens(tokens) : null;
   const listRef = useRef<FlatList<string>>(null);
+  const [lineScroll] = useState(createSourceLineScroll);
+  const retryLineScroll = useCallback(() => lineScroll.retry(listRef.current), [lineScroll]);
   const { isPullRefreshing, handlePullToRefresh } = useSourceFileRefresh(props.onRefresh);
   const refreshControl = props.onRefresh ? (
     <RefreshControl refreshing={isPullRefreshing} onRefresh={() => void handlePullToRefresh()} />
@@ -251,10 +254,13 @@ function JavaScriptSourceFileSurface(props: SourceFileSurfaceProps) {
       return;
     }
     const frame = requestAnimationFrame(() => {
-      listRef.current?.scrollToIndex({ index: targetIndex, animated: false, viewPosition: 0.3 });
+      lineScroll.scrollToLine(listRef.current, targetIndex);
     });
-    return () => cancelAnimationFrame(frame);
-  }, [props.path, targetIndex]);
+    return () => {
+      cancelAnimationFrame(frame);
+      lineScroll.cancel();
+    };
+  }, [lineScroll, props.path, targetIndex]);
 
   const renderLine = ({ item, index }: { item: string; index: number }) => (
     <HighlightedSourceLine
@@ -338,6 +344,9 @@ function JavaScriptSourceFileSurface(props: SourceFileSurfaceProps) {
         paddingTop: 8,
       }}
       renderItem={renderLine}
+      onScrollToIndexFailed={(info) => lineScroll.onScrollToIndexFailed(listRef.current, info)}
+      onViewableItemsChanged={retryLineScroll}
+      onContentSizeChange={retryLineScroll}
     />
   );
 
