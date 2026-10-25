@@ -229,7 +229,11 @@ object AgentNotifications {
     val remainingMs = (expiresAt - System.currentTimeMillis()).coerceAtMost(MAX_LIFETIME_MS)
     val wasActive = prefs.getBoolean("lastActive", false)
     prefs.edit().putBoolean("lastActive", active).apply()
-    if (remainingMs <= 0 || !prefs.getBoolean("ongoing", false)) {
+    val alertsEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+      manager(context).getNotificationChannel(ALERT_CHANNEL)?.importance !=
+      NotificationManager.IMPORTANCE_NONE
+    val activityAllowed = prefs.getBoolean("ongoing", false) && (active || alertsEnabled)
+    if (remainingMs <= 0 || !activityAllowed) {
       cancelActivity(context)
       prefs.edit().putBoolean("dismissed", false).apply()
       return
