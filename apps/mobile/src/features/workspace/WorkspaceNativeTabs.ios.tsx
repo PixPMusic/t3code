@@ -3,7 +3,15 @@ import {
   NAVIGATION_TAB_ICONS,
   useEnabledNavigationTabs,
 } from "./navigation-tabs";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  use,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { View, useWindowDimensions, type NativeSyntheticEvent } from "react-native";
 import { Tabs, type TabSelectedEvent, type TabSelectionRejectedEvent } from "react-native-screens";
 
@@ -16,6 +24,7 @@ import {
 } from "./workspace-tabs-state";
 import {
   NativeWorkspaceTabActivityContext,
+  NativeWorkspaceModeContext,
   WorkspaceSlotOptionsContext,
 } from "../../native/v5-workspace-context";
 import { useCompactWorkspaceTabs, useSystemWorkspaceTabBar } from "./useSystemWorkspaceTabBar";
@@ -86,12 +95,18 @@ export function WorkspaceNativeTabs(props: {
   const [provenance, setProvenance] = useState(0);
   const systemTabBar = useSystemWorkspaceTabBar();
   const deviceType = useDeviceType();
+  const nativeColumns = use(NativeWorkspaceModeContext);
   const compactTabs = useCompactWorkspaceTabs();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const compactSidebarTabs = deviceType === "phone" || !layout.usesSplitView;
   const { width } = useWindowDimensions();
   const { colors } = useControlTheme();
   const selectedTab = workspace.state.selectedTab;
+  // The primary screen carries its picker through UIKit collapse and Back transitions.
+  const primaryColumnTabs =
+    deviceType === "pad" &&
+    nativeColumns &&
+    workspaceUsesColumns(selectedTab, workspace.settingsOpen);
   const selectedSlot = workspace.settingsOpen ? -1 : primaryTabs.indexOf(selectedTab);
   const request = useMemo(
     () => ({
@@ -157,7 +172,8 @@ export function WorkspaceNativeTabs(props: {
           );
         })}
       </Tabs.Host>
-      {(deviceType === "pad" ||
+      {!primaryColumnTabs &&
+      (deviceType === "pad" ||
         compactTabs ||
         (layout.primarySidebarOverlaysContent &&
           !workspaceUsesColumns(selectedTab, workspace.settingsOpen))) &&

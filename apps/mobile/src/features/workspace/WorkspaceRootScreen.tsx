@@ -87,6 +87,8 @@ function WorkspaceRootContent() {
   const enabled = useEnabledNavigationTabs();
   const sidebarTabs = useSidebarWorkspaceTabs();
   const sidebarPicker = sidebarTabs === "picker" || (deviceType === "pad" && layout.usesSplitView);
+  const primaryColumnTabs = deviceType === "pad" && primaryColumn !== null;
+  const compactPrimaryTabs = primaryColumnTabs && !layout.usesSplitView;
   const sidebarNavigation =
     primaryColumn !== null &&
     (layout.usesSplitView ||
@@ -215,8 +217,16 @@ function WorkspaceRootContent() {
             <WorkspaceExtraTab tab={state.selectedTab} />
           )}
         </SafeAreaInsetsContext>
-        {deviceType !== "pad" && deviceType !== "phone" && sidebarPicker ? (
-          <WorkspaceSidebarTabs />
+        {primaryColumnTabs || (deviceType !== "pad" && deviceType !== "phone" && sidebarPicker) ? (
+          <WorkspaceSidebarTabs
+            compact={compactPrimaryTabs}
+            reserveComposeSpace={compactPrimaryTabs}
+            onNewTask={
+              compactPrimaryTabs && !settingsOpen && state.selectedTab === "threads"
+                ? startNewTask
+                : undefined
+            }
+          />
         ) : null}
         {/* Android's Settings list carries its own search in its app bar. */}
         {enabled.length === 0 && !settingsOpen ? null : (
