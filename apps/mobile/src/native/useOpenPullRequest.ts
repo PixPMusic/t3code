@@ -2,10 +2,12 @@ import { useNavigation, useRoute, StackActions } from "@react-navigation/native"
 import { nativePullRequestDestination } from "../lib/pullRequestNavigation";
 import { useCallback } from "react";
 import { Platform } from "react-native";
-import { resetAndroidWorkspace } from "../lib/android-workspace-navigation";
+import { useSelectWorkspaceDetail } from "../features/workspace/useSelectWorkspaceDetail";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { useThreadShell } from "../state/entities";
+import { useProjects, useThreadShell } from "../state/entities";
 import { tryOpenExternalUrl } from "../lib/openExternalUrl";
+import { appAtomRegistry } from "../state/atom-registry";
+import { environmentServerConfigsAtom } from "../state/server";
 
 type PullRequestContext = { readonly environmentId: string; readonly projectId: string };
 
@@ -16,19 +18,28 @@ export function useNavigateToPullRequest(options?: {
   readonly mode?: "contextual" | "workspace";
 }) {
   const navigation = useNavigation();
+  const selectDetail = useSelectWorkspaceDetail();
+  const projects = useProjects();
   const replace = options?.replace;
   const mode = options?.mode ?? "workspace";
   return useCallback(
     async (url: string, context: PullRequestContext | null) => {
-      const params = nativePullRequestDestination(url, context);
+      // Read at press time so a capability push does not hand every link a new handler.
+      const serverConfigs = appAtomRegistry.get(environmentServerConfigsAtom);
+      const params = nativePullRequestDestination(
+        url,
+        context,
+        projects,
+        (environmentId) => serverConfigs.get(environmentId)?.environment.capabilities,
+      );
       if (!params) return tryOpenExternalUrl(url, "pull-request");
       if (Platform.OS === "android" && mode === "workspace")
-        resetAndroidWorkspace(navigation, { name: "PullRequest", params });
+        selectDetail({ name: "PullRequest", params });
       else if (replace) navigation.dispatch(StackActions.replace("PullRequest", params));
-      else navigation.navigate("PullRequest", params);
+      else navigation.dispatch(StackActions.push("PullRequest", params));
       return true;
     },
-    [navigation, replace, mode],
+    [navigation, projects, replace, mode, selectDetail],
   );
 }
 
