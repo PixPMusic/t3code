@@ -115,6 +115,39 @@ function DefaultBadge() {
   );
 }
 
+const EFFORT_GAUGE_RANKS = new Map([
+  ["none", 0],
+  ["off", 0],
+  ["minimal", 1],
+  ["low", 2],
+  ["medium", 3],
+  ["high", 4],
+  ["xhigh", 5],
+  ["ultracode", 5],
+  ["max", 6],
+  ["ultra", 7],
+]);
+
+export function getEffortGaugeAngle(
+  descriptor: ProviderOptionDescriptor | null,
+  value: string | boolean | null,
+) {
+  // Boolean On keeps the six-level Extra High position.
+  if (typeof value === "boolean") return value ? 24 : -120;
+  if (descriptor?.type !== "select" || value === null) return 45;
+
+  const levels = [
+    ...new Set(
+      descriptor.options
+        .filter((option) => !descriptor.promptInjectedValues?.includes(option.id))
+        .map((option) => EFFORT_GAUGE_RANKS.get(option.id))
+        .filter((rank) => rank !== undefined),
+    ),
+  ].toSorted((left, right) => left - right);
+  const index = levels.indexOf(EFFORT_GAUGE_RANKS.get(value) ?? -1);
+  return index >= 0 && levels.length > 1 ? -120 + (index / (levels.length - 1)) * 240 : 45;
+}
+
 function EffortGaugeIcon({
   descriptor,
   value,
@@ -124,20 +157,7 @@ function EffortGaugeIcon({
   value: string | boolean | null;
   size: ComposerControlSize;
 }) {
-  const levels =
-    descriptor?.type === "select"
-      ? descriptor.options.filter((option) => option.id !== "default")
-      : [];
-  const index = levels.findIndex((option) => option.id === value);
-  // Select levels span the arc's 8–4 endpoints; boolean On matches six-level Extra High.
-  const angle =
-    typeof value === "boolean"
-      ? value
-        ? 24
-        : -120
-      : index >= 0 && levels.length > 1
-        ? -120 + (index / (levels.length - 1)) * 240
-        : 45;
+  const angle = getEffortGaugeAngle(descriptor, value);
 
   return (
     <Icon
@@ -609,11 +629,9 @@ export const TraitsPicker = memo(function TraitsPicker({
     ) ??
     null;
   const effort =
-    ultrathinkPromptControlled && reasoningDescriptor?.id === primarySelectDescriptor?.id
-      ? "ultrathink"
-      : reasoningDescriptor?.type === "boolean"
-        ? (reasoningDescriptor.currentValue ?? null)
-        : getDescriptorStringValue(reasoningDescriptor, modelSelection, reportedModelSelection);
+    reasoningDescriptor?.type === "boolean"
+      ? (reasoningDescriptor.currentValue ?? null)
+      : getDescriptorStringValue(reasoningDescriptor, modelSelection, reportedModelSelection);
   const isCodexStyle = provider === "codex";
 
   return (
