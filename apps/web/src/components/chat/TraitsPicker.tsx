@@ -628,6 +628,7 @@ export const TraitsPicker = memo(function TraitsPicker({
         descriptor.type === "boolean" && REASONING_SELECT_DESCRIPTOR_IDS.has(descriptor.id),
     ) ??
     null;
+  // Ultrathink only changes the prompt; the gauge measures native effort.
   const effort =
     reasoningDescriptor?.type === "boolean"
       ? (reasoningDescriptor.currentValue ?? null)
