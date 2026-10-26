@@ -48,21 +48,18 @@ function WorkspaceStackView(props: ViewProps) {
   const baseDescriptor: Descriptor = {
     ...visibleDescriptor,
     options: { headerShown: false, freezeOnBlur: false },
-    render: () => (
-      <>
-        {renderColumns(
-          <NativeStackView
-            {...props}
-            state={{
-              ...props.state,
-              routes: workspaceRoutes,
-              index: workspaceRoutes.length - 1,
-              preloadedRoutes: props.state.preloadedRoutes.filter((route) => !isOverlay(route)),
-            }}
-          />,
-        )}
-      </>
-    ),
+    render: () =>
+      renderColumns(
+        <NativeStackView
+          {...props}
+          state={{
+            ...props.state,
+            routes: workspaceRoutes,
+            index: workspaceRoutes.length - 1,
+            preloadedRoutes: props.state.preloadedRoutes.filter((route) => !isOverlay(route)),
+          }}
+        />,
+      ),
   };
   const routes = [baseRoute, ...projection.overlays];
   return (
