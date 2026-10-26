@@ -806,7 +806,7 @@ function useSidebarLookups(excludedEnvironmentIds: ReadonlySet<EnvironmentId>) {
   const environments = useEnvironmentIdentities();
   const serverConfigs = useServerConfigs();
   const providerEntriesByEnvironment = useAtomValue(sidebarProviderEntriesAtom);
-  const projectGroups = useSidebarProjectGroups();
+  const projectGroups = useSidebarProjectGroups(excludedEnvironmentIds);
   const environmentLabelById = new Map(
     environments.map((environment) => [environment.environmentId, environment.label] as const),
   );
@@ -1346,7 +1346,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     routeRowThreadKey,
     folderGroups: boringSidebarEnabled
       ? scopedProjectGroups.length === 0
-        ? projectGroups
+        ? projectGroups.filter((project) =>
+            project.memberProjectRefs.some((ref) => !excludedEnvironmentIds.has(ref.environmentId)),
+          )
         : scopedProjectGroups
       : null,
     keepEmptyFolders: scopedProjectGroups.length > 0,
