@@ -395,3 +395,16 @@ it.each([false, true])(
     expect(selectTab).not.toHaveBeenCalled();
   },
 );
+
+it("keeps chat history when a PR links to itself", async () => {
+  current = withThread();
+  const chat = current.routes;
+  await useOpenPullRequest()("https://github.com/owner/repository/pull/42");
+  const previous = current.routes;
+  await useOpenPullRequest()("https://github.com/owner/repository/pull/42");
+  useAndroidWorkspaceBack("pullRequests")();
+  expect(current.routes).toEqual(previous);
+  useAndroidWorkspaceBack("pullRequests")();
+  expect(current.routes).toEqual(chat);
+  expect(selectTab).not.toHaveBeenCalled();
+});

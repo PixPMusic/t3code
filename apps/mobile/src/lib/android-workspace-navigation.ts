@@ -1,26 +1,16 @@
 import type { NavigationState } from "@react-navigation/native";
 import { resetRootStack, type RootStackNavigation } from "./root-stack-reset";
 
-const detailIdentity = {
-  Thread: ["environmentId", "threadId"],
-  PullRequest: ["environmentId", "projectId", "repository", "number", "host"],
-} as const;
-
-// Back returns to the detail a chat, PR, or subagent was opened from. A copy of the current
-// detail directly below it, which confirming a Git action from the inline inspector can leave,
-// is not a destination, so Back returns to the list instead.
 function androidWorkspaceBackReturnsToDetail(state: NavigationState) {
   const current = state.routes[state.index];
   const previous = state.routes[state.index - 1];
   if (current?.name !== "Thread" && current?.name !== "PullRequest") return false;
-  if (previous?.name === "PullRequestFile") return true;
-  if (previous?.name !== "Thread" && previous?.name !== "PullRequest") return false;
-  if (current.name !== previous.name) return true;
-  const currentParams = current.params as Readonly<Record<string, unknown>> | undefined;
-  const previousParams = previous.params as Readonly<Record<string, unknown>> | undefined;
-  return detailIdentity[previous.name].some(
-    (key) => currentParams?.[key] !== previousParams?.[key],
-  );
+  if (previous?.name === "PullRequest" || previous?.name === "PullRequestFile") return true;
+  if (previous?.name !== "Thread") return false;
+  if (current.name === "PullRequest") return true;
+  // Git actions can leave a duplicate Thread route that should return to its list.
+  const params = current.params as ReactNavigation.RootParamList["Thread"] | undefined;
+  return params !== undefined && !parentThreadIsBelow(state, params);
 }
 
 /** The root stack with only the workspace list. */
