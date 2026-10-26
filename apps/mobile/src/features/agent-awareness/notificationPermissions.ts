@@ -3,12 +3,6 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Platform } from "react-native";
 
-export async function isAgentAlertChannelEnabled(): Promise<boolean> {
-  if (Platform.OS !== "android" || Number(Platform.Version) < 26) return true;
-  const channel = await Notifications.getNotificationChannelAsync("agent-alerts");
-  return channel?.importance !== Notifications.AndroidImportance.NONE;
-}
-
 export type NotificationPermissionResult =
   | { readonly type: "unsupported" }
   | { readonly type: "granted" }

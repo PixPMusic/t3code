@@ -44,7 +44,6 @@ import {
 } from "./agentLiveActivity";
 import { resolveCloudPublicConfig } from "../cloud/publicConfig";
 import { supportsAgentAwarenessPush } from "./capabilities";
-import { isAgentAlertChannelEnabled } from "./notificationPermissions";
 import { makeRelayDeviceRegistrationRequest, resolveApsEnvironment } from "./registrationPayload";
 
 const REMOTE_ACTIVITY_REGISTRATION_RETRY_MS = 15_000;
@@ -266,15 +265,18 @@ const nativePushTokenRegistration = Effect.fn("remoteRegistration.nativePushToke
     }
     const alertsEnabled =
       permissions.granted &&
-      (Platform.OS === "android"
+      (Platform.OS === "android" && Number(Platform.Version) >= 26
         ? yield* Effect.tryPromise({
-            try: isAgentAlertChannelEnabled,
+            try: () => Notifications.getNotificationChannelAsync("agent-alerts"),
             catch: (cause) =>
               new AgentAwarenessOperationError({
                 operation: "read-notification-permissions",
                 cause,
               }),
-          }).pipe(Effect.orElseSucceed(() => false))
+          }).pipe(
+            Effect.map((channel) => channel?.importance !== Notifications.AndroidImportance.NONE),
+            Effect.orElseSucceed(() => false),
+          )
         : true);
     if (observedPushToken) {
       return {
