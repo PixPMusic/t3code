@@ -69,18 +69,15 @@ vi.mock(import("../hooks/useHandleNewThread"), () => ({
     projectId: ProjectId.make("only-project"),
   }),
 }));
-vi.mock(import("../hooks/useScratchProject"), () => ({
-  createScratchProjectActions: () => ({
-    scratchEnvironmentId: () => EnvironmentId.make("local"),
-    startScratchThread: newThreadState.startScratchThread,
-  }),
-  useScratchProject: () => ({
+vi.mock(import("../hooks/useScratchProject"), () => {
+  const actions = () => ({
     scratchEnvironmentId: () => EnvironmentId.make("local"),
     scratchWorkspaceRootFor: () => "/scratch",
     startScratchThread: newThreadState.startScratchThread,
-    openScratchProject: vi.fn(),
-  }),
-}));
+    openScratchProject: vi.fn(async () => null),
+  });
+  return { useScratchProject: actions, createScratchProjectActions: actions };
+});
 vi.mock(import("../hooks/useThreadRouteTarget"), () => ({ useThreadRouteTarget: () => null }));
 vi.mock(import("../state/queries"), async (original) => ({
   ...(await original()),
