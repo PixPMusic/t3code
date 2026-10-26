@@ -131,12 +131,12 @@ function EffortGaugeIcon({
 
   return (
     <Icon
-      iconNode={[["path", { d: "M3.34 19a10 10 0 1 1 15.73 2.07", key: "dial" }]]}
+      iconNode={[["path", { d: "M3.34 19a10 10 0 1 1 17.32 0", key: "dial" }]]}
       aria-hidden="true"
       data-composer-control-icon
       className={cn("hidden shrink-0 redesign:block", size === "xs" ? "size-3" : "size-4")}
     >
-      <path d="M12 14v-6" transform={`rotate(${angle} 12 14)`} />
+      <path d="m12 14 4-4" transform={`rotate(${angle - 45} 12 14)`} />
     </Icon>
   );
 }
