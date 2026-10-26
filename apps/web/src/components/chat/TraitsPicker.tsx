@@ -129,14 +129,14 @@ function EffortGaugeIcon({
       ? descriptor.options.filter((option) => option.id !== "default")
       : [];
   const index = levels.findIndex((option) => option.id === value);
-  // Select levels span 8–4:30; boolean On matches Extra High in the six-level gauge.
+  // Select levels span the arc's 8–4 endpoints; boolean On matches six-level Extra High.
   const angle =
     typeof value === "boolean"
       ? value
-        ? 33
+        ? 24
         : -120
       : index >= 0 && levels.length > 1
-        ? -120 + (index / (levels.length - 1)) * 255
+        ? -120 + (index / (levels.length - 1)) * 240
         : 45;
 
   return (
