@@ -12,11 +12,9 @@ const detailIdentity = {
 function androidWorkspaceBackReturnsToDetail(state: NavigationState) {
   const current = state.routes[state.index];
   const previous = state.routes[state.index - 1];
-  if (
-    (current?.name !== "Thread" && current?.name !== "PullRequest") ||
-    (previous?.name !== "Thread" && previous?.name !== "PullRequest")
-  )
-    return false;
+  if (current?.name !== "Thread" && current?.name !== "PullRequest") return false;
+  if (previous?.name === "PullRequestFile") return true;
+  if (previous?.name !== "Thread" && previous?.name !== "PullRequest") return false;
   if (current.name !== previous.name) return true;
   const currentParams = current.params as Readonly<Record<string, unknown>> | undefined;
   const previousParams = previous.params as Readonly<Record<string, unknown>> | undefined;

@@ -55,7 +55,11 @@ vi.mock("../features/workspace/useSelectWorkspaceDetail", () => ({
   useSelectWorkspaceDetail: () => (detail: typeof pullRequest) => {
     current = apply(
       current,
-      CommonActions.reset({ index: 1, routes: [current.routes[0]!, detail] }),
+      CommonActions.reset({
+        stale: true,
+        index: 1,
+        routes: [{ name: "Home", key: current.routes[0]?.key }, detail],
+      }),
     );
   },
 }));
@@ -368,3 +372,26 @@ describe("Android contextual navigation", () => {
     expect(navigation.canGoBack()).toBe(false);
   });
 });
+
+it.each([false, true])(
+  "returns to the PR diff after opening a thread (first send: %s)",
+  (draft) => {
+    current = legacyHistory();
+    current = apply(
+      current,
+      StackActions.push("PullRequestFile", { ...pullRequest.params, path: "file.ts" }),
+    );
+    const previous = current.routes;
+    current = apply(
+      current,
+      StackActions.push("Thread", draft ? { draft: { draftId: "pr-draft" } } : thread.params),
+    );
+    if (draft)
+      current = apply(current, CommonActions.setParams({ draft: undefined, ...thread.params }));
+    const back = useAndroidWorkspaceBack("threads");
+    if (draft) hardwareBack?.();
+    else back();
+    expect(current.routes).toEqual(previous);
+    expect(selectTab).not.toHaveBeenCalled();
+  },
+);
