@@ -69,7 +69,7 @@ vi.mock(import("../hooks/useScratchProject"), () => ({
 vi.mock(import("../hooks/useThreadRouteTarget"), () => ({ useThreadRouteTarget: () => null }));
 vi.mock(import("../state/queries"), async (original) => ({
   ...(await original()),
-  useThreadSearch: (() => ({ matches: [], isPending: false })) as never,
+  useThreadSearch: (() => ({ query: "", matches: [], isPending: false })) as never,
 }));
 vi.mock(import("../state/query"), async (original) => ({
   ...(await original()),
