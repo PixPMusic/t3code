@@ -69,8 +69,6 @@ import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
 import { pullRequestStatus } from "../pull-requests/pullRequestStatus";
 
 const TITLE_FAVICON_SIZE = 15;
-// Centers the favicon on the first line of the text-base title.
-const TITLE_FAVICON_OFFSET = 4;
 // Lines below the title start where the title text does.
 const TITLE_TEXT_INSET = TITLE_FAVICON_SIZE + 8;
 
@@ -1004,18 +1002,16 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
   const titleTextInset = props.project ? TITLE_TEXT_INSET : 0;
   const cardContent = (
     <>
-      <View className="flex-row items-start gap-2">
+      <View className="flex-row items-center gap-2">
         {props.project ? (
-          <View style={{ marginTop: TITLE_FAVICON_OFFSET }}>
-            <ProjectFavicon
-              environmentId={thread.environmentId}
-              faviconPath={props.project.faviconPath}
-              projectIcon={props.project.projectIcon}
-              size={TITLE_FAVICON_SIZE}
-              projectTitle={props.project.title}
-              workspaceRoot={props.project.workspaceRoot}
-            />
-          </View>
+          <ProjectFavicon
+            environmentId={thread.environmentId}
+            faviconPath={props.project.faviconPath}
+            projectIcon={props.project.projectIcon}
+            size={TITLE_FAVICON_SIZE}
+            projectTitle={props.project.title}
+            workspaceRoot={props.project.workspaceRoot}
+          />
         ) : null}
         <Text
           className={cn(
@@ -1025,11 +1021,11 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
               ? selectedThreadRowColors.foregroundClassName
               : rowAppearance.foregroundClassName,
           )}
-          numberOfLines={2}
+          numberOfLines={1}
         >
           {thread.title}
         </Text>
-        <View className="flex-row items-center gap-1.5" style={{ marginTop: 3 }}>
+        <View className="flex-row items-center gap-1.5">
           {props.hasQueuedMessages ? <QueuedMessageIcon selected={selected} /> : null}
           {pinnedRow ? (
             <SymbolView
@@ -1161,7 +1157,9 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
             </Text>
           </View>
         ) : (
-          <View className="flex-1" />
+          <Text accessible={false} className="flex-1 text-xs">
+            {" "}
+          </Text>
         )}
         {pr ? (
           <Pressable
