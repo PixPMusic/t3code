@@ -120,14 +120,24 @@ function EffortGaugeIcon({
   value,
   size,
 }: {
-  descriptor: Extract<ProviderOptionDescriptor, { type: "select" }> | null;
-  value: string | null;
+  descriptor: ProviderOptionDescriptor | null;
+  value: string | boolean | null;
   size: ComposerControlSize;
 }) {
-  const levels = descriptor?.options.filter((option) => option.id !== "default") ?? [];
+  const levels =
+    descriptor?.type === "select"
+      ? descriptor.options.filter((option) => option.id !== "default")
+      : [];
   const index = levels.findIndex((option) => option.id === value);
-  // Spread each model's levels clockwise from 8 o'clock to 4:30.
-  const angle = index >= 0 && levels.length > 1 ? -120 + (index / (levels.length - 1)) * 255 : 45;
+  // Select levels span 8–4:30; boolean On matches Extra High in the six-level gauge.
+  const angle =
+    typeof value === "boolean"
+      ? value
+        ? 33
+        : -120
+      : index >= 0 && levels.length > 1
+        ? -120 + (index / (levels.length - 1)) * 255
+        : 45;
 
   return (
     <Icon
@@ -593,11 +603,17 @@ export const TraitsPicker = memo(function TraitsPicker({
   });
   const reasoningDescriptor =
     selectDescriptors.find((descriptor) => REASONING_SELECT_DESCRIPTOR_IDS.has(descriptor.id)) ??
+    descriptors.find(
+      (descriptor) =>
+        descriptor.type === "boolean" && REASONING_SELECT_DESCRIPTOR_IDS.has(descriptor.id),
+    ) ??
     null;
   const effort =
     ultrathinkPromptControlled && reasoningDescriptor?.id === primarySelectDescriptor?.id
       ? "ultrathink"
-      : getDescriptorStringValue(reasoningDescriptor, modelSelection, reportedModelSelection);
+      : reasoningDescriptor?.type === "boolean"
+        ? (reasoningDescriptor.currentValue ?? null)
+        : getDescriptorStringValue(reasoningDescriptor, modelSelection, reportedModelSelection);
   const isCodexStyle = provider === "codex";
 
   return (
