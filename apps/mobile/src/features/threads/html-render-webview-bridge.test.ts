@@ -9,6 +9,7 @@ import {
 function runBridge(height = 240.25) {
   const root = {
     height,
+    style: { overflowY: "visible" },
     scrollHeight: Math.max(400, height),
     clientHeight: 400,
     scrollWidth: 320,
@@ -17,10 +18,13 @@ function runBridge(height = 240.25) {
   const positioned = {
     nodeType: 1,
     bottom: 0,
+    scrollHeight: 0,
+    clientHeight: 0,
+    clientTop: 0,
     firstChild: null,
     nextSibling: null,
     style: { display: "block", position: "absolute", overflowY: "visible" },
-    getBoundingClientRect: () => ({ bottom: positioned.bottom }),
+    getBoundingClientRect: () => ({ top: 0, bottom: positioned.bottom }),
   };
   const text = { nodeType: 3, textContent: "Overflow text", bottom: 900, nextSibling: null };
   const body = {
@@ -55,7 +59,7 @@ function runBridge(height = 240.25) {
     innerWidth: 320,
     innerHeight: 400,
     scrollY: 0,
-    getComputedStyle: (element: typeof body | typeof positioned) => element.style,
+    getComputedStyle: (element: typeof body | typeof positioned | typeof root) => element.style,
     ResizeObserver,
     MutationObserver,
     ReactNativeWebView: { postMessage },
@@ -159,6 +163,49 @@ describe("HTML render inline bridge", () => {
     expect(bridge.messages().at(-1)).toEqual({ contentHeight: 100, x: false, y: false });
   });
 
+  it("keeps pseudo-element overflow fitted and shrinks when removed", () => {
+    const bridge = runBridge(100);
+    bridge.positioned.bottom = 100;
+    bridge.positioned.scrollHeight = 900;
+    bridge.positioned.clientHeight = 100;
+    bridge.root.scrollHeight = 900;
+    bridge.mutate();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(900);
+    bridge.root.clientHeight = bridge.window.innerHeight = 900;
+    bridge.resize();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(900);
+    bridge.positioned.scrollHeight = 100;
+    bridge.mutate();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(100);
+  });
+
+  it("does not clip body overflow propagated to the viewport", () => {
+    const bridge = runBridge(100);
+    bridge.body.style.overflowY = "hidden";
+    bridge.positioned.bottom = 900;
+    bridge.root.scrollHeight = 900;
+    bridge.mutate();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(900);
+    bridge.root.clientHeight = bridge.window.innerHeight = 900;
+    bridge.resize();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(900);
+  });
+
+  it("reports a cleared page so the client can apply its minimum height", () => {
+    const bridge = runBridge(900);
+    bridge.root.clientHeight = bridge.window.innerHeight = 900;
+    bridge.root.height = bridge.body.scrollHeight = 0;
+    bridge.body.firstChild = null;
+    bridge.mutate();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(1);
+  });
+
   it.each(["auto", "hidden", "clip"])(
     "does not fit content clipped by an overflow:%s container",
     (overflowY) => {
@@ -166,6 +213,7 @@ describe("HTML render inline bridge", () => {
       bridge.root.scrollHeight = bridge.root.clientHeight = 900;
       bridge.positioned.bottom = 1500;
       bridge.body.style.overflowY = overflowY;
+      bridge.root.style.overflowY = "hidden";
       bridge.resize();
       bridge.flushFrame();
       expect(bridge.messages().at(-1)?.contentHeight).toBe(100);
@@ -282,7 +330,7 @@ describe("HTML render inline bridge", () => {
     expect(bridge.messages().at(-1)?.contentHeight).toBe(620);
   });
 
-  it.each([0, -10, NaN, Infinity])("ignores invalid intrinsic height %s and recovers", (height) => {
+  it.each([-10, NaN, Infinity])("ignores invalid intrinsic height %s and recovers", (height) => {
     const bridge = runBridge(height);
     expect(bridge.messages()).toHaveLength(0);
     bridge.root.scrollHeight = 400;

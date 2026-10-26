@@ -6,6 +6,7 @@ export const HTML_RENDER_INLINE_SCRIPT = `(function () {
     pending = false;
     var body = document.body;
     var contentHeight = root.scrollHeight > root.clientHeight ? root.scrollHeight : root.getBoundingClientRect().height;
+    if (!Number.isFinite(contentHeight) || contentHeight < 0) return;
     // Once the viewport fits, scrollHeight is floored at the viewport and cannot
     // distinguish positioned overflow from empty space left after a collapse.
     if (body && contentHeight < root.scrollHeight && root.scrollHeight <= root.clientHeight) {
@@ -13,10 +14,16 @@ export const HTML_RENDER_INLINE_SCRIPT = `(function () {
       function bottom(element, clip) {
         var style = window.getComputedStyle(element);
         if (style.display === "none" || style.position === "fixed") return 0;
-        var edge = element.getBoundingClientRect().bottom + window.scrollY;
+        var rect = element.getBoundingClientRect();
+        var edge = rect.bottom + window.scrollY;
         var value = Math.min(clip, edge);
+        // Body overflow propagates to the viewport when root overflow is visible.
+        var visible = style.overflowY === "visible" || (element === body && window.getComputedStyle(root).overflowY === "visible");
+        if (visible && element.scrollHeight > element.clientHeight) {
+          value = Math.max(value, Math.min(clip, rect.top + window.scrollY + element.clientTop + element.scrollHeight));
+        }
         // Internal scrollers and clipped descendants must not grow the page.
-        var childClip = style.overflowY === "visible" ? clip : value;
+        var childClip = visible ? clip : value;
         for (var child = element.firstChild; child; child = child.nextSibling) {
           if (child.nodeType === 1) value = Math.max(value, bottom(child, childClip));
           else if (child.nodeType === 3 && child.textContent.trim()) {
@@ -29,8 +36,8 @@ export const HTML_RENDER_INLINE_SCRIPT = `(function () {
       }
       contentHeight = Math.min(root.scrollHeight, Math.max(contentHeight, bottom(body, Infinity)));
     }
-    contentHeight = Math.ceil(contentHeight);
-    if (!Number.isFinite(contentHeight) || contentHeight <= 0) return;
+    if (!Number.isFinite(contentHeight) || contentHeight < 0) return;
+    contentHeight = Math.max(1, Math.ceil(contentHeight));
     var x = Math.max(root.scrollWidth, body ? body.scrollWidth : 0) > window.innerWidth + 1;
     var y = Math.max(root.scrollHeight, body ? body.scrollHeight : 0) > window.innerHeight + 1;
     var next = contentHeight + "," + x + "," + y;
