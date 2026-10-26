@@ -8,7 +8,7 @@ import {
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
 import { useDebouncedValue } from "@tanstack/react-pacer";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   readCachedPullRequestResolution,
@@ -16,11 +16,12 @@ import {
   usePullRequestResolution,
 } from "~/lib/sourceControlActions";
 import { cn } from "~/lib/utils";
-import { parsePullRequestReference } from "~/pullRequestReference";
+import { parsePullRequestReference } from "@t3tools/client-runtime/pull-request-link-input";
 import { getSourceControlPresentation } from "~/sourceControlPresentation";
 import { useEnvironmentQuery } from "~/state/query";
 import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
 import { vcsEnvironment } from "~/state/vcs";
+import { offHeadPullRequestCheckoutToast } from "./pullRequest/pullRequestCheckoutToast";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -33,6 +34,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Spinner } from "./ui/spinner";
+import { toastManager } from "./ui/toast";
 
 interface PullRequestThreadDialogProps {
   open: boolean;
@@ -42,13 +44,6 @@ interface PullRequestThreadDialogProps {
   initialReference: string | null;
   onOpenChange: (open: boolean) => void;
   onPrepared: (input: { branch: string; worktreePath: string | null }) => Promise<void> | void;
-}
-
-// The prepare action keys on this scope, and the compiler would rebuild it every
-// render because hooks run after it.
-function useSourceControlScope(environmentId: EnvironmentId, cwd: string | null) {
-  "use memo";
-  return { environmentId, cwd };
 }
 
 function pullRequestStatusTone(state: string | undefined): string {
@@ -95,30 +90,20 @@ export function PullRequestThreadDialog({
   const terminology = sourceControlPresentation.terminology;
   const SourceControlIcon = sourceControlPresentation.Icon;
 
-  useEffect(() => {
-    if (!open) return;
-    const frame = window.requestAnimationFrame(() => {
-      referenceInputRef.current?.focus();
-      referenceInputRef.current?.select();
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [open]);
-
   const parsedReference = parsePullRequestReference(reference);
   const parsedDebouncedReference = parsePullRequestReference(debouncedReference);
-  const sourceControlScope = useSourceControlScope(environmentId, cwd);
   const pullRequestResolution = usePullRequestResolution({
-    ...sourceControlScope,
+    environmentId,
+    cwd,
     reference: open ? parsedDebouncedReference : null,
   });
   const cachedPullRequest =
     readCachedPullRequestResolution({
-      ...sourceControlScope,
+      environmentId,
+      cwd,
       reference: parsedReference,
     })?.pullRequest ?? null;
-  const preparePullRequestThreadAction = usePreparePullRequestThreadAction(sourceControlScope);
+  const preparePullRequestThreadAction = usePreparePullRequestThreadAction({ environmentId, cwd });
   const canOperateThread = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
 
   const liveResolvedPullRequest =
@@ -176,6 +161,9 @@ export function PullRequestThreadDialog({
       branch: result.value.branch,
       worktreePath: result.value.worktreePath,
     });
+    if (!result.value.isOnPullRequestHead) {
+      toastManager.add(offHeadPullRequestCheckoutToast(terminology));
+    }
     onOpenChange(false);
   };
 
@@ -206,7 +194,14 @@ export function PullRequestThreadDialog({
         }
       }}
     >
-      <DialogPopup className="max-w-xl">
+      <DialogPopup
+        className="max-w-xl"
+        initialFocus={() => {
+          referenceInputRef.current?.focus();
+          referenceInputRef.current?.select();
+          return false;
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <SourceControlIcon className="me-2 size-4" />

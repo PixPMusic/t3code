@@ -1,4 +1,5 @@
 import { useEffect, useRef, useSyncExternalStore, use } from "react";
+import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import {
   DEFAULT_SERVER_SETTINGS,
@@ -40,16 +41,24 @@ import {
   modelPreferencesMigrationPatch,
   resolveModelPreferences,
 } from "@t3tools/shared/serverSettings";
+import * as Equal from "effect/Equal";
 import * as Struct from "effect/Struct";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { toastManager } from "~/components/ui/toast";
 import { isHostedStaticApp } from "~/hostedPairing";
+import { environmentCatalog } from "~/connection/catalog";
 import { primaryServerSettingsAtom, serverEnvironment } from "~/state/server";
 import { useEnvironments, usePrimaryEnvironment } from "~/state/environments";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useTheme } from "./useTheme";
-import { environmentSession, readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import {
+  environmentSession,
+  environmentSessionStatesAtom,
+  readEnvironmentScope,
+  useEnvironmentScope,
+} from "~/state/session";
+import { environmentIdsKey } from "~/state/environmentAtomList";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 
 const CLIENT_SETTINGS_PERSISTENCE_ERROR_SCOPE = "[CLIENT_SETTINGS]";
@@ -95,7 +104,7 @@ function setClientSettingsHydrationStatus(nextStatus: ClientSettingsHydrationSta
   emitClientSettingsHydrationChange();
 }
 
-function subscribeClientSettings(listener: () => void): () => void {
+export function subscribeClientSettings(listener: () => void): () => void {
   clientSettingsListeners.add(listener);
   void hydrateClientSettings().catch(() => undefined);
   return () => {
@@ -209,11 +218,7 @@ export function persistClientSettingsPatch(
   });
 }
 
-/**
- * If another settings write lands while persistence is pending, the updater is
- * reapplied to that newer snapshot and persisted again so neither change is
- * lost.
- */
+/** Reapply to newer snapshots after pending writes to avoid losing concurrent changes. */
 export async function persistClientSettingsUpdate(
   update: (current: ClientSettings) => ClientSettings,
   persist: (settings: ClientSettings) => Promise<void> = defaultClientSettingsPersistence,
@@ -259,10 +264,7 @@ export function getClientSettings(): ClientSettings {
   return getClientSettingsSnapshot();
 }
 
-/**
- * Failed reads reject and remain retryable. They must not allow defaults to overwrite saved
- * preferences.
- */
+/** Failed reads reject and remain retryable so defaults cannot overwrite saved preferences. */
 export function ensureClientSettingsHydrated(): Promise<void> {
   return hydrateClientSettings();
 }
@@ -283,11 +285,19 @@ export function useClientSettingsHydrationStatus(): ClientSettingsHydrationStatu
   );
 }
 
-function useClientSettingsValue(): ClientSettings {
-  return useSyncExternalStore(
+const getDefaultClientSettings = () => DEFAULT_CLIENT_SETTINGS;
+const selectWholeClientSettings = (settings: ClientSettings) => settings;
+
+/** Structurally equal selections retain their reference and skip rendering. */
+export function useClientSettings<T = ClientSettings>(
+  selector?: (settings: ClientSettings) => T,
+): T {
+  return useSyncExternalStoreWithSelector(
     subscribeClientSettings,
     getClientSettingsSnapshot,
-    () => DEFAULT_CLIENT_SETTINGS,
+    getDefaultClientSettings,
+    selector ?? (selectWholeClientSettings as (settings: ClientSettings) => T),
+    Equal.equals,
   );
 }
 
@@ -295,8 +305,7 @@ export function mergeEnvironmentSettings(
   serverSettings: ServerSettings,
   clientSettings: ClientSettings,
 ): UnifiedSettings {
-  // Decode drops retired client keys, but older untyped persistence adapters
-  // can still return them. Server-owned values must always win.
+  // Older untyped adapters can return retired client keys; server values must win.
   return {
     ...clientSettings,
     ...serverSettings,
@@ -304,55 +313,56 @@ export function mergeEnvironmentSettings(
   };
 }
 
-const pendingModelPreferencesMigrations = new Set<EnvironmentId>();
+// Servers that predate `migrateModelPreferences` drop it and keep reporting null favorites.
+const attemptedMigrationGenerations = new Map<EnvironmentId, number>();
+const connectionGenerationAtom = Atom.family((environmentId: EnvironmentId | null) =>
+  Atom.make((get) =>
+    environmentId === null
+      ? null
+      : Option.match(AsyncResult.value(get(environmentCatalog.stateAtom(environmentId))), {
+          onNone: () => null,
+          onSome: (connection) => (connection.phase === "connected" ? connection.generation : null),
+        }),
+  ),
+);
+
+const selectLegacyModelPreferences = (settings: ClientSettings) => ({
+  favorites: settings.favorites,
+  providerModelPreferences: settings.providerModelPreferences,
+});
 
 export function useMigrateModelPreferences(
   environmentId: EnvironmentId | null,
   settings: ServerSettings | null,
 ) {
-  const clientSettings = useClientSettingsValue();
+  const clientSettings = useClientSettings(selectLegacyModelPreferences);
   const hydrated = useClientSettingsHydrated();
+  const connectionGeneration = useAtomValue(connectionGenerationAtom(environmentId));
   const migrate = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
   useEffect(() => {
     if (
       !environmentId ||
       !settings ||
       !hydrated ||
-      pendingModelPreferencesMigrations.has(environmentId)
+      connectionGeneration === null ||
+      attemptedMigrationGenerations.get(environmentId) === connectionGeneration
     )
       return;
     const patch = modelPreferencesMigrationPatch(settings, clientSettings);
     if (!patch) return;
-    pendingModelPreferencesMigrations.add(environmentId);
-    void migrate({ environmentId, input: { patch } }).finally(() =>
-      pendingModelPreferencesMigrations.delete(environmentId),
-    );
-  }, [clientSettings, environmentId, hydrated, migrate, settings]);
+    attemptedMigrationGenerations.set(environmentId, connectionGeneration);
+    void migrate({ environmentId, input: { patch } });
+  }, [clientSettings, connectionGeneration, environmentId, hydrated, migrate, settings]);
 }
 
-// A hook of its own so callers passing an inline selector still get one merged
-// object per settings change instead of one per render.
-function useMergedEnvironmentSettings(
+export function useMergedSettings<T = UnifiedSettings>(
   serverSettings: ServerSettings,
-  clientSettings: ClientSettings,
-): UnifiedSettings {
-  "use memo";
-  return mergeEnvironmentSettings(serverSettings, clientSettings);
-}
-
-function useMergedSettings<T>(
-  serverSettings: ServerSettings,
-  selector: ((settings: UnifiedSettings) => T) | undefined,
+  selector?: (settings: UnifiedSettings) => T,
 ): T {
-  const merged = useMergedEnvironmentSettings(serverSettings, useClientSettingsValue());
-  return selector ? selector(merged) : (merged as T);
-}
-
-export function useClientSettings<T = ClientSettings>(
-  selector?: (settings: ClientSettings) => T,
-): T {
-  const settings = useClientSettingsValue();
-  return selector ? selector(settings) : (settings as T);
+  return useClientSettings((clientSettings) => {
+    const merged = mergeEnvironmentSettings(serverSettings, clientSettings);
+    return selector ? selector(merged) : (merged as T);
+  });
 }
 
 export function resolveEnvironmentIdentificationMode(input: {
@@ -369,7 +379,7 @@ export function resolveEnvironmentIdentificationMode(input: {
 
 export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMode {
   const settingsHydrated = useClientSettingsHydrated();
-  const mode = useClientSettingsValue().environmentIdentificationMode;
+  const mode = useClientSettings((settings) => settings.environmentIdentificationMode);
   const { resolvedTheme, theme, themeHalves } = useTheme();
   const previewSidebarArtwork = useSyncExternalStore(
     subscribeToThemePreview,
@@ -386,15 +396,10 @@ export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMod
   });
 }
 
-/**
- * Held at the default sidebar until client settings hydrate: the pre-hydration snapshot is just
- * the schema defaults, so resolving against it could mount one sidebar and then swap it out
- * once persisted settings land — remounting the whole tree for everyone instead of only for
- * legacy opt-ins.
- */
+/** Wait for hydration: swapping sidebar implementations after mount remounts the whole tree. */
 export function useLegacySidebarEnabled(): boolean {
   const settingsHydrated = useClientSettingsHydrated();
-  const legacySidebarEnabled = useClientSettingsValue().legacySidebarEnabled;
+  const legacySidebarEnabled = useClientSettings((settings) => settings.legacySidebarEnabled);
   return settingsHydrated && legacySidebarEnabled;
 }
 
@@ -469,7 +474,6 @@ export function useToggleEnvironmentModelFavorite(environmentId: EnvironmentId |
       pending: true,
     };
     pendingFavorites.current.set(key, pending);
-    // save settles into a result and never rejects, so the rollback below always runs.
     const result = await save({
       setModelFavorites: [{ provider, model, favorite: pending.favorite }],
     });
@@ -500,7 +504,7 @@ export function useEnvironmentModelPreferences(environmentId: EnvironmentId | nu
   const settings = useAtomValue(
     environmentId ? serverEnvironment.settingsValueAtom(environmentId) : noEnvironmentSettingsAtom,
   );
-  const legacy = useClientSettingsValue();
+  const legacy = useClientSettings(selectLegacyModelPreferences);
   useMigrateModelPreferences(environmentId, settings);
   return resolveModelPreferences(settings ?? DEFAULT_SERVER_SETTINGS, legacy);
 }
@@ -540,11 +544,7 @@ export function usePrimarySettings<T = UnifiedSettings>(
 export const PRIMARY_SETTINGS_UNAVAILABLE_MESSAGE =
   "This setting is saved on a server, and the hosted app is not anchored to one. Change it from the desktop app or from the server's own address.";
 
-/**
- * The hosted app connects to every environment as a remote, so it has no
- * primary: `usePrimarySettings` reads schema defaults there and writes have
- * nowhere to go.
- */
+/** Hosted clients have no primary: usePrimarySettings reads defaults and cannot write. */
 export function usePrimarySettingsAvailable(): boolean {
   const primaryEnvironment = usePrimaryEnvironment();
   return primaryEnvironment !== null || !isHostedStaticApp();
@@ -552,22 +552,21 @@ export function usePrimarySettingsAvailable(): boolean {
 
 function useSharedSettingsSyncTargetIds(includePending = false): ReadonlyArray<EnvironmentId> {
   const { environments } = useEnvironments();
-  const writableTargetsAtom = Atom.make((get) =>
-    environments.filter(supportsSharedSettingsSync).flatMap((environment) => {
-      const result = get(environmentSession.sessionStateAtom(environment.environmentId));
-      // A cold grant must not drop a shared edit. The server authorizes the
-      // write; mismatch suggestions still wait for a confirmed grant.
-      if (includePending && result._tag === "Initial") {
-        return [environment.environmentId];
-      }
-      const session =
-        result._tag === "Failure" ? null : Option.getOrNull(AsyncResult.value(result));
-      return session !== null && sessionGrantsScope(session, AuthSettingsWriteScope)
-        ? [environment.environmentId]
-        : [];
-    }),
-  );
-  return useAtomValue(writableTargetsAtom);
+  const targetIds = environments
+    .filter(supportsSharedSettingsSync)
+    .map(({ environmentId }) => environmentId);
+  const results = useAtomValue(environmentSessionStatesAtom(environmentIdsKey(targetIds)));
+  return targetIds.flatMap((environmentId, index) => {
+    const result = results[index]!;
+    // Let the server authorize shared edits with cold grants; suggestions still need confirmed grants.
+    if (includePending && result._tag === "Initial") {
+      return [environmentId];
+    }
+    const session = result._tag === "Failure" ? null : Option.getOrNull(AsyncResult.value(result));
+    return session !== null && sessionGrantsScope(session, AuthSettingsWriteScope)
+      ? [environmentId]
+      : [];
+  });
 }
 
 function useUpdateSettingsTarget(environmentId: EnvironmentId | null) {
@@ -717,8 +716,8 @@ export function useUpdatePrimarySettings() {
   return useUpdateSettingsTarget(usePrimaryEnvironment()?.environmentId ?? null);
 }
 
-export function useUpdateClientSettings() {
-  return (patch: ClientSettingsPatch) => persistClientSettingsPatch(patch);
+export function updateClientSettings(patch: ClientSettingsPatch): Promise<void> {
+  return persistClientSettingsPatch(patch);
 }
 
 export function __resetClientSettingsPersistenceForTests(): void {
