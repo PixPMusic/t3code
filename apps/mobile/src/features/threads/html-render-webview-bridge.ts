@@ -35,6 +35,21 @@ export const HTML_RENDER_INLINE_SCRIPT = `(function () {
         return value;
       }
       contentHeight = Math.min(root.scrollHeight, Math.max(contentHeight, bottom(body, Infinity)));
+      // Root pseudo-elements have no DOM nodes and root scrollHeight is viewport-floored.
+      ["::before", "::after"].forEach(function (name) {
+        var pseudo = window.getComputedStyle(root, name);
+        if (pseudo.content === "none" || pseudo.content === "normal" || pseudo.display === "none" || pseudo.position !== "absolute") return;
+        var top = parseFloat(pseudo.top), height = parseFloat(pseudo.height);
+        if (!Number.isFinite(top) || !Number.isFinite(height)) return;
+        var origin = window.getComputedStyle(root).position === "static" ? 0 : root.getBoundingClientRect().top + window.scrollY + root.clientTop;
+        var edge = origin + top + height + (parseFloat(pseudo.marginTop) || 0);
+        if (pseudo.boxSizing !== "border-box") {
+          ["paddingTop", "paddingBottom", "borderTopWidth", "borderBottomWidth"].forEach(function (key) {
+            edge += parseFloat(pseudo[key]) || 0;
+          });
+        }
+        contentHeight = Math.min(root.scrollHeight, Math.max(contentHeight, edge));
+      });
     }
     if (!Number.isFinite(contentHeight) || contentHeight < 0) return;
     contentHeight = Math.max(1, Math.ceil(contentHeight));

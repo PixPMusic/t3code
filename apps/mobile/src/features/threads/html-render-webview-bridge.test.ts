@@ -9,12 +9,14 @@ import {
 function runBridge(height = 240.25) {
   const root = {
     height,
-    style: { overflowY: "visible" },
+    style: { overflowY: "visible", position: "static" },
+    clientTop: 0,
     scrollHeight: Math.max(400, height),
     clientHeight: 400,
     scrollWidth: 320,
-    getBoundingClientRect: () => ({ height: root.height }),
+    getBoundingClientRect: () => ({ top: 0, height: root.height }),
   };
+  const rootPseudos = new Map<string, Record<string, string>>();
   const positioned = {
     nodeType: 1,
     bottom: 0,
@@ -59,7 +61,8 @@ function runBridge(height = 240.25) {
     innerWidth: 320,
     innerHeight: 400,
     scrollY: 0,
-    getComputedStyle: (element: typeof body | typeof positioned | typeof root) => element.style,
+    getComputedStyle: (element: typeof body | typeof positioned | typeof root, pseudo?: string) =>
+      pseudo ? (rootPseudos.get(pseudo) ?? { content: "none" }) : element.style,
     ResizeObserver,
     MutationObserver,
     ReactNativeWebView: { postMessage },
@@ -94,6 +97,7 @@ function runBridge(height = 240.25) {
   });
   return {
     root,
+    rootPseudos,
     body,
     positioned,
     text,
@@ -177,6 +181,30 @@ describe("HTML render inline bridge", () => {
     bridge.flushFrame();
     expect(bridge.messages().at(-1)?.contentHeight).toBe(900);
     bridge.positioned.scrollHeight = 100;
+    bridge.mutate();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(100);
+  });
+
+  it.each(["::before", "::after"])("keeps root %s overflow fitted until removed", (pseudo) => {
+    const bridge = runBridge(100);
+    bridge.rootPseudos.set(pseudo, {
+      content: '"tail"',
+      position: "absolute",
+      display: "block",
+      top: "800px",
+      height: "100px",
+      boxSizing: "border-box",
+    });
+    bridge.root.scrollHeight = 900;
+    bridge.mutate();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(900);
+    bridge.root.clientHeight = bridge.window.innerHeight = 900;
+    bridge.resize();
+    bridge.flushFrame();
+    expect(bridge.messages().at(-1)?.contentHeight).toBe(900);
+    bridge.rootPseudos.clear();
     bridge.mutate();
     bridge.flushFrame();
     expect(bridge.messages().at(-1)?.contentHeight).toBe(100);
