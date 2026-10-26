@@ -1452,14 +1452,6 @@ const CHAT_MARKDOWN_COMPONENTS = {
         name: altText || kind,
         src: mediaSrc,
         ...(environmentId === null ? {} : { environmentId }),
-        ...(githubMediaUrl !== null && cwd !== undefined && environmentId !== null
-          ? {
-              asset: {
-                environmentId,
-                resource: { _tag: "github-media", cwd, url: githubMediaUrl },
-              },
-            }
-          : {}),
         ...(reference ? { reference } : {}),
       };
       if (kind === "video") {
