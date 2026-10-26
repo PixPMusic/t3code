@@ -1,3 +1,4 @@
+import type { AnyRouter } from "@tanstack/react-router";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import { DEFAULT_CLIENT_SETTINGS, EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -15,6 +16,7 @@ const newThreadState = vi.hoisted(() => ({
 vi.mock(import("../state/entities"), async (original) => ({
   ...(await original()),
   useProjects: () => newThreadState.projects,
+  readProjects: () => newThreadState.projects,
   useThreadShells: () => [],
   useServerConfigs: () => new Map(),
   useAllEnvironmentProjectSnapshotsReady: () => true,
@@ -43,6 +45,10 @@ vi.mock(import("../hooks/useSettings"), async (original) => ({
   useClientSettings: ((select?: (settings: typeof DEFAULT_CLIENT_SETTINGS) => unknown) =>
     select ? select(DEFAULT_CLIENT_SETTINGS) : DEFAULT_CLIENT_SETTINGS) as never,
   useLegacySidebarEnabled: () => newThreadState.legacySidebarEnabled,
+  getClientSettings: () => ({
+    ...DEFAULT_CLIENT_SETTINGS,
+    legacySidebarEnabled: newThreadState.legacySidebarEnabled,
+  }),
 }));
 vi.mock(import("../hooks/useHandleNewThread"), () => ({
   useHandleNewThread: () => ({
@@ -57,8 +63,17 @@ vi.mock(import("../hooks/useHandleNewThread"), () => ({
     handleNewThread: newThreadState.handleNewThread,
   }),
   useNewThreadHandler: () => newThreadState.handleNewThread,
+  createNewThreadHandler: () => newThreadState.handleNewThread,
+  resolveDefaultProjectRef: () => ({
+    environmentId: EnvironmentId.make("local"),
+    projectId: ProjectId.make("only-project"),
+  }),
 }));
 vi.mock(import("../hooks/useScratchProject"), () => ({
+  createScratchProjectActions: () => ({
+    scratchEnvironmentId: () => EnvironmentId.make("local"),
+    startScratchThread: newThreadState.startScratchThread,
+  }),
   useScratchProject: () => ({
     scratchEnvironmentId: () => EnvironmentId.make("local"),
     scratchWorkspaceRootFor: () => "/scratch",
@@ -100,21 +115,23 @@ vi.mock(import("./sidebar/SidebarChrome"), async () => {
     SidebarChromeFooter: memo(() => <></>),
   };
 });
-// These surfaces load chat/diff workers; the picker tests only need the chat layout's shortcuts.
-vi.mock(import("./ThreadRouteView"), () => ({ ThreadRouteView: () => <></> }));
-vi.mock(import("./promptLinks/ThreadLinkPrompt"), () => ({ ThreadLinkPrompt: () => null }));
 vi.mock(import("./files/ProjectFilePicker"), () => ({ ProjectFilePicker: () => <></> }));
 vi.mock(import("./search/ProjectContentSearchDialog"), () => ({
   ProjectContentSearchDialog: () => <></>,
 }));
 
-import { Route } from "../routes/_chat";
+import { installChatRouteCommands } from "../shortcuts/chatRouteCommands";
 import { useUiStateStore } from "../uiStateStore";
 import { CommandPalette } from "./CommandPalette";
 import Sidebar from "./Sidebar";
 import { SidebarProvider } from "./ui/sidebar";
 
-const ChatLayout = Route.options.component!;
+function installNewThreadCommands() {
+  const router = {
+    state: { matches: [{ routeId: "/_chat", pathname: "/", params: {} }] },
+  } as unknown as AnyRouter;
+  return { [Symbol.dispose]: installChatRouteCommands(router) };
+}
 
 function setupNewThread() {
   vi.clearAllMocks();
@@ -139,7 +156,6 @@ function newThreadUi() {
     <SidebarProvider>
       <CommandPalette>
         <Sidebar routeReveal={{ observedKey: null, pendingKey: null }} />
-        <ChatLayout />
       </CommandPalette>
     </SidebarProvider>
   );
@@ -164,6 +180,7 @@ describe("one-project new thread picker", () => {
       setupNewThread();
       using _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux x86_64");
       await using screen = await render(newThreadUi());
+      using _commands = installNewThreadCommands();
 
       if (entry === "click") {
         await screen.getByRole("button", { name: "New thread", exact: true }).click();
@@ -189,6 +206,7 @@ describe("one-project new thread picker", () => {
       newThreadState.legacySidebarEnabled = entry === "legacy shortcut";
       using _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux x86_64");
       await using screen = await render(newThreadUi());
+      using _commands = installNewThreadCommands();
 
       if (entry === "shift-click") {
         await screen.getByRole("button", { name: "New thread", exact: true }).click({
