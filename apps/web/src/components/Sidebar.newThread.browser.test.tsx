@@ -138,7 +138,7 @@ function newThreadUi() {
   return (
     <SidebarProvider>
       <CommandPalette>
-        <Sidebar />
+        <Sidebar routeReveal={{ observedKey: null, pendingKey: null }} />
         <ChatLayout />
       </CommandPalette>
     </SidebarProvider>
