@@ -8,7 +8,7 @@ import type { SheetProps } from "./Sheet.types";
 export type { SheetProps } from "./Sheet.types";
 
 export function Sheet(props: SheetProps) {
-  const containerStyle = useResolveClassNames("bg-sheet");
+  const containerStyle = useResolveClassNames("bg-header");
   const [isOpen, setIsOpen] = useState(true);
   return (
     <FormSheet
@@ -20,9 +20,14 @@ export function Sheet(props: SheetProps) {
       onNativeDismiss={props.onClose}
     >
       {/* Android FormSheet does not bound flex children. Material drags target the first scroll view, so place content before the header. */}
-      <View collapsable={false} className="absolute inset-0 flex-col-reverse bg-sheet">
+      <View collapsable={false} className="absolute inset-0 flex-col-reverse bg-header">
         <ScreenContent>{props.children}</ScreenContent>
-        <AndroidSheetHeader title={props.title} onBack={() => setIsOpen(false)} hideBottomBorder />
+        <AndroidSheetHeader
+          title={props.title}
+          onBack={() => setIsOpen(false)}
+          hideBottomBorder
+          compact
+        />
       </View>
     </FormSheet>
   );
