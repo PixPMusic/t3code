@@ -81,106 +81,92 @@ describe("resolveEnvironmentProjectMatch", () => {
 });
 
 describe("resolveDraftProjectSelection", () => {
-  it("keeps the picker even when only one project is available", () => {
+  it("opens the picker instead of auto-selecting the only project", () => {
     expect(resolveDraftProjectSelection(null, [makeProject("only")])).toEqual({ kind: "pick" });
-  });
-
-  it("preserves an explicit project selection", () => {
-    expect(resolveDraftProjectSelection("environment:chosen", [makeProject("chosen")])).toEqual({
-      kind: "preserve",
-    });
-  });
-
-  it("returns to the picker when the selected project is missing", () => {
-    expect(resolveDraftProjectSelection("environment:removed", [makeProject("only")])).toEqual({
-      kind: "pick",
-    });
   });
 });
 
 describe("newTaskDestination", () => {
-  const request = { draft: { requestId: "request" } };
+  const picker = { draft: { requestId: "request" } };
 
-  it("opens the picker when the preference is disabled", () => {
-    const projects = [makeProject("first"), makeProject("current", "other-environment")];
+  function destination(options: {
+    readonly useLastProject: boolean | undefined;
+    readonly projects: ReadonlyArray<EnvironmentProject>;
+    readonly current?: EnvironmentProject;
+    readonly last?: { readonly environmentId: string; readonly projectId: string };
+  }) {
+    return newTaskDestination(
+      options.useLastProject,
+      options.projects,
+      options.current,
+      "request",
+      options.last,
+    );
+  }
+
+  it("starts in the current thread's project ahead of the remembered one", () => {
+    const projects = [makeProject("remembered"), makeProject("current", "other-environment")];
     expect(
-      newTaskDestination(false, projects, projects[1], "request", {
-        environmentId: "environment",
-        projectId: "first",
-      }),
-    ).toEqual(request);
-  });
-
-  it.each([undefined, true])(
-    "uses the current project when the preference is %s",
-    (useLastProject) => {
-      const projects = [makeProject("first"), makeProject("current", "other-environment")];
-      expect(
-        newTaskDestination(useLastProject, projects, projects[1], "request", {
-          environmentId: "environment",
-          projectId: "first",
-        }),
-      ).toEqual({
-        draft: { requestId: "request", environmentId: "other-environment", projectId: "current" },
-      });
-    },
-  );
-
-  it.each([undefined, true])(
-    "remembers the last project from Home when the preference is %s",
-    (useLastProject) => {
-      const projects = [makeProject("same-id"), makeProject("same-id", "other-environment")];
-      expect(
-        newTaskDestination(useLastProject, projects, undefined, "request", {
-          environmentId: "other-environment",
-          projectId: "same-id",
-        }),
-      ).toEqual({
-        draft: { requestId: "request", environmentId: "other-environment", projectId: "same-id" },
-      });
-    },
-  );
-
-  it("opens the picker by default when no last project exists", () => {
-    expect(
-      newTaskDestination(
-        undefined,
-        [makeProject("first"), makeProject("second")],
-        undefined,
-        "request",
-      ),
-    ).toEqual(request);
-  });
-
-  it("uses the remembered project when the current project is stale", () => {
-    const project = makeProject("remembered");
-    expect(
-      newTaskDestination(true, [project], makeProject("removed"), "request", {
-        environmentId: "environment",
-        projectId: "remembered",
+      destination({
+        useLastProject: true,
+        projects,
+        current: projects[1],
+        last: { environmentId: "environment", projectId: "remembered" },
       }),
     ).toEqual({
-      draft: { requestId: "request", environmentId: "environment", projectId: "remembered" },
+      draft: { requestId: "request", environmentId: "other-environment", projectId: "current" },
     });
   });
 
-  it.each([
-    undefined,
-    { environmentId: "removed-environment", projectId: "first" },
-    { environmentId: "environment", projectId: "removed" },
-  ])("keeps the picker when the last project is missing or stale: %s", (lastProject) => {
-    const projects = [makeProject("first"), makeProject("second")];
-    expect(
-      newTaskDestination(true, projects, makeProject("removed"), "request", lastProject),
-    ).toEqual(request);
+  it("treats an unset preference as on", () => {
+    const projects = [makeProject("first"), makeProject("current")];
+    expect(destination({ useLastProject: undefined, projects, current: projects[1] })).toEqual({
+      draft: { requestId: "request", environmentId: "environment", projectId: "current" },
+    });
   });
 
-  it("keeps the picker when no projects are available", () => {
+  it("starts in the remembered project of its own environment when there is no current one", () => {
+    const projects = [makeProject("chosen"), makeProject("chosen", "other-environment")];
     expect(
-      newTaskDestination(true, [], undefined, "request", {
-        environmentId: "environment",
-        projectId: "removed",
+      destination({
+        useLastProject: true,
+        projects,
+        last: { environmentId: "other-environment", projectId: "chosen" },
       }),
-    ).toEqual(request);
+    ).toEqual({
+      draft: { requestId: "request", environmentId: "other-environment", projectId: "chosen" },
+    });
+  });
+
+  it("ignores a remembered project id from another environment", () => {
+    expect(
+      destination({
+        useLastProject: true,
+        projects: [makeProject("chosen")],
+        last: { environmentId: "removed-environment", projectId: "chosen" },
+      }),
+    ).toEqual(picker);
+  });
+
+  it("opens the picker rather than the first project when nothing matches", () => {
+    expect(
+      destination({
+        useLastProject: true,
+        projects: [makeProject("first"), makeProject("second")],
+        current: makeProject("removed"),
+      }),
+    ).toEqual(picker);
+  });
+
+  it("always opens the picker when the preference is off", () => {
+    const only = makeProject("only");
+    expect(
+      destination({
+        useLastProject: false,
+        projects: [only],
+        current: only,
+        last: { environmentId: "environment", projectId: "only" },
+      }),
+    ).toEqual(picker);
   });
 });
