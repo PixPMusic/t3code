@@ -498,7 +498,7 @@ describe("workspace browser preview", () => {
         ...(fileRevision === undefined ? {} : { fileRevision }),
       });
     const preview = (mutation: string | null) => (
-      <div style={{ display: "flex", flexDirection: "column", height: 400, width: 600 }}>
+      <div className="flex h-[400px] w-[600px] flex-col">
         <WorkspaceBrowserPreview
           environmentId={EnvironmentId.make("test")}
           threadRef={{ environmentId: EnvironmentId.make("test"), threadId: ThreadId.make("test") }}
