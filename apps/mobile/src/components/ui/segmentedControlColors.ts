@@ -18,6 +18,8 @@ export function segmentedControlColors(
 ) {
   const dark = appearance === "dark";
   const card = variant === "card";
+  const accent =
+    colors[themeId === "material-you" ? "--color-primary" : "--color-prominent-action"];
   const trackColor = card
     ? dark
       ? colors["--color-screen"]
@@ -25,17 +27,11 @@ export function segmentedControlColors(
           themeColorWithAlpha(colors["--color-foreground"], 0.07),
           colors["--color-grouped-card"],
         )
-    : flattenThemeColor(
-        themeColorWithAlpha(colors["--color-prominent-action"], dark ? 0.1 : 0.07),
-        colors["--color-screen"],
-      );
+    : flattenThemeColor(themeColorWithAlpha(accent, dark ? 0.1 : 0.07), colors["--color-screen"]);
   let selectedColor = colors["--color-secondary"];
   if (card && !dark) selectedColor = colors["--color-screen"];
   if (dark && (!card || themeId === "t3-code")) {
-    selectedColor = flattenThemeColor(
-      themeColorWithAlpha(colors["--color-prominent-action"], 0.32),
-      colors["--color-screen"],
-    );
+    selectedColor = flattenThemeColor(themeColorWithAlpha(accent, 0.32), colors["--color-screen"]);
   }
   let selectedTextColor =
     colors[!card && dark ? "--color-foreground" : "--color-secondary-foreground"];
