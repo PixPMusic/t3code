@@ -37,7 +37,8 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   const workspace = useWorkspaceTabs();
   const bottomClearance =
     insets.bottom +
-    2 * FLOATING_TABS.edge +
+    FLOATING_TABS.bottom +
+    FLOATING_TABS.edge +
     Math.max(floating.height, floating.fabOffset + fabSize);
   const context = useMemo(
     () => (floatingTabsEnabled && workspace ? { ...workspace, bottomClearance } : workspace),
@@ -74,7 +75,10 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
           className="absolute"
           style={
             floatingTabsEnabled
-              ? { right: 16, bottom: insets.bottom + 16 + floating.fabOffset }
+              ? {
+                  right: FLOATING_TABS.edge,
+                  bottom: insets.bottom + FLOATING_TABS.bottom + floating.fabOffset,
+                }
               : androidHomeFabPosition(insets.bottom, props.sidebar)
           }
         />

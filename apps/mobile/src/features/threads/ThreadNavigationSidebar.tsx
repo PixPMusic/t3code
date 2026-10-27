@@ -839,7 +839,8 @@ function ThreadNavigationSidebarPane(
                     paddingBottom:
                       Platform.OS === "android"
                         ? floatingTabsEnabled
-                          ? 2 * FLOATING_TABS.edge +
+                          ? FLOATING_TABS.bottom +
+                            FLOATING_TABS.edge +
                             Math.max(floatingTabs.height, floatingTabs.fabOffset + fabSize)
                           : Math.max(insets.bottom, 16) + fabClearance - insets.bottom
                         : 16 + insets.bottom,

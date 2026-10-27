@@ -25,7 +25,7 @@ export function AndroidWorkspaceSidebar(props: {
   const { scale, fabSize } = useAndroidControlSizing();
   const floating = floatingTabsMetrics(enabled.length + 1, scale, fabSize);
   const bottomClearance = floatingTabsEnabled
-    ? insets.bottom + 2 * FLOATING_TABS.edge + floating.height
+    ? insets.bottom + FLOATING_TABS.bottom + FLOATING_TABS.edge + floating.height
     : 16;
   const context = useMemo(() => ({ ...workspace, bottomClearance }), [workspace, bottomClearance]);
   if (enabled.length === 0) return <WorkspaceNoTabs />;
