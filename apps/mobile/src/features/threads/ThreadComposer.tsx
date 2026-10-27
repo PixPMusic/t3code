@@ -571,6 +571,11 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const [compactRowWidth, setCompactRowWidth] = useState(0);
   const compactAttachmentLimit = compactRowWidth >= 500 ? 3 : 1;
   const compactEditor = useCompactComposerEditor(bodyText, draftMessage);
+  const composerVerticalPadding = usesLargeControls
+    ? 9
+    : splitAndroidComposer
+      ? Math.max(2, (fabSize - compactEditor.compactRowHeight) / 2)
+      : 2;
   const showsCompactDictation = isVoiceInputPresented;
   const isToolbarVisible = isVoiceInputPresented;
   const hasEditingAttachments =
@@ -860,11 +865,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
             borderRadius: usesLargeControls ? 31 : 27,
             borderCurve: "circular",
             overflow: "hidden",
-            paddingVertical: usesLargeControls
-              ? 9
-              : splitAndroidComposer
-                ? Math.max(2, (fabSize - compactEditor.compactRowHeight) / 2)
-                : 2,
+            paddingVertical: composerVerticalPadding,
           }}
         >
           {isExpanded ? editingAttachments : null}
@@ -1115,7 +1116,7 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
             collapsable={false}
             importantForAccessibility={isToolbarVisible ? "auto" : "no-hide-descendants"}
             pointerEvents={isToolbarVisible ? "auto" : "none"}
-            style={{ position: "absolute", bottom: usesLargeControls ? 9 : 2, left: 0, right: 0 }}
+            style={{ position: "absolute", bottom: composerVerticalPadding, left: 0, right: 0 }}
           >
             <ComposerDictationToolbar
               showsDictation={isVoiceInputPresented}
