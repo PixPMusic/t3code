@@ -95,7 +95,10 @@ import {
   currentWorkspaceSelections,
   workspaceSelectionCheck,
 } from "../workspace/workspace-selection-store";
-import { workspaceTabNavigationState } from "../workspace/workspace-tab-navigation";
+import {
+  workspaceTabColumns,
+  workspaceTabNavigationState,
+} from "../workspace/workspace-tab-navigation";
 import type { WorkspaceTab } from "../workspace/workspace-tabs-state";
 import { workspaceRoutesOf } from "./workspace-overlay-routes";
 import { SettingsWorkspaceLayout } from "../settings/SettingsWorkspaceLayout";
@@ -479,7 +482,7 @@ function AdaptiveWorkspaceLayoutContent(
       tab,
       currentWorkspaceSelections(),
       {
-        columns: Platform.OS === "ios" && (options?.columns ?? layout.usesSplitView),
+        columns: workspaceTabColumns(Platform.OS, tab, options?.columns ?? layout.usesSplitView),
         check: workspaceSelectionCheck,
         overlays,
       },
