@@ -5,7 +5,7 @@ import { useMemo, type ReactNode } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import {
-  ANDROID_FLOATING_TABS,
+  useAndroidFloatingTabs,
   FLOATING_TABS,
   floatingTabsMetrics,
 } from "./floating-workspace-tabs";
@@ -21,12 +21,13 @@ export function AndroidWorkspaceSidebar(props: {
   readonly onRequestVisibility: () => void;
   readonly selectedPullRequestKey: string | null;
 }) {
+  const floatingTabsEnabled = useAndroidFloatingTabs();
   const workspace = useWorkspaceTabs()!;
   const enabled = useEnabledNavigationTabs();
   const insets = useSafeAreaInsets();
   const { scale, fabSize } = useAndroidControlSizing();
   const floating = floatingTabsMetrics(enabled.length + 1, scale, fabSize);
-  const bottomClearance = ANDROID_FLOATING_TABS
+  const bottomClearance = floatingTabsEnabled
     ? insets.bottom + 2 * FLOATING_TABS.edge + floating.height
     : 16;
   const context = useMemo(() => ({ ...workspace, bottomClearance }), [workspace, bottomClearance]);

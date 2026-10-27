@@ -10,7 +10,7 @@ import {
   useNativeColumnLayoutMetrics,
 } from "../../native/native-layout-metrics";
 import { workspaceSearchBottomClearance } from "../workspace/workspace-tabs-state";
-import { ANDROID_FLOATING_TABS } from "../workspace/floating-workspace-tabs";
+import { useAndroidFloatingTabs } from "../workspace/floating-workspace-tabs";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import {
   dismissThreadUndoNotice,
@@ -19,6 +19,7 @@ import {
 } from "./thread-undo-notice";
 
 export function ThreadUndoNotice(props: { readonly visible: boolean }) {
+  const floatingTabsEnabled = useAndroidFloatingTabs();
   const notice = useThreadUndoNotice();
   const insets = useSafeAreaInsets();
   const columnMetrics = useNativeColumnLayoutMetrics();
@@ -65,7 +66,7 @@ export function ThreadUndoNotice(props: { readonly visible: boolean }) {
               columnMetrics?.safeArea.bottom ?? 0,
               (workspace?.bottomClearance ?? 0) - workspacePadding,
             ) + 8
-      : ANDROID_FLOATING_TABS && keyboardHeight === 0
+      : floatingTabsEnabled && keyboardHeight === 0
         ? Math.max(insets.bottom + 12, workspace?.bottomClearance ?? 0)
         : insets.bottom + 12;
   return (

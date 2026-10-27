@@ -1,28 +1,19 @@
-import { expect, it, vi } from "vite-plus/test";
+import { expect, it } from "vite-plus/test";
+
+import { resolveAndroidNavigationStyle } from "../../lib/androidNavigationStyle";
 
 it.each([
-  ["android", "Samsung", undefined, true],
-  ["android", "samsung", "0", true],
-  ["android", "Google", undefined, false],
-  ["android", null, undefined, false],
-  ["android", "Google", "1", true],
-  ["android", null, "1", true],
-  ["ios", "Samsung", "1", false],
-  ["web", null, "1", false],
+  [undefined, "Samsung", false, "one-ui"],
+  [undefined, "samsung", false, "one-ui"],
+  [undefined, "Google", false, "material"],
+  [undefined, null, false, "material"],
+  [undefined, "Google", true, "one-ui"],
+  ["material", "Samsung", false, "material"],
+  ["one-ui", "Google", false, "one-ui"],
+  ["material", "Google", true, "material"],
 ] as const)(
-  "gates floating tabs for %s / %s with flag %s",
-  async (platform, manufacturer, flag, enabled) => {
-    vi.resetModules();
-    vi.doMock("react-native", () => ({ Platform: { OS: platform } }));
-    vi.doMock("expo-device", () => ({ manufacturer }));
-    vi.stubEnv("EXPO_PUBLIC_T3_FLOATING_TABS", flag);
-    try {
-      const { ANDROID_FLOATING_TABS } = await import("./floating-workspace-tabs");
-      expect(ANDROID_FLOATING_TABS).toBe(enabled);
-    } finally {
-      vi.doUnmock("react-native");
-      vi.doUnmock("expo-device");
-      vi.unstubAllEnvs();
-    }
+  "resolves navigation preference %s on %s with preview %s",
+  (preference, manufacturer, preview, expected) => {
+    expect(resolveAndroidNavigationStyle(preference, manufacturer, preview)).toBe(expected);
   },
 );

@@ -12,6 +12,12 @@ import {
 } from "react";
 import { AppState, Appearance, Platform, useColorScheme } from "react-native";
 
+import { manufacturer } from "expo-device";
+import {
+  resolveAndroidNavigationStyle,
+  type AndroidNavigationStyle,
+} from "../../../lib/androidNavigationStyle";
+
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/reactivity";
 
@@ -49,6 +55,8 @@ interface AppearancePreferencesContextValue {
   readonly themeId: MobileThemeId;
   readonly themeIds: MobileThemeIds;
   readonly themeMode: MobileThemeMode;
+  readonly androidNavigationStyle: AndroidNavigationStyle;
+  readonly setAndroidNavigationStyle: (value: AndroidNavigationStyle) => void;
   readonly themeAppearance: MobileThemeAppearance;
   readonly systemColorsAvailable: boolean;
   readonly systemColorsActive: boolean;
@@ -84,6 +92,11 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
   const preferences = useMemo(
     () => resolveAppearancePreferences(storedPreferences),
     [storedPreferences],
+  );
+  const androidNavigationStyle = resolveAndroidNavigationStyle(
+    storedPreferences?.androidNavigationStyle,
+    manufacturer,
+    process.env.EXPO_PUBLIC_T3_FLOATING_TABS === "1",
   );
   const themeMode = normalizeMobileThemeMode(storedPreferences?.themeMode);
   const themeAppearance = themeMode === "system" ? systemColorScheme : themeMode;
@@ -233,6 +246,11 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     [runtimeState, syncThemeRuntime, updateThemePreferences],
   );
 
+  const setAndroidNavigationStyle = useCallback(
+    (value: AndroidNavigationStyle) => updatePreferences({ androidNavigationStyle: value }),
+    [updatePreferences],
+  );
+
   const setBaseFontSize = useCallback(
     (value: number) => {
       const current = appliedRuntimeStateRef.current ?? runtimeState;
@@ -275,6 +293,8 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeId,
       themeIds,
       themeMode,
+      androidNavigationStyle,
+      setAndroidNavigationStyle,
       themeAppearance,
       systemColorsAvailable: isSystemColorsAvailable,
       systemColorsActive,
@@ -297,6 +317,8 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeId,
       themeIds,
       themeMode,
+      androidNavigationStyle,
+      setAndroidNavigationStyle,
       themeAppearance,
       systemColorsActive,
       themeVariables,

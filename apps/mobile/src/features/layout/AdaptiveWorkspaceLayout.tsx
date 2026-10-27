@@ -58,7 +58,7 @@ import {
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
 import {
-  ANDROID_FLOATING_TABS,
+  useAndroidFloatingTabs,
   FLOATING_TABS,
   floatingTabsMetrics,
 } from "../workspace/floating-workspace-tabs";
@@ -204,6 +204,7 @@ function AdaptiveWorkspaceLayoutContent(
     readonly savedThreadListFilters?: ThreadListFilters | undefined;
   },
 ) {
+  const floatingTabsEnabled = useAndroidFloatingTabs();
   const projectGroupingMode = props.projectGroupingMode;
   const nativeWorkspace = use(NativeWorkspaceModeContext);
   const windowDimensions = useWindowDimensions();
@@ -281,7 +282,7 @@ function AdaptiveWorkspaceLayoutContent(
     !workspacePage &&
     (primarySidebarPinned || (preferredSidebarVisible && !composerKeyboardActive));
   const shouldRenderNavigationRail =
-    Platform.OS === "android" && baseLayout.usesSplitView && !ANDROID_FLOATING_TABS;
+    Platform.OS === "android" && baseLayout.usesSplitView && !floatingTabsEnabled;
   const enabledTabs = useEnabledNavigationTabs();
   const { scale, fabSize } = useAndroidControlSizing();
   const floatingTabs = floatingTabsMetrics(enabledTabs.length + 1, scale, fabSize);
@@ -303,7 +304,7 @@ function AdaptiveWorkspaceLayoutContent(
       leadingWidth: navigationRailWidth,
     });
     if (
-      !ANDROID_FLOATING_TABS ||
+      !floatingTabsEnabled ||
       !aligned.usesSplitView ||
       aligned.listPaneGap !== undefined ||
       aligned.listPaneWidth === null ||
@@ -312,7 +313,14 @@ function AdaptiveWorkspaceLayoutContent(
     )
       return aligned;
     return { ...aligned, listPaneWidth: floatingTabs.row };
-  }, [baseLayout, hinge, navigationRailWidth, viewportWidth, floatingTabs.row]);
+  }, [
+    baseLayout,
+    hinge,
+    navigationRailWidth,
+    viewportWidth,
+    floatingTabs.row,
+    floatingTabsEnabled,
+  ]);
   const width = viewportWidth - navigationRailWidth;
   // The sidebar stays mounted under a workspace page, so its list is ready on the way back.
   const shouldRenderPrimarySidebar = layout.usesSplitView;
@@ -885,7 +893,7 @@ function AdaptiveWorkspaceLayoutContent(
                       </AndroidHomeFabLayout>
                     </AndroidWorkspaceSidebar>
                   </RenderErrorBoundary>
-                  {ANDROID_FLOATING_TABS && !workspacePage && panes.primarySidebarVisible ? (
+                  {floatingTabsEnabled && !workspacePage && panes.primarySidebarVisible ? (
                     <FloatingWorkspaceTabs
                       paneWidth={layout.listPaneWidth}
                       onNewThread={handleStartNewTask}
@@ -929,7 +937,7 @@ function AdaptiveWorkspaceLayoutContent(
                     {/* Compact Settings keeps the bottom navigation under all of its pages. */}
                     <SafeAreaInsetsContext
                       value={
-                        ANDROID_FLOATING_TABS &&
+                        floatingTabsEnabled &&
                         (compactAndroidSettings || (layout.usesSplitView && workspacePage))
                           ? {
                               ...safeAreaInsets,
@@ -945,7 +953,7 @@ function AdaptiveWorkspaceLayoutContent(
                     >
                       <View className="flex-1">{props.children}</View>
                     </SafeAreaInsetsContext>
-                    {ANDROID_FLOATING_TABS &&
+                    {floatingTabsEnabled &&
                     (compactAndroidSettings || (layout.usesSplitView && workspacePage)) ? (
                       <FloatingWorkspaceTabs onNewThread={handleStartNewTask} />
                     ) : compactAndroidSettings ? (
