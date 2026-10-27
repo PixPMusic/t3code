@@ -97,7 +97,8 @@ export function resolveDraftProjectSelection(
   if (hasExplicitProjectSelection) {
     return { kind: "preserve" };
   }
-  if (draft.pickerClosed && selectedProjectKey === null) {
+  // A share draft holds content the user sent here, so cancelling the picker must not drop it.
+  if (draft.pickerClosed && selectedProjectKey === null && draft.incomingShareId === undefined) {
     return { kind: "dismiss" };
   }
 

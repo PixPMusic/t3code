@@ -121,6 +121,25 @@ describe("resolveDraftProjectSelection", () => {
       }),
     ).toEqual({ kind: "dismiss" });
   });
+
+  it("keeps the draft when the picker closes after a choice", () => {
+    expect(
+      resolveDraftProjectSelection("environment:t3code-2", projects, [makeScope(projects)], {
+        ...draft,
+        pickerClosed: true,
+      }),
+    ).toEqual({ kind: "preserve" });
+  });
+
+  it("keeps a share draft asking for a project when its picker closes without a choice", () => {
+    const scopes = [makeScope([projects[0]!]), makeScope([projects[1]!])];
+    expect(
+      resolveDraftProjectSelection(null, projects, scopes, {
+        incomingShareId: "share",
+        pickerClosed: true,
+      }),
+    ).toEqual({ kind: "pick" });
+  });
 });
 
 describe("newTaskDestination", () => {
