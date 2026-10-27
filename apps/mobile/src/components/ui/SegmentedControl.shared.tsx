@@ -12,7 +12,7 @@ export type { SegmentedControlProps } from "./SegmentedControl.types";
 export function SegmentedControl<Value extends string | number>(
   props: SegmentedControlProps<Value>,
 ) {
-  const { colorScheme, colors } = useControlTheme();
+  const { colorScheme, colors, themeId } = useControlTheme();
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const { width } = layout;
   const reduceMotion = useReducedMotion();
@@ -28,6 +28,7 @@ export function SegmentedControl<Value extends string | number>(
     colorScheme,
     props.variant,
     Platform.OS,
+    themeId,
   );
   const minHeight = props.size === "compact" ? 32 : Platform.OS === "android" ? 40 : 36;
 

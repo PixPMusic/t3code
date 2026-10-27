@@ -24,7 +24,7 @@ const NativeSegmentedControl = requireNativeView<
 export function SegmentedControl<Value extends string | number>(
   props: SegmentedControlProps<Value>,
 ) {
-  const { colors, colorScheme } = useControlTheme();
+  const { colors, colorScheme, themeId } = useControlTheme();
   // UIKit adds a gray fill over the sunken card track.
   if (props.variant === "card") return <FlatSegmentedControl {...props} />;
   const { trackColor, selectedColor, selectedTextColor, mutedColor } = segmentedControlColors(
@@ -32,6 +32,7 @@ export function SegmentedControl<Value extends string | number>(
     colorScheme,
     props.variant,
     "ios",
+    themeId,
   );
   return (
     <View className={props.className}>
