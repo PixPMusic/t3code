@@ -1,11 +1,8 @@
 import { requireNativeView } from "expo";
 import { View, type NativeSyntheticEvent, type ViewProps } from "react-native";
 
-import {
-  flattenThemeColor,
-  themeColorWithAlpha,
-  themeColorWithContrast,
-} from "../../lib/mobileTheme";
+import { SegmentedControl as FlatSegmentedControl } from "./SegmentedControl.shared";
+import { segmentedControlColors } from "./segmentedControlColors";
 import { useControlTheme } from "./useControlTheme";
 import type { SegmentedControlProps } from "./SegmentedControl.types";
 
@@ -28,16 +25,14 @@ export function SegmentedControl<Value extends string | number>(
   props: SegmentedControlProps<Value>,
 ) {
   const { colors, colorScheme } = useControlTheme();
-  const trackColor = flattenThemeColor(
-    themeColorWithAlpha(colors["--color-prominent-action"], colorScheme === "dark" ? 0.18 : 0.07),
-    colors["--color-screen"],
+  // UIKit adds a gray fill over the sunken card track.
+  if (props.variant === "card") return <FlatSegmentedControl {...props} />;
+  const { trackColor, selectedColor, selectedTextColor, mutedColor } = segmentedControlColors(
+    colors,
+    colorScheme,
+    props.variant,
+    "ios",
   );
-  const selectedColor =
-    colorScheme === "dark" ? colors["--color-prominent-action"] : colors["--color-secondary"];
-  const selectedTextColor =
-    colorScheme === "dark"
-      ? colors["--color-prominent-action-foreground"]
-      : colors["--color-secondary-foreground"];
   return (
     <View className={props.className}>
       <NativeSegmentedControl
@@ -46,11 +41,7 @@ export function SegmentedControl<Value extends string | number>(
         trackColor={trackColor}
         selectedColor={selectedColor}
         textColor={selectedTextColor}
-        mutedColor={themeColorWithContrast(
-          colors["--color-foreground-muted"],
-          trackColor,
-          colorScheme === "dark" ? 7 : 4.5,
-        )}
+        mutedColor={mutedColor}
         appearance={colorScheme}
         onSelectionChange={({ nativeEvent }) => {
           const option = props.options[nativeEvent.index];
