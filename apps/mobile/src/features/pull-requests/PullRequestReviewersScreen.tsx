@@ -273,7 +273,7 @@ export function PullRequestReviewersScreen({ route }: StaticScreenProps<PullRequ
             detail.isPending ? (
               <AppActivityIndicator />
             ) : (
-              <Text className="text-danger-foreground">
+              <Text textRole="footnote" className="text-danger-foreground">
                 {detail.error ?? `Couldn't load this ${singular}.`}
               </Text>
             )
@@ -306,7 +306,7 @@ export function PullRequestReviewersScreen({ route }: StaticScreenProps<PullRequ
                 onPress={() => void update({ id: query.trim(), kind: "user", isRequested: true })}
               />
               {error ? (
-                <Text selectable className="text-danger-foreground">
+                <Text textRole="footnote" selectable className="text-danger-foreground">
                   {error}
                 </Text>
               ) : null}
