@@ -548,12 +548,27 @@ export function createEnvironmentThreadShellAtoms(input: {
 
   let previousNavigationShells: ReadonlyArray<EnvironmentThreadShell> = [];
   const navigationThreadShellsAtom = Atom.make((get) => {
+    const next: EnvironmentThreadShell[] = [];
     const underParent = get(delegatedUnderParentAtom);
-    const next = get(quietThreadShellsAtom).filter(
-      (thread) =>
-        thread.archivedAt === null &&
-        !isShownUnderParent({ environmentId: thread.environmentId, threadId: thread.id }, thread.lineage, underParent),
-    );
+    for (const environmentId of enabledEnvironmentIds(get(input.catalogValueAtom))) {
+      const subagentRequests = get(pendingSubagentRequestsAtom(environmentId));
+      for (const thread of get(environmentThreadsAtom(environmentId))) {
+        if (
+          thread.archivedAt !== null ||
+          isShownUnderParent({ environmentId, threadId: thread.id }, thread.lineage, underParent)
+        ) {
+          continue;
+        }
+        const shell = scopedThread(environmentId, thread, subagentRequests);
+        const previous = previousNavigationShells[next.length];
+        // Token ticks must not rebuild navigation; threadShellAtom still supplies the live values.
+        next.push(
+          previous !== undefined && previous !== shell && sameApartFromStreaming(previous, shell)
+            ? previous
+            : shell,
+        );
+      }
+    }
     if (arrayElementsEqual(previousNavigationShells, next)) return previousNavigationShells;
     previousNavigationShells = next;
     return next;
