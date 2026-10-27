@@ -508,11 +508,26 @@ const finalizeWorkspaceFileAsset = Effect.fn("AssetAccess.finalizeWorkspaceFileA
           }),
       ),
     );
-    const imageDimensions = HEADER_IMAGE_EXTENSIONS.has(
-      path.extname(resolved.relativePath).toLowerCase(),
-    )
-      ? yield* readImageDimensionsFromHeader(canonicalFile)
-      : null;
+    const opened = yield* Effect.gen(function* () {
+      const file = yield* openMediaFile(canonicalFile);
+      if (file === null) return null;
+      return {
+        fileRevision: `${file.info.dev}:${file.info.ino}:${file.info.size}:${file.info.mtimeNs}:${file.info.ctimeNs}`,
+        imageDimensions: HEADER_IMAGE_EXTENSIONS.has(
+          path.extname(resolved.relativePath).toLowerCase(),
+        )
+          ? yield* readImageDimensionsFromOpenFile(canonicalFile, file)
+          : null,
+      };
+    }).pipe(
+      Effect.scoped,
+      Effect.mapError(
+        (cause) => new AssetWorkspaceAssetInspectionError({ resource: input.resource, cause }),
+      ),
+    );
+    if (opened === null) {
+      return yield* new AssetWorkspaceAssetNotFoundError({ resource: input.resource });
+    }
     return {
       claims: !/\.html?$/i.test(resolved.relativePath)
         ? {
@@ -530,8 +545,8 @@ const finalizeWorkspaceFileAsset = Effect.fn("AssetAccess.finalizeWorkspaceFileA
             expiresAt: input.expiresAt,
           },
       fileName: path.basename(resolved.relativePath),
-      imageDimensions,
-      fileRevision: undefined,
+      imageDimensions: opened.imageDimensions,
+      fileRevision: opened.fileRevision,
     };
   },
 );
@@ -606,6 +621,7 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
       claims = finalized.claims;
       fileName = finalized.fileName;
       imageDimensions = finalized.imageDimensions;
+      fileRevision = finalized.fileRevision;
       break;
     }
     case "draft-workspace-file": {
