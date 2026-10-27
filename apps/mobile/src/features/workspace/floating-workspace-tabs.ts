@@ -1,4 +1,4 @@
-// Native shadows need room inside the Expo view, which clips its children.
+// Keep the native drawing inset out of the visible size and edge margins.
 export const FLOATING_TABS = { edge: 16, gap: 12, shadow: 8 };
 
 export function floatingTabsMetrics(

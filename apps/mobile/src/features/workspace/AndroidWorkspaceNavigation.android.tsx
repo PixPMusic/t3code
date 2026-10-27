@@ -177,12 +177,10 @@ export function FloatingWorkspaceTabs(props: {
       pointerEvents="box-none"
       style={{
         position: "absolute",
-        left: 0,
+        left: Math.max(insets.left, FLOATING_TABS.edge) - FLOATING_TABS.shadow,
         right: 0,
-        bottom: 0,
+        bottom: insets.bottom + FLOATING_TABS.edge - FLOATING_TABS.shadow,
         alignItems: "flex-start",
-        paddingLeft: Math.max(insets.left, FLOATING_TABS.edge) - FLOATING_TABS.shadow,
-        paddingBottom: insets.bottom + FLOATING_TABS.edge - FLOATING_TABS.shadow,
       }}
     >
       <AndroidWorkspaceNavigation {...props} floating />
