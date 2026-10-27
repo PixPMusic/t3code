@@ -63,6 +63,7 @@ import * as ProjectFaviconResolver from "../project/ProjectFaviconResolver.ts";
 import { isWithinRoot } from "../workspace/KnownWorkspaces.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
 import * as NativeAppIconResolver from "./NativeAppIconResolver.ts";
+import * as WorkspacePreviewRevisions from "./WorkspacePreviewRevisions.ts";
 import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import { extractIcnsPng } from "./icns.ts";
 import { openMediaFile, readMediaFileHeader, type OpenMediaFile } from "./MediaFile.ts";
@@ -528,8 +529,16 @@ const finalizeWorkspaceFileAsset = Effect.fn("AssetAccess.finalizeWorkspaceFileA
     if (opened === null) {
       return yield* new AssetWorkspaceAssetNotFoundError({ resource: input.resource });
     }
+    const isHtml = /\.html?$/i.test(resolved.relativePath);
+    const fileRevision = isHtml
+      ? yield* (yield* WorkspacePreviewRevisions.WorkspacePreviewRevisions).revision({
+          workspaceRoot: canonicalWorkspaceRoot,
+          baseRelativePath: path.dirname(resolved.relativePath),
+          fileRevision: opened.fileRevision,
+        })
+      : opened.fileRevision;
     return {
-      claims: !/\.html?$/i.test(resolved.relativePath)
+      claims: !isHtml
         ? {
             version: 1 as const,
             kind: "workspace-file-exact" as const,
@@ -546,7 +555,7 @@ const finalizeWorkspaceFileAsset = Effect.fn("AssetAccess.finalizeWorkspaceFileA
           },
       fileName: path.basename(resolved.relativePath),
       imageDimensions: opened.imageDimensions,
-      fileRevision: opened.fileRevision,
+      fileRevision,
     };
   },
 );
@@ -1055,6 +1064,12 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
     claims.baseRelativePath === "." ? decodedPath : path.join(claims.baseRelativePath, decodedPath);
   const workspaceFile = yield* resolveCanonicalWorkspaceFileForRequest({
     workspaceRoot: claims.workspaceRoot,
+    relativePath: joinedRelativePath,
+  });
+  const revisions = yield* WorkspacePreviewRevisions.WorkspacePreviewRevisions;
+  yield* revisions.observe({
+    workspaceRoot: claims.workspaceRoot,
+    baseRelativePath: claims.baseRelativePath,
     relativePath: joinedRelativePath,
   });
   return workspaceFile ? ({ kind: "file", path: workspaceFile } satisfies ResolvedAsset) : null;
