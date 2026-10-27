@@ -95,13 +95,16 @@ describe("newTaskDestination", () => {
     readonly current?: EnvironmentProject;
     readonly last?: { readonly environmentId: string; readonly projectId: string };
   }) {
-    return newTaskDestination(
-      options.useLastProject,
-      options.projects,
-      options.current,
-      "request",
-      options.last,
-    );
+    return newTaskDestination({
+      projects: options.projects,
+      requestId: "request",
+      useLastProject: options.useLastProject,
+      currentProject: options.current && {
+        environmentId: options.current.environmentId,
+        projectId: options.current.id,
+      },
+      lastProject: options.last,
+    });
   }
 
   it("starts in the current thread's project ahead of the remembered one", () => {

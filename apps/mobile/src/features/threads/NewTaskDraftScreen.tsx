@@ -9,6 +9,7 @@ import { submittedThreadParams } from "./thread-route-state";
 import { ThreadScreenBinding, ThreadScreenFallback } from "./ThreadScreenHost";
 import { draftThreadShell } from "./draft-thread-shell";
 import { useRememberThreadProject } from "./useRememberThreadProject";
+import { scopedProjectKey } from "../../lib/scopedEntities";
 import { connectionTone } from "../connection/connectionTone";
 import { AppBar } from "../../components/ui/AppBar";
 import { ThreadId } from "@t3tools/contracts";
@@ -166,9 +167,10 @@ export function NewTaskDraftScreen(props: {
     reserveShare,
   } = useIncomingShare();
   const { projectScopes, selectedProject, selectedProjectKey, setProject } = flow;
+  // selectedProject falls back to the environment's first project; remember only a chosen one.
   useRememberThreadProject(
     selectedProject &&
-      selectedProjectKey === `${selectedProject.environmentId}:${selectedProject.id}`
+      selectedProjectKey === scopedProjectKey(selectedProject.environmentId, selectedProject.id)
       ? selectedProject
       : null,
   );

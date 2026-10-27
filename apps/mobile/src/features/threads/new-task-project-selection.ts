@@ -91,33 +91,31 @@ export function resolveDraftProjectSelection(
   return { kind: "pick" };
 }
 
-export function newTaskDestination(
-  useLastProject: boolean | undefined,
-  projects: ReadonlyArray<EnvironmentProject>,
-  currentProject: Pick<EnvironmentProject, "environmentId" | "id"> | undefined,
-  requestId: string,
-  lastProject?: { readonly environmentId: string; readonly projectId: string },
-) {
+type ProjectRef = { readonly environmentId: string; readonly projectId: string };
+
+export function newTaskDestination(options: {
+  readonly projects: ReadonlyArray<EnvironmentProject>;
+  readonly requestId: string;
+  readonly useLastProject: boolean | undefined;
+  readonly currentProject: ProjectRef | undefined;
+  readonly lastProject: ProjectRef | undefined;
+}) {
+  const find = (ref: ProjectRef | undefined) =>
+    ref &&
+    options.projects.find(
+      (project) => project.environmentId === ref.environmentId && project.id === ref.projectId,
+    );
   const project =
-    useLastProject !== false
-      ? (projects.find(
-          (candidate) =>
-            candidate.environmentId === currentProject?.environmentId &&
-            candidate.id === currentProject.id,
-        ) ??
-        projects.find(
-          (candidate) =>
-            candidate.environmentId === lastProject?.environmentId &&
-            candidate.id === lastProject.projectId,
-        ))
-      : undefined;
+    options.useLastProject === false
+      ? undefined
+      : (find(options.currentProject) ?? find(options.lastProject));
   return project
     ? {
         draft: {
-          requestId,
+          requestId: options.requestId,
           environmentId: String(project.environmentId),
           projectId: String(project.id),
         },
       }
-    : { draft: { requestId } };
+    : { draft: { requestId: options.requestId } };
 }
