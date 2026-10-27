@@ -1,10 +1,10 @@
 import { Platform } from "react-native";
-import { manufacturer } from "expo-device";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
-// EXPO_PUBLIC_T3_FLOATING_TABS=1 also enables the Samsung layout on other Android devices.
-export const ANDROID_FLOATING_TABS =
-  Platform.OS === "android" &&
-  (manufacturer?.toLowerCase() === "samsung" || process.env.EXPO_PUBLIC_T3_FLOATING_TABS === "1");
+export function useAndroidFloatingTabs() {
+  const { androidNavigationStyle } = useAppearancePreferences();
+  return Platform.OS === "android" && androidNavigationStyle === "one-ui";
+}
 
 // Native shadows need room inside the Expo view, which clips its children.
 export const FLOATING_TABS = { edge: 16, gap: 12, shadow: 8 };

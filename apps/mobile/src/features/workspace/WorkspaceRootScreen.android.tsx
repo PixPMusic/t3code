@@ -16,7 +16,7 @@ import { PullRequestToolbar } from "../pull-requests/PullRequestToolbar.android"
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { AndroidWorkspaceNavigation, FloatingWorkspaceTabs } from "./AndroidWorkspaceNavigation";
 import {
-  ANDROID_FLOATING_TABS,
+  useAndroidFloatingTabs,
   FLOATING_TABS,
   floatingTabsMetrics,
 } from "./floating-workspace-tabs";
@@ -27,6 +27,7 @@ import type { WorkspaceTab } from "./workspace-tabs-state";
 const TABS: readonly WorkspaceTab[] = NAVIGATION_TAB_ORDER;
 
 export function WorkspaceRootScreen() {
+  const floatingTabsEnabled = useAndroidFloatingTabs();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const workspace = useWorkspaceTabs()!;
   const enabled = useEnabledNavigationTabs();
@@ -37,7 +38,7 @@ export function WorkspaceRootScreen() {
   const context = useMemo(
     () => ({
       ...workspace,
-      bottomClearance: ANDROID_FLOATING_TABS
+      bottomClearance: floatingTabsEnabled
         ? insets.bottom +
           2 * FLOATING_TABS.edge +
           Math.max(
@@ -48,7 +49,15 @@ export function WorkspaceRootScreen() {
           ? fabClearance + 16
           : 16,
     }),
-    [workspace, fabClearance, insets.bottom, floating.height, floating.fabOffset, fabSize],
+    [
+      floatingTabsEnabled,
+      workspace,
+      fabClearance,
+      insets.bottom,
+      floating.height,
+      floating.fabOffset,
+      fabSize,
+    ],
   );
   const tab = workspace.state.selectedTab;
 
@@ -87,7 +96,7 @@ export function WorkspaceRootScreen() {
         <NativeStackScreenOptions options={{ headerShown: false }} />
         <SafeAreaInsetsContext
           value={
-            ANDROID_FLOATING_TABS
+            floatingTabsEnabled
               ? tab === "usage"
                 ? { ...insets, bottom: context.bottomClearance }
                 : insets
@@ -119,7 +128,7 @@ export function WorkspaceRootScreen() {
             />
           )}
         </SafeAreaInsetsContext>
-        {ANDROID_FLOATING_TABS ? (
+        {floatingTabsEnabled ? (
           <FloatingWorkspaceTabs onNewThread={startNewTask} />
         ) : (
           <AndroidWorkspaceNavigation onNewThread={startNewTask} />

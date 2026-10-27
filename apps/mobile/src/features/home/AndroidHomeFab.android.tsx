@@ -18,13 +18,14 @@ import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSi
 import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import {
-  ANDROID_FLOATING_TABS,
+  useAndroidFloatingTabs,
   FLOATING_TABS,
   floatingTabsMetrics,
 } from "../workspace/floating-workspace-tabs";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
+  const floatingTabsEnabled = useAndroidFloatingTabs();
   const insets = useSafeAreaInsets();
   const { appearance } = useAppearancePreferences();
   const { fontScale } = useWindowDimensions();
@@ -40,8 +41,8 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
     2 * FLOATING_TABS.edge +
     Math.max(floating.height, floating.fabOffset + fabSize);
   const context = useMemo(
-    () => (ANDROID_FLOATING_TABS && workspace ? { ...workspace, bottomClearance } : workspace),
-    [workspace, bottomClearance],
+    () => (floatingTabsEnabled && workspace ? { ...workspace, bottomClearance } : workspace),
+    [floatingTabsEnabled, workspace, bottomClearance],
   );
   const scrollState = useRef({ anchor: 0, expanded: true });
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -63,17 +64,17 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
         <FabScrollContext value={onScroll}>{props.children}</FabScrollContext>
       </WorkspaceTabsContext>
       {!props.disabled &&
-      (!props.sidebar || ANDROID_FLOATING_TABS) &&
+      (!props.sidebar || floatingTabsEnabled) &&
       state.hasConnections &&
       layoutWidth !== null ? (
         <NewThreadButton
           key={`${appearance.baseFontSize}:${fontScale}:${layoutWidth}`}
           extended
-          expanded={ANDROID_FLOATING_TABS ? false : expanded}
+          expanded={floatingTabsEnabled ? false : expanded}
           onPress={props.onStartNewTask}
           className="absolute"
           style={
-            ANDROID_FLOATING_TABS
+            floatingTabsEnabled
               ? { right: 16, bottom: insets.bottom + 16 + floating.fabOffset }
               : androidHomeFabPosition(insets.bottom, props.sidebar)
           }

@@ -19,7 +19,7 @@ import { GestureDetector, useNativeGesture } from "react-native-gesture-handler"
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
 import {
-  ANDROID_FLOATING_TABS,
+  useAndroidFloatingTabs,
   FLOATING_TABS,
   floatingTabsMetrics,
 } from "../workspace/floating-workspace-tabs";
@@ -138,6 +138,7 @@ function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
 function ThreadNavigationSidebarPane(
   props: ThreadNavigationSidebarProps & { readonly nativeChrome: boolean },
 ) {
+  const floatingTabsEnabled = useAndroidFloatingTabs();
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const drawerColor = materialTheme["--color-drawer"];
 
@@ -838,7 +839,7 @@ function ThreadNavigationSidebarPane(
                   {
                     paddingBottom:
                       Platform.OS === "android"
-                        ? ANDROID_FLOATING_TABS
+                        ? floatingTabsEnabled
                           ? insets.bottom +
                             2 * FLOATING_TABS.edge +
                             Math.max(floatingTabs.height, floatingTabs.fabOffset + fabSize)
