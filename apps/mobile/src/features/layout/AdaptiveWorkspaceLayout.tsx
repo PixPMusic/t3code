@@ -523,13 +523,17 @@ function AdaptiveWorkspaceLayoutContent(
         : undefined;
     const first = (value: string | string[] | undefined) =>
       Array.isArray(value) ? value[0] : value;
-    const thread = appAtomRegistry
-      .get(environmentThreadShells.navigationThreadShellsAtom)
-      .find(
-        (candidate) =>
-          candidate.environmentId === first(params?.environmentId) &&
-          candidate.id === first(params?.threadId),
-      );
+    const environmentId = first(params?.environmentId);
+    const threadId = first(params?.threadId);
+    // The full index, not the sidebar list: subagent and archived threads are current threads too.
+    const projectId =
+      environmentId && threadId
+        ? appAtomRegistry
+            .get(
+              environmentThreadShells.environmentThreadIndexAtom(EnvironmentId.make(environmentId)),
+            )
+            .get(ThreadId.make(threadId))?.projectId
+        : undefined;
     const preferences = appAtomRegistry.get(mobilePreferencesAtom);
     const saved = AsyncResult.isSuccess(preferences) ? preferences.value : undefined;
     handleSelectThreadRoute(
@@ -537,10 +541,7 @@ function AdaptiveWorkspaceLayoutContent(
         projects,
         requestId: uuidv4(),
         useLastProject: saved?.useLastProjectForNewThreads,
-        currentProject: thread && {
-          environmentId: thread.environmentId,
-          projectId: thread.projectId,
-        },
+        currentProject: environmentId && projectId ? { environmentId, projectId } : undefined,
         lastProject: saved?.lastThreadProject,
       }),
     );
