@@ -72,7 +72,11 @@ class T3WorkspaceNavigationModule : Module() {
       Prop("selectedTab") { view: T3WorkspaceNavigationView, value: String ->
         view.selectedTab = value
       }
-      Prop("floating") { view: T3WorkspaceNavigationView, value: Boolean -> view.floating = value }
+      Prop("floating") { view: T3WorkspaceNavigationView, value: Boolean ->
+        view.floating = value
+        view.clipToPadding = !value
+        view.clipChildren = !value
+      }
       Prop("rail") { view: T3WorkspaceNavigationView, value: Boolean -> view.rail = value }
       Prop("dark") { view: T3WorkspaceNavigationView, value: Boolean -> view.dark = value }
       Prop("textScale") { view: T3WorkspaceNavigationView, value: Float -> view.textScale = value }
@@ -164,6 +168,7 @@ class T3WorkspaceNavigationView(
   init {
     addView(
       ComposeView(context).apply {
+        clipChildren = false
         setViewCompositionStrategy(
           ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool
         )
