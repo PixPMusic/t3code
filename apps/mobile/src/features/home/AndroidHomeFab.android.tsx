@@ -14,6 +14,9 @@ import {
 import { useWorkspaceState } from "../../state/workspace";
 import { FabScrollContext } from "./FabScrollContext";
 import { updateFabScroll } from "./fab-scroll";
+import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
+import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
+import { ANDROID_FLOATING_TABS, floatingTabsMetrics } from "../workspace/floating-workspace-tabs";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
@@ -23,6 +26,9 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   const [layoutWidth, setLayoutWidth] = useState<number | null>(null);
   const { state } = useWorkspaceState();
   const [expanded, setExpanded] = useState(true);
+  const { scale, fabSize } = useAndroidControlSizing();
+  const tabs = useEnabledNavigationTabs();
+  const floating = floatingTabsMetrics(tabs.length + 1, scale, fabSize, layoutWidth ?? undefined);
   const scrollState = useRef({ anchor: 0, expanded: true });
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -36,19 +42,25 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   }, []);
 
   // Remount only the FAB when its font or pane changes to clear the cached expanded width.
-  // The split-view sidebar has no FAB: the navigation rail carries New thread. On phones it
-  // keeps Material's 16dp corner margin; the bottom bar already consumes the gesture inset.
+  // Floating navigation shares this row; Material split views put New thread in the rail.
   return (
     <View className="flex-1" onLayout={(event) => setLayoutWidth(event.nativeEvent.layout.width)}>
       <FabScrollContext value={onScroll}>{props.children}</FabScrollContext>
-      {!props.disabled && !props.sidebar && state.hasConnections && layoutWidth !== null ? (
+      {!props.disabled &&
+      (!props.sidebar || ANDROID_FLOATING_TABS) &&
+      state.hasConnections &&
+      layoutWidth !== null ? (
         <NewThreadButton
           key={`${appearance.baseFontSize}:${fontScale}:${layoutWidth}`}
           extended
-          expanded={expanded}
+          expanded={ANDROID_FLOATING_TABS ? false : expanded}
           onPress={props.onStartNewTask}
           className="absolute"
-          style={androidHomeFabPosition(insets.bottom, props.sidebar)}
+          style={
+            ANDROID_FLOATING_TABS
+              ? { right: 16, bottom: insets.bottom + 16 + floating.fabOffset }
+              : androidHomeFabPosition(insets.bottom, props.sidebar)
+          }
         />
       ) : null}
     </View>

@@ -4,6 +4,7 @@ import { CommonActions, useNavigation } from "@react-navigation/native";
 import {
   Keyboard,
   processColor,
+  useWindowDimensions,
   View,
   type NativeSyntheticEvent,
   type ViewProps,
@@ -23,12 +24,14 @@ import { useAppearancePreferences } from "../settings/appearance/AppearancePrefe
 import { useAndroidWorkspaceRoot } from "./AndroidWorkspaceTabsProvider";
 import { useNavigationTabOrder, useHiddenNavigationTabs } from "./navigation-tabs";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
+import { FLOATING_TABS, floatingTabsMetrics } from "./floating-workspace-tabs";
 
 // Matches RAIL_WIDTH in the native rail.
 export const ANDROID_WORKSPACE_RAIL_WIDTH = 72;
 
 interface NativeNavigationProps extends ViewProps {
   readonly rail: boolean;
+  readonly floating: boolean;
   readonly tabs: readonly string[];
   readonly selectedTab: AndroidWorkspaceNavigationTab;
   readonly dark: boolean;
@@ -60,6 +63,8 @@ function nativeColor(value: string) {
 export function AndroidWorkspaceNavigation(props: {
   readonly onNewThread: () => void;
   readonly rail?: boolean;
+  readonly floating?: boolean;
+  readonly paneWidth?: number;
   readonly onSelect?: () => void;
   /** The rail needs the whole workspace while it widens over the list. */
   readonly onOverlayChange?: (overlay: boolean) => void;
@@ -74,10 +79,14 @@ export function AndroidWorkspaceNavigation(props: {
   const connectionState = useWorkspaceConnectionState();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
   const { themeAppearance, themeVariables: colors } = useAppearancePreferences();
-  const { scale } = useAndroidControlSizing();
+  const { scale, fabSize } = useAndroidControlSizing();
+  const window = useWindowDimensions();
   const rail = Boolean(props.rail);
+  const floating = !rail && Boolean(props.floating);
+  const tabs = [...visibleNavigationTabs(order, hidden, rail ? 5 : 4), "settings"];
+  const metrics = floatingTabsMetrics(tabs.length, scale, fabSize, props.paneWidth ?? window.width);
   const { containerColor, indicatorColor, selectedColor, unselectedColor } =
-    androidWorkspaceNavigationColors(colors, rail);
+    androidWorkspaceNavigationColors(colors, rail, floating);
   const selectedTab = selectedNavigationTab(
     order,
     workspace.state.selectedTab,
@@ -92,12 +101,17 @@ export function AndroidWorkspaceNavigation(props: {
       style={
         // The rail draws its own surface and pads the system bars; while open it spans the
         // workspace, so the rest of it must stay transparent.
-        rail ? { flex: 1 } : { backgroundColor: containerColor, paddingBottom: insets.bottom }
+        rail
+          ? { flex: 1 }
+          : floating
+            ? undefined
+            : { backgroundColor: containerColor, paddingBottom: insets.bottom }
       }
     >
       <NativeNavigation
         rail={rail}
-        tabs={[...visibleNavigationTabs(order, hidden, rail ? 5 : 4), "settings"]}
+        floating={floating}
+        tabs={tabs}
         selectedTab={selectedTab}
         dark={themeAppearance === "dark"}
         textScale={scale}
@@ -129,8 +143,41 @@ export function AndroidWorkspaceNavigation(props: {
           props.onNewThread();
         }}
         onOverlayChange={(event) => props.onOverlayChange?.(event.nativeEvent.overlay)}
-        style={rail ? { flex: 1 } : { height: 80 * Math.max(1, scale) }}
+        style={
+          rail
+            ? { flex: 1 }
+            : floating
+              ? {
+                  width: metrics.pill + 2 * FLOATING_TABS.shadow,
+                  height: metrics.height + 2 * FLOATING_TABS.shadow,
+                }
+              : { height: 80 * Math.max(1, scale) }
+        }
       />
+    </View>
+  );
+}
+
+export function FloatingWorkspaceTabs(props: {
+  readonly onNewThread: () => void;
+  readonly paneWidth?: number;
+  readonly onSelect?: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        alignItems: "flex-start",
+        paddingLeft: Math.max(insets.left, FLOATING_TABS.edge) - FLOATING_TABS.shadow,
+        paddingBottom: insets.bottom + FLOATING_TABS.edge - FLOATING_TABS.shadow,
+      }}
+    >
+      <AndroidWorkspaceNavigation {...props} floating />
     </View>
   );
 }
