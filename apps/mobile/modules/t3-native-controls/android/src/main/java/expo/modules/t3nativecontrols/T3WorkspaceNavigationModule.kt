@@ -223,15 +223,15 @@ class T3WorkspaceNavigationView(
             modifier = Modifier
               .weight(1f)
               .fillMaxHeight()
-              .padding(4.dp)
               .clip(CircleShape)
-              .background(if (selected) Color(indicatorColor) else Color.Transparent)
               .selectable(
                 selected = selected,
                 role = Role.Tab,
                 onClick = { onTabSelected(mapOf("tab" to tab)) },
               )
-              .semantics { contentDescription = expandedTabTitle(tab) },
+              .semantics { contentDescription = expandedTabTitle(tab) }
+              .padding(4.dp)
+              .background(if (selected) Color(indicatorColor) else Color.Transparent, CircleShape),
             contentAlignment = Alignment.Center,
           ) {
             Icon(
