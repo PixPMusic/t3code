@@ -16,7 +16,7 @@ export function floatingTabsMetrics(
   paneWidth?: number,
 ) {
   const unit = Math.max(1, scale);
-  const height = Math.round(64 * unit);
+  const height = fabSize;
   const beside = 2 * FLOATING_TABS.edge + FLOATING_TABS.gap + fabSize;
   const row = beside + count * 60 * unit;
   const sharesRow = paneWidth === undefined || paneWidth >= row;

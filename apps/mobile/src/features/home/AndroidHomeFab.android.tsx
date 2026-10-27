@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ComponentProps } from "react";
+import { useCallback, useMemo, useRef, useState, type ComponentProps } from "react";
 import {
   useWindowDimensions,
   View,
@@ -16,7 +16,12 @@ import { FabScrollContext } from "./FabScrollContext";
 import { updateFabScroll } from "./fab-scroll";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
-import { ANDROID_FLOATING_TABS, floatingTabsMetrics } from "../workspace/floating-workspace-tabs";
+import { WorkspaceTabsContext, useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import {
+  ANDROID_FLOATING_TABS,
+  FLOATING_TABS,
+  floatingTabsMetrics,
+} from "../workspace/floating-workspace-tabs";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
@@ -29,6 +34,15 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   const { scale, fabSize } = useAndroidControlSizing();
   const tabs = useEnabledNavigationTabs();
   const floating = floatingTabsMetrics(tabs.length + 1, scale, fabSize, layoutWidth ?? undefined);
+  const workspace = useWorkspaceTabs();
+  const bottomClearance =
+    insets.bottom +
+    2 * FLOATING_TABS.edge +
+    Math.max(floating.height, floating.fabOffset + fabSize);
+  const context = useMemo(
+    () => (ANDROID_FLOATING_TABS && workspace ? { ...workspace, bottomClearance } : workspace),
+    [workspace, bottomClearance],
+  );
   const scrollState = useRef({ anchor: 0, expanded: true });
   const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -45,7 +59,9 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   // Floating navigation shares this row; Material split views put New thread in the rail.
   return (
     <View className="flex-1" onLayout={(event) => setLayoutWidth(event.nativeEvent.layout.width)}>
-      <FabScrollContext value={onScroll}>{props.children}</FabScrollContext>
+      <WorkspaceTabsContext value={context}>
+        <FabScrollContext value={onScroll}>{props.children}</FabScrollContext>
+      </WorkspaceTabsContext>
       {!props.disabled &&
       (!props.sidebar || ANDROID_FLOATING_TABS) &&
       state.hasConnections &&
