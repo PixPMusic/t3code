@@ -747,7 +747,10 @@ function AdaptiveWorkspaceLayoutContent(
   }));
   const sidebarAnimatedStyle = useAnimatedStyle(() => ({
     // Fading a UIKit glass ancestor can leave remounted header effects missing.
-    opacity: Platform.OS === "ios" ? 1 : Math.min(1, renderedSidebarWidth.value / 80),
+    opacity:
+      Platform.OS === "ios" || floatingTabsEnabled
+        ? 1
+        : Math.min(1, renderedSidebarWidth.value / 80),
     width: renderedSidebarWidth.value,
   }));
 
@@ -894,7 +897,8 @@ function AdaptiveWorkspaceLayoutContent(
                       </AndroidHomeFabLayout>
                     </AndroidWorkspaceSidebar>
                   </RenderErrorBoundary>
-                  {floatingTabsEnabled && !workspacePage && panes.primarySidebarVisible ? (
+                  {/* Keep the pill under the content throughout the sidebar's clipping animation. */}
+                  {floatingTabsEnabled && !workspacePage ? (
                     <FloatingWorkspaceTabs
                       paneWidth={layout.listPaneWidth}
                       onNewThread={handleStartNewTask}
@@ -944,7 +948,8 @@ function AdaptiveWorkspaceLayoutContent(
                               ...safeAreaInsets,
                               bottom:
                                 safeAreaInsets.bottom +
-                                2 * FLOATING_TABS.edge +
+                                FLOATING_TABS.bottom +
+                                FLOATING_TABS.edge +
                                 floatingTabs.height,
                             }
                           : compactAndroidSettings

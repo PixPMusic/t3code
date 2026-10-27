@@ -37,7 +37,8 @@ export function WorkspaceRootScreen() {
       ...workspace,
       bottomClearance: floatingTabsEnabled
         ? insets.bottom +
-          2 * FLOATING_TABS.edge +
+          FLOATING_TABS.bottom +
+          FLOATING_TABS.edge +
           Math.max(
             floating.height,
             workspace.state.selectedTab === "threads" ? floating.fabOffset + fabSize : 0,

@@ -179,7 +179,7 @@ export function FloatingWorkspaceTabs(props: {
         position: "absolute",
         left: Math.max(insets.left, FLOATING_TABS.edge) - FLOATING_TABS.shadow,
         right: 0,
-        bottom: insets.bottom + FLOATING_TABS.edge - FLOATING_TABS.shadow,
+        bottom: insets.bottom + FLOATING_TABS.bottom - FLOATING_TABS.shadow,
         alignItems: "flex-start",
       }}
     >
