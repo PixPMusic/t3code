@@ -2,7 +2,10 @@ import { useActiveNewTask } from "../../state/active-new-task";
 import { ThreadUndoNotice } from "../home/ThreadUndoNotice";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { resolveScratchProjectScopeKey } from "@t3tools/client-runtime/state/project-grouping";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
+import {
+  useAppearancePreferences,
+  useAndroidFloatingTabs,
+} from "../settings/appearance/AppearancePreferencesProvider";
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
@@ -18,11 +21,7 @@ import { Platform, StyleSheet, TextInput, View } from "react-native";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
-import {
-  useAndroidFloatingTabs,
-  FLOATING_TABS,
-  floatingTabsMetrics,
-} from "../workspace/floating-workspace-tabs";
+import { FLOATING_TABS, floatingTabsMetrics } from "../workspace/floating-workspace-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SearchBarCommands } from "react-native-screens";
 

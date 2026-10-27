@@ -1,3 +1,4 @@
+import { useAndroidFloatingTabs } from "../settings/appearance/AppearancePreferencesProvider";
 import { WorkspaceNoTabs } from "./WorkspaceNoTabs";
 import { useEnabledNavigationTabs } from "./navigation-tabs";
 import { NAVIGATION_TAB_ORDER } from "./navigation-tab-order";
@@ -15,11 +16,7 @@ import { PullRequestsScreen } from "../pull-requests/PullRequestsScreen";
 import { PullRequestToolbar } from "../pull-requests/PullRequestToolbar.android";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { AndroidWorkspaceNavigation, FloatingWorkspaceTabs } from "./AndroidWorkspaceNavigation";
-import {
-  useAndroidFloatingTabs,
-  FLOATING_TABS,
-  floatingTabsMetrics,
-} from "./floating-workspace-tabs";
+import { FLOATING_TABS, floatingTabsMetrics } from "./floating-workspace-tabs";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { WorkspaceTabPanes } from "./WorkspaceTabPanes";
 import type { WorkspaceTab } from "./workspace-tabs-state";
@@ -129,7 +126,7 @@ export function WorkspaceRootScreen() {
           )}
         </SafeAreaInsetsContext>
         {floatingTabsEnabled ? (
-          <FloatingWorkspaceTabs onNewThread={startNewTask} />
+          <FloatingWorkspaceTabs fillWidth onNewThread={startNewTask} />
         ) : (
           <AndroidWorkspaceNavigation onNewThread={startNewTask} />
         )}

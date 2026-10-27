@@ -64,6 +64,7 @@ export function AndroidWorkspaceNavigation(props: {
   readonly onNewThread: () => void;
   readonly rail?: boolean;
   readonly floating?: boolean;
+  readonly fillWidth?: boolean;
   readonly paneWidth?: number;
   readonly onSelect?: () => void;
   /** The rail needs the whole workspace while it widens over the list. */
@@ -84,7 +85,13 @@ export function AndroidWorkspaceNavigation(props: {
   const rail = Boolean(props.rail);
   const floating = !rail && Boolean(props.floating);
   const tabs = [...visibleNavigationTabs(order, hidden, rail ? 5 : 4), "settings"];
-  const metrics = floatingTabsMetrics(tabs.length, scale, fabSize, props.paneWidth ?? window.width);
+  const metrics = floatingTabsMetrics(
+    tabs.length,
+    scale,
+    fabSize,
+    props.paneWidth ?? window.width,
+    props.fillWidth,
+  );
   const { containerColor, indicatorColor, selectedColor, unselectedColor } =
     androidWorkspaceNavigationColors(colors, rail, floating);
   const selectedTab = selectedNavigationTab(
@@ -159,6 +166,7 @@ export function AndroidWorkspaceNavigation(props: {
 }
 
 export function FloatingWorkspaceTabs(props: {
+  readonly fillWidth?: boolean;
   readonly onNewThread: () => void;
   readonly paneWidth?: number;
   readonly onSelect?: () => void;

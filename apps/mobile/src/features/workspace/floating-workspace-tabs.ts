@@ -1,11 +1,3 @@
-import { Platform } from "react-native";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
-
-export function useAndroidFloatingTabs() {
-  const { androidNavigationStyle } = useAppearancePreferences();
-  return Platform.OS === "android" && androidNavigationStyle === "one-ui";
-}
-
 // Native shadows need room inside the Expo view, which clips its children.
 export const FLOATING_TABS = { edge: 16, gap: 12, shadow: 8 };
 
@@ -14,6 +6,7 @@ export function floatingTabsMetrics(
   scale: number,
   fabSize: number,
   paneWidth?: number,
+  fillWidth = false,
 ) {
   const unit = Math.max(1, scale);
   const height = fabSize;
@@ -27,7 +20,8 @@ export function floatingTabsMetrics(
         ? paneWidth - beside
         : paneWidth - 2 * FLOATING_TABS.edge;
   return {
-    pill: Math.min(count * 72 * unit, Math.max(0, room)),
+    // Reserve the compose slot even while its button is hidden.
+    pill: Math.max(0, fillWidth ? room : Math.min(count * 72 * unit, room)),
     height,
     row,
     sharesRow,

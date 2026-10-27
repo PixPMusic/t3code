@@ -1,3 +1,4 @@
+import { useAndroidFloatingTabs } from "../settings/appearance/AppearancePreferencesProvider";
 import { useState } from "react";
 import { useKeyboardState } from "react-native-keyboard-controller";
 import { Platform, View } from "react-native";
@@ -10,7 +11,6 @@ import {
   useNativeColumnLayoutMetrics,
 } from "../../native/native-layout-metrics";
 import { workspaceSearchBottomClearance } from "../workspace/workspace-tabs-state";
-import { useAndroidFloatingTabs } from "../workspace/floating-workspace-tabs";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import {
   dismissThreadUndoNotice,
