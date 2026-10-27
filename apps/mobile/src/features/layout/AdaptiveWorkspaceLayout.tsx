@@ -871,7 +871,11 @@ function AdaptiveWorkspaceLayoutContent(
                       onRequestVisibility={revealPrimarySidebar}
                       selectedPullRequestKey={props.selectedPullRequestKey ?? null}
                     >
-                      <AndroidHomeFabLayout sidebar onStartNewTask={handleStartNewTask}>
+                      <AndroidHomeFabLayout
+                        sidebar
+                        disabled={workspacePage}
+                        onStartNewTask={handleStartNewTask}
+                      >
                         <ThreadNavigationSidebar
                           width={layout.listPaneWidth}
                           visible={panes.primarySidebarVisible}
