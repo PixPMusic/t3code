@@ -33,7 +33,12 @@ export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidH
   const [expanded, setExpanded] = useState(true);
   const { scale, fabSize } = useAndroidControlSizing();
   const tabs = useEnabledNavigationTabs();
-  const floating = floatingTabsMetrics(tabs.length + 1, scale, fabSize, layoutWidth ?? undefined);
+  const floating = floatingTabsMetrics(
+    tabs.length + 1,
+    scale,
+    fabSize,
+    props.paneWidth ?? layoutWidth ?? undefined,
+  );
   const workspace = useWorkspaceTabs();
   const bottomClearance =
     insets.bottom +
