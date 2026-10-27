@@ -17,7 +17,12 @@ export function segmentedControlColors(
   const dark = appearance === "dark";
   const card = variant === "card";
   const trackColor = card
-    ? colors[dark ? "--color-screen" : "--color-grouped-card"]
+    ? dark
+      ? colors["--color-screen"]
+      : flattenThemeColor(
+          themeColorWithAlpha(colors["--color-foreground"], 0.07),
+          colors["--color-grouped-card"],
+        )
     : flattenThemeColor(
         themeColorWithAlpha(colors["--color-prominent-action"], dark ? 0.18 : 0.07),
         colors["--color-screen"],
