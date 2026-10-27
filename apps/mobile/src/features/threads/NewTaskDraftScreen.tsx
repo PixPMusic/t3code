@@ -22,6 +22,7 @@ import { settlePromise, squashAtomCommandFailure } from "@t3tools/client-runtime
 import {
   CommonActions,
   StackActions,
+  useIsFocused,
   useNavigation,
   usePreventRemove,
 } from "@react-navigation/native";
@@ -158,6 +159,7 @@ export function NewTaskDraftScreen(props: {
   const projects = useProjects();
   const flow = useNewTaskFlow();
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const goBack = useWorkspaceBackNavigation("threads");
   const {
     consumeShare,
@@ -425,6 +427,7 @@ export function NewTaskDraftScreen(props: {
   }, [navigation, openDraft, projects, props.draftId]);
 
   const lastInitialProjectRefRef = useRef(props.initialProjectRef);
+  const initialPickerRef = useRef<"open" | "dismissed" | null>(null);
 
   useEffect(() => {
     if (props.draftId) {
@@ -486,16 +489,38 @@ export function NewTaskDraftScreen(props: {
       return;
     }
 
-    const selection = resolveDraftProjectSelection(selectedProjectKey, projects);
+    const selection = resolveDraftProjectSelection(selectedProjectKey, projects, projectScopes, {
+      incomingShareId: props.incomingShareId,
+      pickerClosed: initialPickerRef.current === "open" && isFocused,
+    });
     if (selection.kind === "preserve") {
+      initialPickerRef.current = null;
       return;
     }
-    navigation.dispatch(CommonActions.navigate("NewTaskProject"));
+    if (selection.kind === "select") {
+      setProject(selection.project);
+      return;
+    }
+    if (selection.kind === "dismiss") {
+      initialPickerRef.current = "dismissed";
+      goBack();
+      return;
+    }
+    // Open the first picker once; catalog updates must not push it again over a cancelled draft.
+    if (initialPickerRef.current !== null) {
+      return;
+    }
+    initialPickerRef.current = "open";
+    navigation.dispatch(
+      CommonActions.navigate("NewTaskProject", { incomingShareId: props.incomingShareId }),
+    );
   }, [
+    goBack,
+    isFocused,
+    projectScopes,
     projects,
     flow.draftKey,
     props.initialProjectRef,
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Opening a draft from a share or draft id re-resolves its project.
     props.incomingShareId,
     props.draftId,
     navigation,

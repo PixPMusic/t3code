@@ -2,6 +2,7 @@ import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
+import type { HomeProjectScope } from "../home/homeThreadList";
 import {
   newTaskDestination,
   resolveDraftProjectSelection,
@@ -36,6 +37,19 @@ function makeProject(
     scripts: [],
     createdAt: "2026-07-01T00:00:00.000Z",
     updatedAt: "2026-07-01T00:00:00.000Z",
+  };
+}
+
+function makeScope(projects: ReadonlyArray<EnvironmentProject>): HomeProjectScope {
+  return {
+    key: "github.com/t3tools/t3code",
+    title: "T3 Code",
+    representative: projects[0]!,
+    projects,
+    projectRefs: projects.map((project) => ({
+      environmentId: project.environmentId,
+      projectId: project.id,
+    })),
   };
 }
 
@@ -81,8 +95,31 @@ describe("resolveEnvironmentProjectMatch", () => {
 });
 
 describe("resolveDraftProjectSelection", () => {
+  const projects = [makeProject("t3code"), makeProject("t3code-2")];
+  const draft = { incomingShareId: undefined, pickerClosed: false };
+
   it("opens the picker instead of auto-selecting the only project", () => {
-    expect(resolveDraftProjectSelection(null, [makeProject("only")])).toEqual({ kind: "pick" });
+    expect(resolveDraftProjectSelection(null, projects, [makeScope(projects)], draft)).toEqual({
+      kind: "pick",
+    });
+  });
+
+  it("selects the only logical project for shared content", () => {
+    expect(
+      resolveDraftProjectSelection(null, projects, [makeScope(projects)], {
+        ...draft,
+        incomingShareId: "share",
+      }),
+    ).toEqual({ kind: "select", project: projects[0] });
+  });
+
+  it("dismisses the draft when the first picker closes without a choice", () => {
+    expect(
+      resolveDraftProjectSelection(null, projects, [makeScope(projects)], {
+        ...draft,
+        pickerClosed: true,
+      }),
+    ).toEqual({ kind: "dismiss" });
   });
 });
 

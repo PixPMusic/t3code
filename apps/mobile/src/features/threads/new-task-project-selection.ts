@@ -4,7 +4,11 @@ import { repositoryGroupingKeyOf, type EnvironmentId } from "@t3tools/contracts"
 import { scopedProjectKey } from "../../lib/scopedEntities";
 import type { HomeProjectScope } from "../home/homeThreadList";
 
-type DraftProjectSelectionResolution = { readonly kind: "preserve" } | { readonly kind: "pick" };
+type DraftProjectSelectionResolution =
+  | { readonly kind: "preserve" }
+  | { readonly kind: "select"; readonly project: EnvironmentProject }
+  | { readonly kind: "pick" }
+  | { readonly kind: "dismiss" };
 
 export function getProjectScopeSelectionTarget(
   scope: HomeProjectScope,
@@ -78,6 +82,12 @@ export function resolveEnvironmentProjectMatch(
 export function resolveDraftProjectSelection(
   selectedProjectKey: string | null,
   projects: ReadonlyArray<EnvironmentProject>,
+  projectScopes: ReadonlyArray<HomeProjectScope>,
+  draft: {
+    readonly incomingShareId: string | undefined;
+    /** The draft's first project picker closed and the draft is showing again. */
+    readonly pickerClosed: boolean;
+  },
 ): DraftProjectSelectionResolution {
   const hasExplicitProjectSelection =
     selectedProjectKey !== null &&
@@ -87,8 +97,13 @@ export function resolveDraftProjectSelection(
   if (hasExplicitProjectSelection) {
     return { kind: "preserve" };
   }
+  if (draft.pickerClosed && selectedProjectKey === null) {
+    return { kind: "dismiss" };
+  }
 
-  return { kind: "pick" };
+  const onlyScope =
+    draft.incomingShareId !== undefined && projectScopes.length === 1 ? projectScopes[0] : null;
+  return onlyScope ? { kind: "select", project: onlyScope.representative } : { kind: "pick" };
 }
 
 type ProjectRef = { readonly environmentId: string; readonly projectId: string };
