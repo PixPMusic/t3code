@@ -1,12 +1,10 @@
 import { useSidebarWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
 import { Button } from "../../components/ui/Button";
+import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import * as Dialog from "../../components/ui/Dialog";
 import type { ComposerTextPaste } from "../../native/T3ComposerEditor.types";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
-import {
-  useAppearancePreferences,
-  useAndroidFloatingTabs,
-} from "../settings/appearance/AppearancePreferencesProvider";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { settlePromise, squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { AsyncResult } from "effect/reactivity";
@@ -163,6 +161,7 @@ export function useCompactComposerEditor(text: ScaledTextRole, value: string) {
   }));
   return {
     isExpanded,
+    compactRowHeight,
     containerStyle: { height: isExpanded ? height + 52 : compactRowHeight },
     editorStyle,
     onRowLayout: (event: { nativeEvent: { layout: { width: number } } }) => {
@@ -565,7 +564,8 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const isVoiceInputPresented = voicePresentation.statusLabel !== null;
   const isExpanded = isFocused || settingsSheetPresentation.keepsComposerExpanded;
   const { layout, setComposerEditing } = useAdaptiveWorkspaceLayout();
-  const floatingSidebarComposer = useAndroidFloatingTabs() && layout.usesSplitView;
+  const splitAndroidComposer = Platform.OS === "android" && layout.usesSplitView;
+  const { fabSize } = useAndroidControlSizing();
   const usesLargeControls =
     useSidebarWorkspaceTabs() === "picker" || (Platform.OS === "ios" && Platform.isPad);
   const [compactRowWidth, setCompactRowWidth] = useState(0);
@@ -860,7 +860,11 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
             borderRadius: usesLargeControls ? 31 : 27,
             borderCurve: "circular",
             overflow: "hidden",
-            paddingVertical: usesLargeControls ? 9 : floatingSidebarComposer ? 6 : 2,
+            paddingVertical: usesLargeControls
+              ? 9
+              : splitAndroidComposer
+                ? Math.max(2, (fabSize - compactEditor.compactRowHeight) / 2)
+                : 2,
           }}
         >
           {isExpanded ? editingAttachments : null}
