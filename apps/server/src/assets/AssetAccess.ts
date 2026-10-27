@@ -66,7 +66,12 @@ import * as NativeAppIconResolver from "./NativeAppIconResolver.ts";
 import * as WorkspacePreviewRevisions from "./WorkspacePreviewRevisions.ts";
 import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import { extractIcnsPng } from "./icns.ts";
-import { openMediaFile, readMediaFileHeader, type OpenMediaFile } from "./MediaFile.ts";
+import {
+  mediaFileRevision,
+  openMediaFile,
+  readMediaFileHeader,
+  type OpenMediaFile,
+} from "./MediaFile.ts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
 export const ASSET_ROUTE_PREFIX = "/api/assets";
@@ -411,7 +416,7 @@ const finalizeAbsoluteMediaFileAsset = Effect.fn("AssetAccess.finalizeAbsoluteMe
                 : Effect.succeed(null),
               (dimensions) => ({
                 identity: { device: file.info.dev.toString(), inode: file.info.ino.toString() },
-                fileRevision: `${file.info.dev}:${file.info.ino}:${file.info.size}:${file.info.mtimeNs}:${file.info.ctimeNs}`,
+                fileRevision: mediaFileRevision(file.info),
                 dimensions,
               }),
             ),
@@ -513,7 +518,7 @@ const finalizeWorkspaceFileAsset = Effect.fn("AssetAccess.finalizeWorkspaceFileA
       const file = yield* openMediaFile(canonicalFile);
       if (file === null) return null;
       return {
-        fileRevision: `${file.info.dev}:${file.info.ino}:${file.info.size}:${file.info.mtimeNs}:${file.info.ctimeNs}`,
+        fileRevision: mediaFileRevision(file.info),
         imageDimensions: HEADER_IMAGE_EXTENSIONS.has(
           path.extname(resolved.relativePath).toLowerCase(),
         )

@@ -7,7 +7,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 
-import { openMediaFile } from "./MediaFile.ts";
+import { mediaFileRevision, openMediaFile } from "./MediaFile.ts";
 
 interface PreviewDirectory {
   readonly workspaceRoot: string;
@@ -52,11 +52,7 @@ const make = Effect.gen(function* () {
       .pipe(Effect.orElseSucceed(() => null));
     if (canonical === null || !isWithinRoot(path, canonical, workspaceRoot)) return null;
     return yield* openMediaFile(canonical).pipe(
-      Effect.map((file) =>
-        file === null
-          ? null
-          : `${file.info.dev}:${file.info.ino}:${file.info.size}:${file.info.mtimeNs}:${file.info.ctimeNs}`,
-      ),
+      Effect.map((file) => (file === null ? null : mediaFileRevision(file.info))),
       Effect.scoped,
       Effect.orElseSucceed(() => null),
     );
@@ -90,7 +86,8 @@ const make = Effect.gen(function* () {
     if (entry.overflow) return undefined;
     yield* Effect.forEach(
       [...entry.files.keys()],
-      Effect.fn("WorkspacePreviewRevisions.recheck")(function* (relativePath) {
+      // The revision and readFile spans already cover these per-path rechecks.
+      Effect.fnUntraced(function* (relativePath) {
         const revision = yield* readRevision(input.workspaceRoot, relativePath);
         if (entry.files.get(relativePath) !== revision) {
           entry.version++;
