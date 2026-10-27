@@ -109,8 +109,8 @@ describe("v2 thread shell lists", () => {
     registry.dispose();
   });
 
-  it("does not notify navigation subscribers for streaming-only updates", () => {
-    const { registry, threads, snapshotAtom } = makeHarness([environmentId, remoteEnvironmentId]);
+  it("keeps navigation and its rows through streaming ticks while the live shell follows", () => {
+    const { registry, threads, snapshotAtom } = makeHarness();
     const runId = RunId.make("navigation-run");
     const running: OrchestrationV2ThreadShell = {
       ...v2ThreadShell,
@@ -120,76 +120,101 @@ describe("v2 thread shell lists", () => {
       itemCount: 1,
       visibleItemCount: 1,
     };
-    const setThread = (thread: OrchestrationV2ThreadShell, sequence: number) =>
+    const idle = { ...v2ThreadShell, id: ThreadId.make("idle") };
+    const setRunning = (thread: OrchestrationV2ThreadShell, sequence: number) =>
       registry.set(snapshotAtom(environmentId), {
         ...v2ShellSnapshot,
         snapshotSequence: sequence,
-        threads: [thread],
+        threads: [thread, idle],
       });
-    setThread(running, 1);
-    let notifications = 0;
-    const dispose = registry.subscribe(threads.navigationThreadShellsAtom, () => notifications++);
+    setRunning(running, 1);
+    const ref = { environmentId, threadId: running.id };
+    const dispose = registry.mount(threads.navigationThreadShellsAtom);
     try {
       const before = registry.get(threads.navigationThreadShellsAtom);
-      notifications = 0;
-      for (let index = 1; index <= 100; index++) {
-        const updatedAt = DateTime.add(v2Now, { seconds: index });
-        setThread(
+      const [runningRow, idleRow] = before;
+      for (let tick = 1; tick <= 3; tick++) {
+        const updatedAt = DateTime.add(v2Now, { seconds: tick });
+        setRunning(
           {
             ...running,
             updatedAt,
-            itemCount: index + 1,
-            visibleItemCount: index + 1,
+            itemCount: tick + 1,
+            visibleItemCount: tick + 1,
             latestVisibleMessage: {
               id: MessageId.make("streaming-message"),
               role: "assistant",
-              text: `Chunk ${index}`,
+              text: `Chunk ${tick}`,
               updatedAt,
             },
           },
-          index + 1,
+          tick + 1,
         );
-        registry.get(threads.navigationThreadShellsAtom);
+        expect(registry.get(threads.navigationThreadShellsAtom)).toBe(before);
       }
-      expect(notifications).toBe(0);
-      expect(registry.get(threads.navigationThreadShellsAtom)).toBe(before);
-      expect(
-        registry.get(threads.threadShellAtom({ environmentId, threadId: running.id }))?.itemCount,
-      ).toBe(101);
+      expect(registry.get(threads.threadShellAtom(ref))?.itemCount).toBe(4);
+      expect(registry.get(threads.threadShellAtom(ref))?.source.latestVisibleMessage?.text).toBe(
+        "Chunk 3",
+      );
 
-      setThread({ ...running, title: "Renamed" }, 102);
-      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.title).toBe("Renamed");
-      expect(notifications).toBe(1);
-      expect(registry.get(threads.navigationThreadShellsAtom)[1]).toBe(before[1]);
+      setRunning({ ...running, title: "Renamed" }, 5);
+      const renamed = registry.get(threads.navigationThreadShellsAtom);
+      expect(renamed).not.toBe(before);
+      expect(renamed[0]).not.toBe(runningRow);
+      expect(renamed[0]?.title).toBe("Renamed");
+      expect(renamed[1]).toBe(idleRow);
+    } finally {
+      dispose();
+      registry.dispose();
+    }
+  });
 
-      setThread({ ...running, itemCount: 0, visibleItemCount: 0 }, 103);
-      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.itemCount).toBe(0);
-      setThread(running, 104);
-      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.itemCount).toBe(1);
-      const waiting = { ...running, status: "waiting" as const };
-      setThread(waiting, 105);
-      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.source.status).toBe("waiting");
-      setThread(
-        {
-          ...waiting,
-          pendingRuntimeRequest: {
-            id: RuntimeRequestId.make("navigation-approval"),
-            kind: "command",
-            createdAt: v2Now,
-          },
+  it("rebuilds navigation for running-thread changes a list shows", () => {
+    const { registry, threads, snapshotAtom } = makeHarness();
+    const runId = RunId.make("navigation-run");
+    const running: OrchestrationV2ThreadShell = {
+      ...v2ThreadShell,
+      latestRunId: runId,
+      activeRunId: runId,
+      status: "running",
+      itemCount: 1,
+      visibleItemCount: 1,
+    };
+    const completed = { ...running, activeRunId: null, status: "completed" as const };
+    const changes: ReadonlyArray<OrchestrationV2ThreadShell> = [
+      { ...running, itemCount: 0, visibleItemCount: 0 },
+      { ...running, status: "waiting" },
+      {
+        ...running,
+        pendingRuntimeRequest: {
+          id: RuntimeRequestId.make("navigation-approval"),
+          kind: "command",
+          createdAt: v2Now,
         },
-        106,
-      );
-      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.hasPendingApprovals).toBe(true);
-      const completed = { ...running, activeRunId: null, status: "completed" as const };
-      setThread(completed, 107);
-      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.source.status).toBe("completed");
-      const updatedAt = DateTime.add(v2Now, { seconds: 108 });
-      setThread({ ...completed, updatedAt }, 108);
-      expect(registry.get(threads.navigationThreadShellsAtom)[0]?.updatedAt).toBe(
-        DateTime.formatIso(updatedAt),
-      );
-      expect(notifications).toBe(7);
+      },
+      completed,
+      { ...completed, updatedAt: DateTime.add(v2Now, { seconds: 1 }) },
+    ];
+    const dispose = registry.mount(threads.navigationThreadShellsAtom);
+    try {
+      let sequence = 0;
+      for (const [index, change] of changes.entries()) {
+        const from = index === changes.length - 1 ? completed : running;
+        registry.set(snapshotAtom(environmentId), {
+          ...v2ShellSnapshot,
+          snapshotSequence: ++sequence,
+          threads: [from],
+        });
+        const before = registry.get(threads.navigationThreadShellsAtom);
+        registry.set(snapshotAtom(environmentId), {
+          ...v2ShellSnapshot,
+          snapshotSequence: ++sequence,
+          threads: [change],
+        });
+        const after = registry.get(threads.navigationThreadShellsAtom);
+        expect(after).not.toBe(before);
+        expect(after[0]?.source).toBe(change);
+      }
     } finally {
       dispose();
       registry.dispose();
