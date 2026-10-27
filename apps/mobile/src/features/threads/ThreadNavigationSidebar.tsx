@@ -17,6 +17,12 @@ import type { LayoutChangeEvent, TextInputInstance } from "react-native";
 import { Platform, StyleSheet, TextInput, View } from "react-native";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
+import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
+import {
+  ANDROID_FLOATING_TABS,
+  FLOATING_TABS,
+  floatingTabsMetrics,
+} from "../workspace/floating-workspace-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SearchBarCommands } from "react-native-screens";
 
@@ -136,7 +142,9 @@ function ThreadNavigationSidebarPane(
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
-  const { fabClearance } = useAndroidControlSizing();
+  const { fabClearance, scale, fabSize } = useAndroidControlSizing();
+  const enabledTabs = useEnabledNavigationTabs();
+  const floatingTabs = floatingTabsMetrics(enabledTabs.length + 1, scale, fabSize, props.width);
   const projects = useProjects();
   const threads = useNavigationThreadShells();
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
@@ -830,7 +838,11 @@ function ThreadNavigationSidebarPane(
                   {
                     paddingBottom:
                       Platform.OS === "android"
-                        ? Math.max(insets.bottom, 16) + fabClearance - insets.bottom
+                        ? ANDROID_FLOATING_TABS
+                          ? insets.bottom +
+                            2 * FLOATING_TABS.edge +
+                            Math.max(floatingTabs.height, floatingTabs.fabOffset + fabSize)
+                          : Math.max(insets.bottom, 16) + fabClearance - insets.bottom
                         : 16 + insets.bottom,
                     paddingTop: Platform.OS === "android" ? 6 : topListInset,
                   },
