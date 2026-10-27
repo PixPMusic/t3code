@@ -2,6 +2,11 @@ import { useState } from "react";
 import { I18nManager, Platform, Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, withTiming } from "react-native-reanimated";
 
+import {
+  flattenThemeColor,
+  themeColorWithAlpha,
+  themeColorWithContrast,
+} from "../../lib/mobileTheme";
 import { AppText } from "./AppText";
 import { useControlTheme } from "./useControlTheme";
 import type { SegmentedControlProps } from "./SegmentedControl.types";
@@ -23,6 +28,18 @@ export function SegmentedControl<Value extends string | number>(
     transform: [{ translateX: withTiming(selectionOffset, { duration: reduceMotion ? 0 : 160 }) }],
   }));
   const dark = colorScheme === "dark";
+  const trackColor = flattenThemeColor(
+    themeColorWithAlpha(colors["--color-prominent-action"], dark ? 0.18 : 0.07),
+    colors["--color-screen"],
+  );
+  const selectedColor = colors[dark ? "--color-prominent-action" : "--color-secondary"];
+  const selectedTextColor =
+    colors[dark ? "--color-prominent-action-foreground" : "--color-secondary-foreground"];
+  const mutedColor = themeColorWithContrast(
+    colors["--color-foreground-muted"],
+    trackColor,
+    dark ? 7 : 4.5,
+  );
   const minHeight = props.size === "compact" ? 32 : Platform.OS === "android" ? 40 : 36;
 
   return (
@@ -32,7 +49,7 @@ export function SegmentedControl<Value extends string | number>(
         className="flex-row rounded-full p-[3px]"
         style={{
           minHeight,
-          backgroundColor: colors[dark ? "--color-screen" : "--color-grouped-card"],
+          backgroundColor: trackColor,
         }}
       >
         {selectedIndex >= 0 && width > 0 ? (
@@ -41,7 +58,7 @@ export function SegmentedControl<Value extends string | number>(
             className="absolute bottom-[3px] start-[3px] top-[3px] rounded-full"
             style={[
               {
-                backgroundColor: colors[dark ? "--color-secondary" : "--color-screen"],
+                backgroundColor: selectedColor,
               },
               selectionStyle,
             ]}
@@ -63,8 +80,7 @@ export function SegmentedControl<Value extends string | number>(
                 textRole="footnote"
                 className={selected ? "font-t3-bold" : "font-t3-medium"}
                 style={{
-                  color:
-                    colors[selected ? "--color-secondary-foreground" : "--color-foreground-muted"],
+                  color: selected ? selectedTextColor : mutedColor,
                 }}
               >
                 {option.label}
