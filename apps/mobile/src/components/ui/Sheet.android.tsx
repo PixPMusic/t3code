@@ -14,7 +14,7 @@ export function Sheet(props: SheetProps) {
     <FormSheet
       isOpen={isOpen}
       detents={[0.5, 0.9]}
-      prefersGrabberVisible
+      prefersGrabberVisible={false}
       nativeContainerStyle={containerStyle}
       onDismiss={props.onClose}
       onNativeDismiss={props.onClose}
@@ -27,6 +27,10 @@ export function Sheet(props: SheetProps) {
           onBack={() => setIsOpen(false)}
           hideBottomBorder
           compact
+        />
+        <View
+          pointerEvents="none"
+          className="absolute top-1 h-1 w-8 self-center rounded-full bg-header-foreground/40"
         />
       </View>
     </FormSheet>
