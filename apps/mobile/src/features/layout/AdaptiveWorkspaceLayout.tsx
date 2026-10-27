@@ -1,3 +1,4 @@
+import { useAndroidFloatingTabs } from "../settings/appearance/AppearancePreferencesProvider";
 import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AdaptiveWorkspaceContext, useAdaptiveWorkspaceLayout } from "./adaptive-workspace-context";
 import { threadSelectionDeferral } from "./deferred-navigation";
@@ -57,11 +58,7 @@ import {
 } from "../keyboard/hardwareKeyboardCommands";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
-import {
-  useAndroidFloatingTabs,
-  FLOATING_TABS,
-  floatingTabsMetrics,
-} from "../workspace/floating-workspace-tabs";
+import { FLOATING_TABS, floatingTabsMetrics } from "../workspace/floating-workspace-tabs";
 import { AndroidHomeFabLayout } from "../home/AndroidHomeFab";
 import {
   AndroidWorkspaceNavigation,
@@ -955,7 +952,13 @@ function AdaptiveWorkspaceLayoutContent(
                     </SafeAreaInsetsContext>
                     {floatingTabsEnabled &&
                     (compactAndroidSettings || (layout.usesSplitView && workspacePage)) ? (
-                      <FloatingWorkspaceTabs onNewThread={handleStartNewTask} />
+                      <FloatingWorkspaceTabs
+                        paneWidth={
+                          layout.usesSplitView ? (layout.listPaneWidth ?? undefined) : undefined
+                        }
+                        fillWidth={compactAndroidSettings}
+                        onNewThread={handleStartNewTask}
+                      />
                     ) : compactAndroidSettings ? (
                       <AndroidWorkspaceNavigation onNewThread={handleStartNewTask} />
                     ) : null}

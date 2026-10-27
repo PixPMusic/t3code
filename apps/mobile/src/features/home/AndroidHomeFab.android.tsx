@@ -17,12 +17,11 @@ import { updateFabScroll } from "./fab-scroll";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { useEnabledNavigationTabs } from "../workspace/navigation-tabs";
 import { WorkspaceTabsContext, useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import { FLOATING_TABS, floatingTabsMetrics } from "../workspace/floating-workspace-tabs";
 import {
+  useAppearancePreferences,
   useAndroidFloatingTabs,
-  FLOATING_TABS,
-  floatingTabsMetrics,
-} from "../workspace/floating-workspace-tabs";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
+} from "../settings/appearance/AppearancePreferencesProvider";
 
 export function AndroidHomeFabLayout(props: ComponentProps<typeof SharedAndroidHomeFabLayout>) {
   const floatingTabsEnabled = useAndroidFloatingTabs();

@@ -390,3 +390,8 @@ export function useAppearancePreferences(): AppearancePreferencesContextValue {
   }
   return context;
 }
+
+export function useAndroidFloatingTabs() {
+  const { androidNavigationStyle } = useAppearancePreferences();
+  return Platform.OS === "android" && androidNavigationStyle === "one-ui";
+}
