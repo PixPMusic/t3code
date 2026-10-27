@@ -19,6 +19,8 @@ import {
 } from "@react-navigation/native-stack";
 import { use, type ComponentProps } from "react";
 
+import { RoutedFormSheetContext } from "../../components/ui/RoutedFormSheetContext";
+
 import { projectStackPresentation } from "../../native/workspace-stack-projection";
 import {
   WorkspaceColumnsRendererContext,
@@ -113,7 +115,19 @@ function WorkspaceStackNavigator({
           {...rest}
           state={state}
           describe={describe}
-          descriptors={descriptors}
+          descriptors={Object.fromEntries(
+            Object.entries(descriptors).map(([key, descriptor]) => [
+              key,
+              descriptor.options.presentation === "formSheet"
+                ? {
+                    ...descriptor,
+                    render: () => (
+                      <RoutedFormSheetContext value>{descriptor.render()}</RoutedFormSheetContext>
+                    ),
+                  }
+                : descriptor,
+            ]),
+          )}
           navigation={navigation}
         />
       </NavigationContent>
