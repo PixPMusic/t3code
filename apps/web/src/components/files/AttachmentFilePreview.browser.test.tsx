@@ -1,5 +1,5 @@
 import DocumentPages, { sanitizeDocumentHtml } from "./DocumentPages";
-import { act, render, stubGlobal, type Screen } from "../../../test/render";
+import { act, fakeTimers, render, stubGlobal, type Screen } from "../../../test/render";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
@@ -458,6 +458,7 @@ import { OFFICE_PREVIEW_MAX_COLUMNS, type OfficeWorkerResult } from "./officePre
 
 describe("workspace browser preview", () => {
   it("keeps scroll and form input through unrelated commands and reloads changed files", async () => {
+    using _timers = fakeTimers({ now: 0 });
     refresh.mockReset();
     assetUrlState.mockReset();
     const { WorkspaceBrowserPreview } = await import("./FilePreviewPanel");
@@ -489,11 +490,11 @@ describe("workspace browser preview", () => {
         URL.revokeObjectURL(url);
       },
     };
-    const state = (suffix: string, fileRevision?: string) =>
+    const state = (suffix: string, fileRevision?: string, expiresAt = 3_600_000) =>
       assetUrlState.mockReturnValue({
         _tag: "Success",
         url: `${url}#${suffix}`,
-        expiresAt: 3_600_000,
+        expiresAt,
         ...(fileRevision === undefined ? {} : { fileRevision }),
       });
     const preview = (mutation: string | null) => (
@@ -540,11 +541,18 @@ describe("workspace browser preview", () => {
     expect(edited).not.toBe(frame);
     expect(await readState(edited)).toEqual({ value: "", scrollTop: 0 });
 
+    state("renewed", "two", 7_200_000);
+    await screen.rerender(preview("renewed-command"));
+    expect(screen.container.querySelector("iframe")).toBe(edited);
+    await act(() => vi.advanceTimersByTime(3_570_000));
+    await vi.waitFor(() => expect(ready).toHaveBeenCalledTimes(3));
+    expect(screen.container.querySelector("iframe")).not.toBe(edited);
+
     state("legacy");
     await screen.rerender(preview("legacy-command"));
-    await vi.waitFor(() => expect(ready).toHaveBeenCalledTimes(3));
-    await screen.rerender(preview("legacy-edit"));
     await vi.waitFor(() => expect(ready).toHaveBeenCalledTimes(4));
+    await screen.rerender(preview("legacy-edit"));
+    await vi.waitFor(() => expect(ready).toHaveBeenCalledTimes(5));
   });
 });
 

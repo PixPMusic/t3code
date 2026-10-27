@@ -58,6 +58,7 @@ import { MorphIcon } from "~/components/MorphIcon";
 import { useRemoteOpenState } from "~/remoteOpen";
 import { useClientSettings, updateClientSettings } from "~/hooks/useSettings";
 import { useTheme } from "~/hooks/useTheme";
+import { useDeadlinePassed } from "~/hooks/useDeadline";
 import { getLocalStorageItem, setLocalStorageItem, useLocalStorage } from "~/hooks/useLocalStorage";
 import { resolveDiffThemeName } from "~/lib/diffRendering";
 import { PREFERRED_HIGHLIGHTER } from "~/lib/syntaxHighlighting";
@@ -244,6 +245,22 @@ export function WorkspaceBrowserPreview(props: {
     revision === null
       ? ""
       : `${assetUrl._tag === "Success" && assetUrl.url.includes("?") ? "&" : "?"}${fileRevision !== undefined ? "file" : "workspace"}-revision=${encodeURIComponent(revision)}`;
+  const documentRevision = JSON.stringify([props.environmentId, resource, revision]);
+  const [documentGrant, setDocumentGrant] = useState<{
+    revision: string;
+    expiresAt: number;
+  } | null>(null);
+  const documentGrantExpiring = useDeadlinePassed(
+    documentGrant === null ? null : documentGrant.expiresAt - 60_000,
+  );
+  if (
+    assetUrl._tag === "Success" &&
+    (documentGrant === null ||
+      documentGrant.revision !== documentRevision ||
+      (assetUrl.expiresAt > documentGrant.expiresAt && documentGrantExpiring))
+  ) {
+    setDocumentGrant({ revision: documentRevision, expiresAt: assetUrl.expiresAt });
+  }
 
   if (assetUrl._tag === "Failure") {
     return (
@@ -262,7 +279,7 @@ export function WorkspaceBrowserPreview(props: {
   return (
     <BrowserDocumentFrame
       src={`${assetUrl.url}${revisionSuffix}`}
-      documentKey={JSON.stringify([props.environmentId, resource, revision])}
+      documentKey={JSON.stringify([documentRevision, documentGrant?.expiresAt])}
       title={props.title}
       pdf={isPdfPreviewFile(props.absolutePath)}
     />
