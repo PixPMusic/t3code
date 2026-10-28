@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { View } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
-import { PullRequestMergeButton } from "./PullRequestMergeButton";
+import { SplitButton } from "../../components/ui/SplitButton";
 import { mobilePreferencesAtom, updateMobilePreferencesAtom } from "../../state/preferences";
 import { composerPullRequests } from "../../state/pull-requests";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -23,6 +23,7 @@ import {
 import { pullRequestStackMerge, singlePullRequestMergeAllowed } from "./pullRequestStack";
 import { pullRequestTarget, type PullRequestParams } from "./usePullRequestDiff";
 import { usePullRequestPermissions } from "./usePullRequestPermissions";
+import { PullRequestGlyph } from "./pullRequestGlyphs";
 import type { PullRequestStackState } from "./usePullRequestStack";
 
 export function PullRequestMergeControls(props: {
@@ -165,11 +166,12 @@ export function PullRequestMergeControls(props: {
   };
   return (
     <View className="gap-2 border-t border-border-subtle p-3">
-      <PullRequestMergeButton
+      <SplitButton
         label={busy ? "Working…" : !permissions.connected ? "Reconnect to merge" : label}
         accessibilityLabel={
           scope ? `${label}, ${scope.layers.length} stack layers through #${pr.number}` : label
         }
+        icon={PullRequestGlyph.merged}
         disabled={!canMerge}
         loading={busy || checkingStack}
         onPress={() => confirm("merge")}
@@ -191,7 +193,7 @@ export function PullRequestMergeControls(props: {
               ]
             : []),
         ]}
-        onSelectAction={(id) => {
+        onPressAction={(id) => {
           const selected = methods.find((method) => method === id);
           if (selected) {
             setSelectedMethod(selected);

@@ -1,26 +1,11 @@
-import { PullRequestGlyph } from "./pullRequestGlyphs";
-import type { MenuAction } from "@react-native-menu/menu";
 import { Pressable, View } from "react-native";
-import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
-import { AppText } from "../../components/ui/AppText";
-import { SymbolView } from "../../components/ui/AppSymbol";
-import { Menu } from "../../components/ui/Menu";
+import { AppActivityIndicator } from "./AppActivityIndicator";
+import { AppText } from "./AppText";
+import { SymbolView } from "./AppSymbol";
+import { Menu } from "./Menu";
+import type { SplitButtonProps } from "./SplitButton.types";
 
-export interface PullRequestMergeButtonProps {
-  readonly label: string;
-  readonly accessibilityLabel?: string;
-  readonly disabled: boolean;
-  readonly loading: boolean;
-  readonly onPress: () => void;
-  readonly menuTitle: string;
-  readonly actions: (Pick<MenuAction, "title" | "state" | "image"> & {
-    readonly id: string;
-    readonly attributes?: { readonly disabled?: boolean };
-  })[];
-  readonly onSelectAction: (id: string) => void;
-}
-
-export function PullRequestMergeButton(props: PullRequestMergeButtonProps) {
+export function SplitButton(props: SplitButtonProps) {
   const active = !props.disabled;
   const menuEnabled = props.actions.some((action) => !action.attributes?.disabled);
   return (
@@ -30,20 +15,20 @@ export function PullRequestMergeButton(props: PullRequestMergeButtonProps) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={props.accessibilityLabel ?? props.label}
-        accessibilityState={{ disabled: props.disabled, busy: props.loading }}
+        accessibilityState={{ disabled: Boolean(props.disabled), busy: Boolean(props.loading) }}
         disabled={props.disabled}
         onPress={props.onPress}
         className="min-h-11 min-w-0 flex-1 flex-row items-center justify-center gap-2 px-3 py-2 active:opacity-70"
       >
         {props.loading ? (
           <AppActivityIndicator size="small" colorClassName="accent-icon-muted" />
-        ) : (
+        ) : props.icon ? (
           <SymbolView
-            name={PullRequestGlyph.merged}
+            name={props.icon}
             size={16}
             tintColorClassName={active ? "accent-prominent-action-foreground" : "accent-icon-muted"}
           />
-        )}
+        ) : null}
         <AppText
           className={`shrink text-center text-sm font-t3-semibold ${active ? "text-prominent-action-foreground" : "text-foreground-muted"}`}
         >
@@ -55,7 +40,7 @@ export function PullRequestMergeButton(props: PullRequestMergeButtonProps) {
           <Menu
             title={props.menuTitle}
             actions={props.actions}
-            onPressAction={({ nativeEvent }) => props.onSelectAction(nativeEvent.event)}
+            onPressAction={({ nativeEvent }) => props.onPressAction(nativeEvent.event)}
           >
             <Pressable
               accessibilityRole="button"
