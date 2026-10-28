@@ -26,6 +26,7 @@ import {
 } from "@t3tools/shared/model";
 import { memo, type ReactNode, useRef } from "react";
 import { GaugeIcon, ZapIcon } from "lucide-react";
+import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import {
   Menu,
   MenuGroup,
@@ -109,6 +110,79 @@ function DefaultBadge() {
     <Badge variant="outline" size="sm" className="min-w-0">
       Default
     </Badge>
+  );
+}
+
+function ReasoningSlider({
+  descriptor,
+  value,
+  disabled,
+  onValueChange,
+}: {
+  descriptor: Extract<ProviderOptionDescriptor, { type: "select" }>;
+  value: string;
+  disabled: boolean;
+  onValueChange: (value: string) => void;
+}) {
+  const options = selectableProviderOptionChoices(descriptor);
+  const index = options.findIndex((option) => option.id === value);
+  const option = options[index];
+
+  return (
+    <div className="grid gap-1 px-2 pt-1.5 pb-2">
+      <div className="flex min-h-5 items-center justify-between gap-3">
+        <span className="font-medium text-muted-foreground text-xs">{descriptor.label}</span>
+        <span className="flex items-center gap-1 text-sm">
+          <span>{option?.label ?? value}</span>
+          {option?.isDefault ? <DefaultBadge /> : null}
+        </span>
+      </div>
+      <div className="relative flex h-6 items-center">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-2 flex justify-between"
+        >
+          {options.map((choice) => (
+            <span key={choice.id} className="z-1 h-2 w-px bg-foreground/40" />
+          ))}
+        </div>
+        <MenuPrimitive.Item
+          label={descriptor.label}
+          disabled={disabled}
+          closeOnClick={false}
+          render={(props) => (
+            <input
+              {...props}
+              type="range"
+              role="slider"
+              aria-label={descriptor.label}
+              aria-valuetext={`${option?.label ?? value}${option?.isDefault ? " (default)" : ""}`}
+              disabled={disabled}
+              min={0}
+              max={options.length - 1}
+              step={1}
+              value={Math.max(0, index)}
+              onChange={(event) => {
+                const next = options[event.currentTarget.valueAsNumber];
+                if (next) onValueChange(next.id);
+              }}
+              onKeyDown={(event) => {
+                props.onKeyDown?.(event);
+                if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+                  event.stopPropagation();
+                }
+              }}
+              className="relative m-0 h-6 w-full cursor-pointer appearance-none rounded-sm bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-64 [&::-moz-range-thumb]:relative [&::-moz-range-thumb]:z-2 [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-foreground/15 [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-foreground/15 [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-2 [&::-webkit-slider-thumb]:-mt-1.5 [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground"
+            />
+          )}
+        />
+      </div>
+      {option?.description ? (
+        <div className="max-w-64 text-pretty text-muted-foreground/80 text-xs">
+          {option.description}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -340,6 +414,7 @@ export const TraitsMenuContent = memo(function TraitsMenuContentImpl({
   reportedModelSelection,
   allowPromptInjectedEffort = true,
   planModeEnabled,
+  isComposerOwned,
   ...persistence
 }: TraitsMenuContentProps & TraitsPersistence) {
   const modelSelection =
@@ -433,46 +508,64 @@ export const TraitsMenuContent = memo(function TraitsMenuContentImpl({
           ultrathinkPromptControlled && descriptor.id === primarySelectDescriptor?.id
             ? "ultrathink"
             : (getDescriptorStringValue(descriptor, modelSelection, reportedModelSelection) ?? "");
+        const useSlider =
+          isComposerOwned &&
+          REASONING_SELECT_DESCRIPTOR_IDS.has(descriptor.id) &&
+          descriptor.options.length > 1 &&
+          descriptor.options.some((option) => option.id === selectedValue);
 
         return (
           <div key={descriptor.id}>
             {index > 0 ? <MenuDivider /> : null}
             <MenuGroup>
-              <div className="px-2 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
-                {descriptor.label}
-              </div>
+              {useSlider ? null : (
+                <div className="px-2 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
+                  {descriptor.label}
+                </div>
+              )}
               {ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id ? (
                 <div className="px-2 pb-1.5 text-muted-foreground/80 text-xs">
                   Your prompt contains &quot;ultrathink&quot; in the text. Remove it to change this
                   option.
                 </div>
               ) : null}
-              <MenuRadioGroup
-                value={selectedValue}
-                onValueChange={(value) => handleSelectChange(descriptor, value)}
-              >
-                {selectableProviderOptionChoices(descriptor).map((option) => (
-                  <MenuRadioItem
-                    key={option.id}
-                    value={option.id}
-                    hideIndicator
-                    closeOnClick
-                    disabled={ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id}
-                  >
-                    <span className="flex w-full min-w-0 flex-col">
-                      <span className="flex min-w-0 items-center gap-1">
-                        <span className="min-w-0 truncate">{option.label}</span>
-                        {option.isDefault ? <DefaultBadge /> : null}
-                      </span>
-                      {option.description ? (
-                        <span className="max-w-56 text-pretty text-muted-foreground/80 text-xs">
-                          {option.description}
+              {useSlider ? (
+                <ReasoningSlider
+                  descriptor={descriptor}
+                  value={selectedValue}
+                  disabled={ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id}
+                  onValueChange={(value) => handleSelectChange(descriptor, value)}
+                />
+              ) : (
+                <MenuRadioGroup
+                  value={selectedValue}
+                  onValueChange={(value) => handleSelectChange(descriptor, value)}
+                >
+                  {selectableProviderOptionChoices(descriptor).map((option) => (
+                    <MenuRadioItem
+                      key={option.id}
+                      value={option.id}
+                      hideIndicator
+                      closeOnClick
+                      disabled={
+                        ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id
+                      }
+                    >
+                      <span className="flex w-full min-w-0 flex-col">
+                        <span className="flex min-w-0 items-center gap-1">
+                          <span className="min-w-0 truncate">{option.label}</span>
+                          {option.isDefault ? <DefaultBadge /> : null}
                         </span>
-                      ) : null}
-                    </span>
-                  </MenuRadioItem>
-                ))}
-              </MenuRadioGroup>
+                        {option.description ? (
+                          <span className="max-w-56 text-pretty text-muted-foreground/80 text-xs">
+                            {option.description}
+                          </span>
+                        ) : null}
+                      </span>
+                    </MenuRadioItem>
+                  ))}
+                </MenuRadioGroup>
+              )}
             </MenuGroup>
           </div>
         );
@@ -742,6 +835,7 @@ export const TraitsPicker = memo(function TraitsPicker({
           reportedModelSelection={reportedModelSelection}
           allowPromptInjectedEffort={allowPromptInjectedEffort}
           planModeEnabled={planModeEnabled}
+          {...(isComposerOwned ? { isComposerOwned } : {})}
           {...persistence}
         />
         {extraMenuContent ? (
