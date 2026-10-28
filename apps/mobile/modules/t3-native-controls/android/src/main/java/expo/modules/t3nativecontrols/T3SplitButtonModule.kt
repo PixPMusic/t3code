@@ -152,12 +152,21 @@ private fun splitButtonMenu(
   colors: ComposeButtonColors,
   onSelect: (String) -> Unit
 ) {
-  var expanded by remember { mutableStateOf(false) }
+  val enabled = props.actions.any { it.enabled }
+  var expanded by remember(enabled) { mutableStateOf(false) }
   Box(propagateMinConstraints = true) {
     SplitButtonDefaults.TrailingButton(
       checked = expanded,
       onCheckedChange = { expanded = it },
-      colors = colors,
+      enabled = enabled,
+      colors = if (props.enabled && !props.loading) {
+        colors
+      } else {
+        colors.copy(
+          containerColor = colors.disabledContainerColor,
+          contentColor = colors.disabledContentColor
+        )
+      },
       modifier = Modifier.width((48 * props.scale).dp).heightIn(min = (48 * props.scale).dp)
         .semantics { contentDescription = props.menuTitle }
     ) {

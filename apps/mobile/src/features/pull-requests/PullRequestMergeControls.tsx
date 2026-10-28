@@ -179,7 +179,7 @@ export function PullRequestMergeControls(props: {
             id,
             title: MERGE_METHODS[id].title,
             state: id === method ? ("on" as const) : ("off" as const),
-            attributes: { disabled: busy },
+            attributes: { disabled: !canMerge && !canAutoMerge },
           })),
           ...(canAutoMerge
             ? [

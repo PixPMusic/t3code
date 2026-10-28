@@ -22,6 +22,7 @@ export interface PullRequestMergeButtonProps {
 
 export function PullRequestMergeButton(props: PullRequestMergeButtonProps) {
   const active = !props.disabled;
+  const menuEnabled = props.actions.some((action) => !action.attributes?.disabled);
   return (
     <View
       className={`flex-row overflow-hidden rounded-xl border-continuous ${active ? "bg-prominent-action" : "bg-subtle-strong"}`}
@@ -50,25 +51,29 @@ export function PullRequestMergeButton(props: PullRequestMergeButtonProps) {
         </AppText>
       </Pressable>
       {props.actions.length > 0 ? (
-        <Menu
-          title={props.menuTitle}
-          actions={props.actions}
-          onPressAction={({ nativeEvent }) => props.onSelectAction(nativeEvent.event)}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={props.menuTitle}
-            className="min-h-11 w-11 items-center justify-center border-l border-border-subtle"
+        <View pointerEvents={menuEnabled ? "auto" : "none"}>
+          <Menu
+            title={props.menuTitle}
+            actions={props.actions}
+            onPressAction={({ nativeEvent }) => props.onSelectAction(nativeEvent.event)}
           >
-            <SymbolView
-              name="chevron.down"
-              size={13}
-              tintColorClassName={
-                active ? "accent-prominent-action-foreground" : "accent-icon-muted"
-              }
-            />
-          </Pressable>
-        </Menu>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={props.menuTitle}
+              accessibilityState={{ disabled: !menuEnabled }}
+              disabled={!menuEnabled}
+              className="min-h-11 w-11 items-center justify-center border-l border-border-subtle"
+            >
+              <SymbolView
+                name="chevron.down"
+                size={13}
+                tintColorClassName={
+                  active ? "accent-prominent-action-foreground" : "accent-icon-muted"
+                }
+              />
+            </Pressable>
+          </Menu>
+        </View>
       ) : null}
     </View>
   );
