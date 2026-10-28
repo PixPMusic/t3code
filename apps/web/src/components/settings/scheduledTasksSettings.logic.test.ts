@@ -25,6 +25,7 @@ import {
 import {
   scheduledTaskDefaultModel,
   scheduledTaskModelDescriptors,
+  selectScheduledTaskModel,
   matchesScheduledTaskScope,
   scheduleFromDraft,
   taskToDraft,
@@ -149,6 +150,36 @@ const legacyTask: ScheduledTask = {
   lastRunError: null,
   runCount: 0,
 };
+
+describe("scheduled task model option edits", () => {
+  it("preserves saved ordinary traits across a model round trip", () => {
+    const saved = {
+      ...legacyTask.modelSelection,
+      options: [
+        { id: "reasoningEffort", value: "high" },
+        { id: "serviceTier", value: "priority" },
+      ],
+    };
+    const draft = taskToDraft({ ...legacyTask, modelSelection: saved });
+    const other = { instanceId: saved.instanceId, model: "other-model" };
+    const away = selectScheduledTaskModel(draft, other);
+    const back = selectScheduledTaskModel(away, {
+      instanceId: saved.instanceId,
+      model: saved.model,
+    });
+    expect(back.baseModelSelection).toEqual(saved);
+    expect(back.modelKey).toBe(`${saved.instanceId}:${saved.model}`);
+  });
+
+  it.each([{ options: [] }, { options: [{ id: "cyberAccessProgram", value: "daybreakBlue" }] }])(
+    "retains explicit resolved options $options even when the source program is inactive",
+    ({ options }) => {
+      const draft = taskToDraft(legacyTask);
+      const selection = { ...legacyTask.modelSelection, options };
+      expect(selectScheduledTaskModel(draft, selection).baseModelSelection).toEqual(selection);
+    },
+  );
+});
 
 describe("editing scheduled task branch settings", () => {
   it("keeps an omitted origin flag on the local base branch", () => {

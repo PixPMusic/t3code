@@ -12,12 +12,14 @@ export type {
 } from "./Dialog.types";
 
 export function alert(
-  title: string,
-  message?: string,
-  buttons?: Parameters<typeof Alert.alert>[2],
-  options?: DialogAlertOptions,
+  ...args: [
+    title: string,
+    message?: string,
+    buttons?: Parameters<typeof Alert.alert>[2],
+    options?: DialogAlertOptions,
+  ]
 ): void {
-  Alert.alert(title, message, buttons, options);
+  Alert.alert(...args);
 }
 
 export function confirm(request: ConfirmDialogRequest): void {

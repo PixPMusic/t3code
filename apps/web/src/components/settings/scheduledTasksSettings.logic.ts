@@ -206,6 +206,14 @@ export function scheduleFromDraft(draft: DraftState): ScheduledTaskUpsertSchedul
   };
 }
 
+export function selectScheduledTaskModel(draft: DraftState, selection: ModelSelection): DraftState {
+  return {
+    ...draft,
+    modelKey: `${selection.instanceId}:${selection.model}`,
+    ...(selection.options === undefined ? {} : { baseModelSelection: selection }),
+  };
+}
+
 export function taskToDraft(task: ScheduledTask): DraftState {
   const schedule = task.schedule;
   const filters = webhookFilterDrafts(schedule.type === "webhook" ? schedule.filters : undefined);

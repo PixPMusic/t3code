@@ -85,6 +85,7 @@ import {
   scheduleFromDraft,
   scheduledTaskDefaultModel,
   scheduledTaskModelDescriptors,
+  selectScheduledTaskModel,
   taskToDraft,
   type DraftState,
   type ScheduleMode,
@@ -1227,11 +1228,7 @@ function ScheduledTaskEditorForm({
   );
   const selectModel = (next: ModelSelection) =>
     requestModelChange(effectiveSelection?.options, next, (selection) =>
-      setDraft((current) => ({
-        ...current,
-        modelKey: `${selection.instanceId}:${selection.model}`,
-        baseModelSelection: selection,
-      })),
+      setDraft((current) => selectScheduledTaskModel(current, selection)),
     );
 
   const reportFailure = (title: string, error: unknown) => {
