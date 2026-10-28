@@ -122,7 +122,6 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
     ? resolveProjectSettings(target.settings, null, null, null).settings
     : null;
 
-
   const setModel = (value: ModelSelection | null) => {
     if (
       blocksBulkDaybreakChange(
@@ -529,7 +528,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
 }
 
 export function WorktreeSubmodulesRow() {
-  const { scope, target, targets, connectedEnvironments } = useSettingsScope();
+  const { scope, target, connectedEnvironments } = useSettingsScope();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const mixedSubmodules = useScopedSettingsMixed(["worktreeSubmodules"]);

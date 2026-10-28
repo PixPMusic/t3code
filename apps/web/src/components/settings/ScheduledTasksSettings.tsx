@@ -1385,8 +1385,8 @@ function ScheduledTaskEditorForm({
                     project.environmentId === next.environmentId &&
                     matchesScheduledTaskScope(scope, next.environmentId, project.id),
                 );
-                const nextEntries = applyProviderInstanceSettings(
-                  deriveProviderInstanceEntries(nextProviders),
+                const nextEntries = providerInstanceEntriesFor(
+                  nextProviders,
                   nextSettings,
                   nextProject?.id ?? null,
                 );

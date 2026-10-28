@@ -353,7 +353,6 @@ export function SourceControlWritingSettingsSection() {
                   !mixedReviewGuideModel &&
                   reviewGuideInstanceEntry ? (
                     <TraitsPicker
-                    allowDaybreak={false}
                       allowDaybreak={false}
                       provider={reviewGuideInstanceEntry.driverKind}
                       models={reviewGuideInstanceEntry.models}

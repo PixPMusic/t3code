@@ -16,9 +16,7 @@ import type {
   ServerConfig as T3ServerConfig,
 } from "@t3tools/contracts";
 import { isProviderDriverKind, resolveProjectProviderInstanceEnabled } from "@t3tools/contracts";
-import {
-  buildExplicitProviderOptionSelectionsFromDescriptors,
-} from "@t3tools/shared/model";
+import { buildExplicitProviderOptionSelectionsFromDescriptors } from "@t3tools/shared/model";
 import { resolveModelShortName } from "@t3tools/client-runtime/provider-clients";
 
 export type ModelOption = {
