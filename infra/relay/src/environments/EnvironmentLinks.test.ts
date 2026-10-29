@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { PGlite } from "@electric-sql/pglite";
@@ -56,13 +58,13 @@ describe("EnvironmentLinks", () => {
       expect(query.sql).toContain('"relay_environment_links"."environment_id" = $2');
       expect(query.sql).toContain('"relay_environment_links"."environment_public_key" = $3');
       expect(query.sql).toContain('"relay_environment_links"."revoked_at" is null');
-      expect(query.sql).toContain('"relay_environment_links"."updated_at" <= $4');
-      expect(query.sql).toContain('"relay_environment_links"."label_updated_at" <= $5');
+      expect(query.sql).toContain(
+        'coalesce("relay_environment_links"."label_updated_at", "relay_environment_links"."updated_at") <= $4',
+      );
       expect(query.params).toEqual([
         "user-1",
         "env-1",
         "verified-public-key",
-        "2026-08-20T12:00:00.000Z",
         "2026-08-20T12:00:00.000Z",
       ]);
     }).pipe(
@@ -97,13 +99,10 @@ describe("EnvironmentLinks", () => {
       const query = new PgDialect().sqlToQuery(whereConditions[0] as never);
       expect(query.sql).not.toContain("user_id");
       expect(query.sql).toContain('"relay_environment_links"."environment_public_key" = $2');
-      expect(query.sql).toContain('"relay_environment_links"."updated_at" <= $3');
-      expect(query.params).toEqual([
-        "env-1",
-        "verified-public-key",
-        "1970-01-01T00:00:00.000Z",
-        "1970-01-01T00:00:00.000Z",
-      ]);
+      expect(query.sql).toContain(
+        'coalesce("relay_environment_links"."label_updated_at", "relay_environment_links"."updated_at") <= $3',
+      );
+      expect(query.params).toEqual(["env-1", "verified-public-key", "1970-01-01T00:00:00.000Z"]);
     }).pipe(
       Effect.provide(
         EnvironmentLinks.layer.pipe(Layer.provide(Layer.succeed(RelayDb.RelayDb, fakeDb))),
@@ -148,6 +147,9 @@ describe("EnvironmentLinks", () => {
         );
         const database = drizzle({ client: pg });
         const insertion = database.insert(relayEnvironmentLinks);
+        const updating = database.update(relayEnvironmentLinks);
+        const pushStarted = yield* Deferred.make<void>();
+        const releasePush = yield* Deferred.make<void>();
         const db = {
           insert: () => ({
             values: (values: Parameters<typeof insertion.values>[0]) => ({
@@ -163,15 +165,17 @@ describe("EnvironmentLinks", () => {
             }),
           }),
           update: () => ({
-            set: (values: Parameters<ReturnType<typeof database.update>["set"]>[0]) => ({
-              where: (
-                condition: Parameters<
-                  ReturnType<ReturnType<typeof database.update>["set"]>["where"]
-                >[0],
-              ) =>
-                Effect.promise(() =>
-                  database.update(relayEnvironmentLinks).set(values).where(condition),
-                ),
+            set: (values: Parameters<typeof updating.set>[0]) => ({
+              where: (condition: Parameters<ReturnType<typeof updating.set>["where"]>[0]) =>
+                Effect.gen(function* () {
+                  if (values.environmentLabel === "In-flight name") {
+                    yield* Deferred.succeed(pushStarted, undefined);
+                    yield* Deferred.await(releasePush);
+                  }
+                  return yield* Effect.promise(() =>
+                    database.update(relayEnvironmentLinks).set(values).where(condition),
+                  );
+                }),
             }),
           }),
         } as unknown as RelayDb.RelayDb["Service"];
@@ -216,8 +220,8 @@ describe("EnvironmentLinks", () => {
         yield* TestClock.setTime(Date.parse(at(40)));
         for (const [challengeAt, key, proofLabel, expectedLabel, expectedWatermark] of [
           [20, "key", "Stale link proof", "Latest name", 30],
-          [35, "key", "Fresh link proof", "Fresh link proof", 40],
-          [15, "replacement-key", "Replacement host", "Replacement host", 40],
+          [35, "key", "Fresh link proof", "Fresh link proof", 35],
+          [15, "replacement-key", "Replacement host", "Replacement host", 15],
         ] as const) {
           yield* links.upsert({
             userId: "user-1",
@@ -249,6 +253,53 @@ describe("EnvironmentLinks", () => {
             updatedAt: at(40),
           });
         }
+        yield* Effect.promise(() =>
+          database.update(relayEnvironmentLinks).set({
+            environmentPublicKey: "key",
+            environmentLabel: "Before rename",
+            labelUpdatedAt: at(41),
+            updatedAt: at(41),
+          }),
+        );
+        yield* TestClock.setTime(Date.parse(at(45)));
+        const inFlightPush = yield* links
+          .recordEnvironmentLabel({
+            environmentId: "env-1",
+            environmentPublicKey: "key",
+            label: "In-flight name",
+          })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(pushStarted);
+        yield* TestClock.setTime(Date.parse(at(50)));
+        yield* links.upsert({
+          userId: "user-1",
+          challengeIssuedAt: at(42),
+          request: {
+            notificationsEnabled: false,
+            liveActivitiesEnabled: false,
+            managedTunnelsEnabled: false,
+          } as never,
+          proof: {
+            environmentId: "env-1",
+            environmentPublicKey: "key",
+            descriptor: { label: "Old proof" },
+          } as never,
+          endpoint: {
+            httpBaseUrl: "https://e",
+            wsBaseUrl: "wss://e",
+            providerKind: "direct",
+          } as never,
+        });
+        yield* Deferred.succeed(releasePush, undefined);
+        yield* Fiber.join(inFlightPush);
+        const [afterRace] = yield* Effect.promise(() =>
+          database.select().from(relayEnvironmentLinks),
+        );
+        expect(afterRace).toMatchObject({
+          environmentLabel: "In-flight name",
+          labelUpdatedAt: at(45),
+          updatedAt: at(50),
+        });
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 

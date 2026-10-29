@@ -223,10 +223,9 @@ const make = Effect.gen(function* () {
           eq(relayEnvironmentLinks.environmentId, input.environmentId),
           eq(relayEnvironmentLinks.environmentPublicKey, input.environmentPublicKey),
           isNull(relayEnvironmentLinks.revokedAt),
-          lte(relayEnvironmentLinks.updatedAt, input.checkedAt),
-          or(
-            isNull(relayEnvironmentLinks.labelUpdatedAt),
-            lte(relayEnvironmentLinks.labelUpdatedAt, input.checkedAt),
+          lte(
+            sql<string>`coalesce(${relayEnvironmentLinks.labelUpdatedAt}, ${relayEnvironmentLinks.updatedAt})`,
+            input.checkedAt,
           ),
         ),
       )
@@ -249,7 +248,8 @@ const make = Effect.gen(function* () {
       const now = DateTime.formatIso(yield* DateTime.now);
       const { request, proof } = input;
       const environmentId = proof.environmentId;
-      // The relay-issued challenge fences stale proofs without depending on the host clock.
+      // Use the relay challenge as the proof's label watermark: completing a relink must
+      // not outrank a newer push that is already in flight, or depend on the host clock.
       const keepPushedLabel = sql<boolean>`${relayEnvironmentLinks.environmentPublicKey} = ${proof.environmentPublicKey}
         AND ${relayEnvironmentLinks.labelUpdatedAt} >= ${input.challengeIssuedAt}`;
       // Inherit opt-in only from links proven by the same key; anyone can claim the public environment id.
@@ -268,7 +268,7 @@ const make = Effect.gen(function* () {
           environmentId,
           holdWebhooksWhileOffline: inheritedHoldWebhooks,
           environmentLabel: proof.descriptor.label,
-          labelUpdatedAt: now,
+          labelUpdatedAt: input.challengeIssuedAt,
           environmentPublicKey: proof.environmentPublicKey,
           endpointHttpBaseUrl: endpoint.httpBaseUrl,
           endpointWsBaseUrl: endpoint.wsBaseUrl,
@@ -286,7 +286,7 @@ const make = Effect.gen(function* () {
           set: {
             environmentPublicKey: proof.environmentPublicKey,
             environmentLabel: sql`CASE WHEN ${keepPushedLabel} THEN ${relayEnvironmentLinks.environmentLabel} ELSE ${proof.descriptor.label} END`,
-            labelUpdatedAt: sql`CASE WHEN ${keepPushedLabel} THEN ${relayEnvironmentLinks.labelUpdatedAt} ELSE ${now} END`,
+            labelUpdatedAt: sql`CASE WHEN ${keepPushedLabel} THEN ${relayEnvironmentLinks.labelUpdatedAt} ELSE ${input.challengeIssuedAt} END`,
             endpointHttpBaseUrl: endpoint.httpBaseUrl,
             endpointWsBaseUrl: endpoint.wsBaseUrl,
             endpointProviderKind: endpoint.providerKind,

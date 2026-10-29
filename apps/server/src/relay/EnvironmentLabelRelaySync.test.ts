@@ -23,6 +23,7 @@ it.effect("sends the current host name at startup and only changed names thereaf
     const changes = yield* PubSub.unbounded<ServerSettings>();
     const pushed = yield* Queue.unbounded<{ readonly url: string; readonly body: unknown }>();
     const failedAttempts = yield* Queue.unbounded<void>();
+    const unlinkedReads = yield* Queue.unbounded<void>();
     let remainingFailures = 0;
     const fetch: typeof globalThis.fetch = Object.assign(
       (input: Parameters<typeof globalThis.fetch>[0], init?: RequestInit) => {
@@ -45,7 +46,14 @@ it.effect("sends the current host name at startup and only changed names thereaf
     ]);
     const layerDependencies = Layer.mergeAll(
       Layer.mock(ServerSecretStore.ServerSecretStore)({
-        get: (name) => Effect.succeed(Option.fromNullishOr(stored.get(name))),
+        get: (name) =>
+          Effect.sync(() => {
+            const value = stored.get(name);
+            if (name === RELAY_ENVIRONMENT_CREDENTIAL_SECRET && value === undefined) {
+              Queue.offerUnsafe(unlinkedReads, undefined);
+            }
+            return Option.fromNullishOr(value);
+          }),
       }),
       Layer.mock(ServerEnvironment.ServerEnvironment)({
         getDescriptorForSettings: ({ environmentLabel }) =>
@@ -77,19 +85,38 @@ it.effect("sends the current host name at startup and only changed names thereaf
     yield* PubSub.publish(changes, settingsWith("", false));
     assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Detected Mac" });
 
-    remainingFailures = 4;
-    yield* PubSub.publish(changes, settingsWith("Retry Mac"));
-    yield* Queue.take(failedAttempts);
-    for (const delay of ["2 seconds", "4 seconds", "8 seconds"] as const) {
-      yield* TestClock.adjust(delay);
+    const exhaustPush = Effect.fn("RelayLabelTest.exhaustPush")(function* (label: string) {
+      remainingFailures = 4;
+      yield* PubSub.publish(changes, settingsWith(label));
       yield* Queue.take(failedAttempts);
-    }
-    yield* PubSub.publish(changes, settingsWith("", true));
+      for (const delay of ["2 seconds", "4 seconds", "8 seconds"] as const) {
+        yield* TestClock.adjust(delay);
+        yield* Queue.take(failedAttempts);
+      }
+    });
+    yield* exhaustPush("Retry Mac");
     yield* PubSub.publish(changes, settingsWith("Retry Mac", false));
     yield* PubSub.publish(changes, settingsWith("Retry Mac", true));
     yield* PubSub.publish(changes, settingsWith("After Retry"));
-    assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Detected Mac" });
     assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Retry Mac" });
     assert.deepEqual((yield* Queue.take(pushed)).body, { label: "After Retry" });
+
+    yield* exhaustPush("Unconfirmed name");
+    yield* PubSub.publish(changes, settingsWith("After Retry"));
+    yield* PubSub.publish(changes, settingsWith("Recovered"));
+    assert.deepEqual((yield* Queue.take(pushed)).body, { label: "After Retry" });
+    assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Recovered" });
+
+    stored.delete(RELAY_ENVIRONMENT_CREDENTIAL_SECRET);
+    yield* PubSub.publish(changes, settingsWith("Unlinked name"));
+    yield* Queue.take(unlinkedReads);
+    stored.set(
+      RELAY_ENVIRONMENT_CREDENTIAL_SECRET,
+      new TextEncoder().encode("relinked-credential"),
+    );
+    yield* PubSub.publish(changes, settingsWith("Recovered"));
+    yield* PubSub.publish(changes, settingsWith("Relinked"));
+    assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Recovered" });
+    assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Relinked" });
   }).pipe(Effect.scoped),
 );

@@ -40,7 +40,7 @@ export const layer = Layer.effectDiscard(
       yield* pushEnvironmentLabel(environmentLabel).pipe(
         Effect.timeout("10 seconds"),
         Effect.retry({ schedule: Schedule.exponential("2 seconds"), times: 3 }),
-        Effect.tap((sent) => (sent ? Ref.set(lastPushedLabel, environmentLabel) : Effect.void)),
+        Effect.tap((sent) => Ref.set(lastPushedLabel, sent ? environmentLabel : null)),
         Effect.catchCause((cause) =>
           Ref.set(lastPushedLabel, null).pipe(
             Effect.andThen(
