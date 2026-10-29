@@ -5,6 +5,7 @@ import { scopedProjectKey } from "../../lib/scopedEntities";
 import type { HomeProjectScope } from "../home/homeThreadList";
 
 type DraftProjectSelectionResolution =
+  | { readonly kind: "wait" }
   | { readonly kind: "preserve" }
   | { readonly kind: "select"; readonly project: EnvironmentProject }
   | { readonly kind: "pick" }
@@ -99,7 +100,7 @@ export function resolveDraftProjectSelection(
     readonly focused: boolean;
   },
 ): DraftProjectSelectionResolution {
-  if (!draft.focused) return { kind: "preserve" };
+  if (!draft.focused) return { kind: "wait" };
   const hasExplicitProjectSelection =
     selectedProjectKey !== null &&
     projects.some(

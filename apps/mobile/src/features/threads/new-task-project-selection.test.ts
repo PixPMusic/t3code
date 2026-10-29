@@ -128,7 +128,7 @@ describe("resolveDraftProjectSelection", () => {
         ...draft,
         focused: false,
       }),
-    ).toEqual({ kind: "preserve" });
+    ).toEqual({ kind: "wait" });
   });
 
   it("selects the only logical project for shared content", () => {

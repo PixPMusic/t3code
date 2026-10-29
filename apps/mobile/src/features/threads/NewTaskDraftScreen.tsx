@@ -463,6 +463,7 @@ export function NewTaskDraftScreen(props: {
       pickerClosed: initialPickerRef.current === "open" && isFocused,
       focused: navigation.isFocused(),
     });
+    if (selection.kind === "wait") return;
     if (selection.kind === "preserve") {
       initialPickerRef.current = null;
       return;
