@@ -2,28 +2,39 @@ import type { ProviderOptionDescriptor } from "@t3tools/contracts";
 
 import type { ComposerControlSize } from "./ComposerControl";
 
-const GLYPH_HEIGHT_SM = 14;
-const GLYPH_HEIGHT_XS = 12;
+const GLYPH_HEIGHT_SM = 18;
+const GLYPH_HEIGHT_XS = 16;
 // Bars stop this far above the box's bottom, which puts their flat base on the text baseline.
 const BASELINE_INSET = 2;
 
-type SelectDescriptor = Extract<ProviderOptionDescriptor, { type: "select" }>;
-
-// Ultracode changes the workflow, not only intensity, so it keeps its name like Ultrathink.
-// Max is named too, so the full scale stops short of it.
-const NAMED_LEVELS = new Set(["ultracode", "max"]);
+const NAMED_LEVELS = new Set(["ultra", "ultracode", "ultrathink"]);
 const OFF_LEVELS = new Set(["off", "none"]);
 
 /**
- * Maps a reasoning select to bars: one per ordinary level, filled up to the current one, with an
- * off level as none filled. Max, prompt-injected and workflow levels are named instead of drawn.
+ * One bar per reasoning level; binary thinking lights the whole scale or none of it.
+ * Prompt-injected and named modes keep their labels.
  */
-export function resolveEffortGlyph(descriptor: SelectDescriptor, current: string | null) {
+export function resolveEffortGlyph(
+  descriptor: ProviderOptionDescriptor,
+  current: string | boolean | null,
+) {
+  if (descriptor.type === "boolean") {
+    return typeof current === "boolean"
+      ? {
+          count: 3,
+          filled: current ? 3 : 0,
+          special: null,
+          label: `${descriptor.label} ${current ? "On" : "Off"}`,
+        }
+      : null;
+  }
+  if (typeof current !== "string") return null;
   const special = new Set([...(descriptor.promptInjectedValues ?? []), ...NAMED_LEVELS]);
   const levels = descriptor.options.filter((option) => !special.has(option.id));
-  if (levels.length < 2 || current === null) return null;
+  if (levels.length < 2) return null;
   const startsAtOff = OFF_LEVELS.has(levels[0]!.id);
-  const count = startsAtOff ? levels.length - 1 : levels.length;
+  const binary = startsAtOff && levels.length === 2;
+  const count = binary ? 3 : startsAtOff ? levels.length - 1 : levels.length;
   if (special.has(current)) {
     const label = descriptor.options.find((option) => option.id === current)?.label ?? current;
     return { count, filled: count, special: label, label };
@@ -32,7 +43,7 @@ export function resolveEffortGlyph(descriptor: SelectDescriptor, current: string
   if (index < 0) return null;
   return {
     count,
-    filled: startsAtOff ? index : index + 1,
+    filled: binary ? index * count : startsAtOff ? index : index + 1,
     special: null,
     label: levels[index]!.label,
   };
@@ -51,8 +62,11 @@ export function effortBarHeights(count: number, maxBar: number): number[] {
  */
 export function EffortGlyph(props: { count: number; filled: number; size?: ComposerControlSize }) {
   const height = props.size === "xs" ? GLYPH_HEIGHT_XS : GLYPH_HEIGHT_SM;
-  const step = 4;
-  const width = step * props.count - 2;
+  const step = 5;
+  const barWidth = 3;
+  const barsWidth = step * (props.count - 1) + barWidth;
+  const width = Math.max(24, barsWidth);
+  const inset = Math.floor((width - barsWidth) / 2);
   const maxBar = height - BASELINE_INSET;
   return (
     <svg
@@ -68,16 +82,16 @@ export function EffortGlyph(props: { count: number; filled: number; size?: Compo
       data-composer-control-icon
     >
       {effortBarHeights(props.count, maxBar).map((barHeight, index) => {
-        const x = index * step;
+        const x = inset + index * step;
         return (
           <rect
             key={x}
             x={x}
             y={maxBar - barHeight}
-            width={2}
+            width={barWidth}
             height={barHeight}
             fill="currentColor"
-            opacity={index < props.filled ? 1 : 0.4}
+            opacity={index < props.filled ? 1 : 0.25}
           />
         );
       })}

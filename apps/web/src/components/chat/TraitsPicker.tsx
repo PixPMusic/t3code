@@ -20,6 +20,7 @@ import type { EffortDisplay } from "@t3tools/contracts/settings";
 import {
   buildProviderOptionSelectionsFromDescriptors,
   getProviderOptionCurrentLabel,
+  getProviderOptionCurrentValue,
   getProviderOptionDescriptors,
   isClaudeUltrathinkPrompt,
   normalizeModelSlug,
@@ -559,7 +560,7 @@ export const TraitsPicker = memo(function TraitsPicker({
   const composerFloatingLayerProps = useComposerMenuProps();
   const [isMenuOpen, setIsMenuOpen] = useComposerMenuState(hidden || disabled);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const { descriptors, primarySelectDescriptor, ultrathinkPromptControlled } =
+  const { descriptors, primarySelectDescriptor, thinkingDescriptor, ultrathinkPromptControlled } =
     getTraitsSectionVisibility({
       provider,
       models,
@@ -600,21 +601,27 @@ export const TraitsPicker = memo(function TraitsPicker({
   const triggerDescription = isComposerOwned
     ? [`Effort: ${triggerLabel}`, speedLabel, extraMenuHint].filter(Boolean).join(" · ")
     : triggerLabel;
+  const reasoningDescriptor =
+    primarySelectDescriptor && REASONING_SELECT_DESCRIPTOR_IDS.has(primarySelectDescriptor.id)
+      ? primarySelectDescriptor
+      : thinkingDescriptor;
   const effortGlyph =
-    isComposerOwned &&
-    primarySelectDescriptor &&
-    REASONING_SELECT_DESCRIPTOR_IDS.has(primarySelectDescriptor.id)
+    isComposerOwned && reasoningDescriptor
       ? resolveEffortGlyph(
-          primarySelectDescriptor,
+          reasoningDescriptor,
           ultrathinkPromptControlled
             ? "ultrathink"
-            : getDescriptorStringValue(
-                primarySelectDescriptor,
+            : (getProviderOptionCurrentValue(
+                reasoningDescriptor,
                 instanceId && model ? { instanceId, model, options: modelOptions ?? [] } : null,
                 reportedModelSelection,
-              ),
+              ) ?? null),
         )
       : null;
+  const secondaryLabels =
+    reasoningDescriptor?.type === "boolean" && effortGlyph
+      ? otherLabels.filter((label) => label !== effortGlyph.label)
+      : otherLabels;
   // Workflow levels such as Ultracode always show their name; the setting names every level.
   // Traits the bars cannot show, such as an agent mode, appear as words in the composer.
   const effortWord = effortGlyph
@@ -688,7 +695,7 @@ export const TraitsPicker = memo(function TraitsPicker({
               {speedLabel === "Fast" || speedLabel === "Ultrafast" ? (
                 <FastBolt ultra={speedLabel === "Ultrafast"} />
               ) : null}
-              {otherLabels.length > 0 ? (
+              {secondaryLabels.length > 0 ? (
                 <span
                   aria-hidden="true"
                   // A label, so icon-only footers drop it; compacted rows drop it before the model.
@@ -696,7 +703,7 @@ export const TraitsPicker = memo(function TraitsPicker({
                   data-composer-secondary-trait
                   className="max-w-24 truncate text-xs"
                 >
-                  {otherLabels.join(" · ")}
+                  {secondaryLabels.join(" · ")}
                 </span>
               ) : null}
             </span>
