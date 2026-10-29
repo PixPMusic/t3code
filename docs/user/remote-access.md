@@ -44,6 +44,7 @@ connections remain local to your device.
 
 Clear the field to return to the name detected from the host operating system. This setting changes
 the environment name shown by T3 Code; it does not change the machine's operating-system hostname.
+
 ### More machines with T3 Chat
 
 Each T3 Connect account can link up to 3 machines. Phones and browsers do not
