@@ -1,6 +1,6 @@
-import * as Dialog from "../../components/ui/Dialog";
 import { environmentDisplayLabel } from "@t3tools/client-runtime/connection";
-import { useAtomValue } from "@effect/atom-react";
+import * as Dialog from "../../components/ui/Dialog";
+import { RegistryContext, useAtomMount, useAtomValue } from "@effect/atom-react";
 import {
   AuthProvidersManageScope,
   type EnvironmentId,
@@ -18,8 +18,8 @@ import {
   paceRemainingPercent,
   remainingPercent,
 } from "@t3tools/shared/usageLimits";
-import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
-import { refreshUsageLimits } from "@t3tools/client-runtime/state/usage";
+import { type ReactNode, useContext, useRef, useState } from "react";
+import { Atom } from "effect/reactivity";
 import { Linking, Pressable, View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -28,6 +28,13 @@ import { environmentPresentations } from "../../state/presentation";
 import { serverEnvironment } from "../../state/server";
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { useNowMinuteMs } from "../../lib/clock";
+import {
+  environmentIdsKey,
+  limitsAutoRefreshSetAtom,
+  limitsRefreshFailuresAtom,
+  refreshEnvironmentLimits,
+} from "./usageLimitsRefresh";
 import { usageProviderKind, useProviderColors } from "./usageProviders";
 
 const PACE_LABEL = { ahead: "ahead of pace", on: "on pace", under: "under pace" } as const;
@@ -309,78 +316,56 @@ export function ResetCredits(props: {
   );
 }
 
+const IDLE_ATOM = Atom.make(undefined);
+
 export function useRefreshLimits(
   selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null = null,
   active = false,
 ) {
+  const registry = useContext(RegistryContext);
   const presentations = useAtomValue(environmentPresentations.presentationsAtom);
-  const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
-    reportFailure: false,
-  });
-  const [now, setNow] = useState(() => Date.now());
+  const now = useNowMinuteMs();
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
-  const [failedEnvironments, setFailedEnvironments] = useState<readonly EnvironmentId[]>([]);
-  const refresh = async (automatic = false, afterPending = false) => {
-    const connected = [...presentations].filter(
-      ([environmentId, presentation]) =>
-        presentation.connection.phase === "connected" &&
-        (selectedEnvironmentIds === null || selectedEnvironmentIds.has(environmentId)),
+  const selected = [...presentations].filter(
+    ([environmentId]) =>
+      selectedEnvironmentIds === null || selectedEnvironmentIds.has(environmentId),
+  );
+  const connectedIds = selected
+    .filter(([, presentation]) => presentation.connection.phase === "connected")
+    .map(([environmentId]) => environmentId);
+  const connectedKey = environmentIdsKey(connectedIds);
+  useAtomMount(active && connectedKey !== "" ? limitsAutoRefreshSetAtom(connectedKey) : IDLE_ATOM);
+  const failedIds = new Set(
+    useAtomValue(limitsRefreshFailuresAtom(environmentIdsKey(selected.map(([id]) => id)))),
+  );
+  const failedLabels = selected
+    .filter(([environmentId]) => failedIds.has(environmentId))
+    .map(([, presentation]) =>
+      environmentDisplayLabel(presentation.entry, presentation.serverConfig),
     );
-    await Promise.all(
-      connected.map(async ([environmentId]) => {
-        const result = await refreshUsageLimits(
-          environmentId,
-          () => refreshProviders({ environmentId, input: {} }),
-          automatic,
-          afterPending,
-        );
-        if (result === undefined) return;
-        setFailedEnvironments((previous) => [
-          ...previous.filter((failed) => failed !== environmentId),
-          ...(result._tag === "Failure" ? [environmentId] : []),
-        ]);
-      }),
-    ).finally(() => setNow(Date.now()));
-  };
-  // Always toggles `refreshing`, even with nothing to probe: Android's
-  // RefreshControl keeps its spinner up until it sees true then false.
+
+  const refresh = (afterPending: boolean) =>
+    Promise.all(
+      connectedIds.map((environmentId) =>
+        refreshEnvironmentLimits(registry, environmentId, { afterPending }),
+      ),
+    );
+  // Android RefreshControl needs a true-to-false cycle to stop, even with nothing to probe.
   const refreshManually = async () => {
     if (refreshingRef.current) return;
     refreshingRef.current = true;
     setRefreshing(true);
-    await refresh().finally(() => {
+    await refresh(false).finally(() => {
       refreshingRef.current = false;
       setRefreshing(false);
     });
   };
-  const connectedLimitsEnvironments = [...presentations]
-    .filter(
-      ([environmentId, presentation]) =>
-        presentation.connection.phase === "connected" &&
-        (selectedEnvironmentIds === null || selectedEnvironmentIds.has(environmentId)),
-    )
-    .map(([environmentId]) => environmentId)
-    .sort()
-    .join(",");
-  const autoRefreshLimits = useEffectEvent(() => refresh(true));
-  useEffect(() => {
-    if (active && connectedLimitsEnvironments) void autoRefreshLimits();
-  }, [active, connectedLimitsEnvironments]);
-
-  // Labels resolve at render so a host renamed after its failure shows the new name.
-  const failedLabels = failedEnvironments.flatMap((environmentId) => {
-    const presentation = presentations.get(environmentId);
-    return presentation &&
-      (selectedEnvironmentIds === null || selectedEnvironmentIds.has(environmentId))
-      ? [environmentDisplayLabel(presentation.entry, presentation.serverConfig)]
-      : [];
-  });
   return {
     now,
     refreshing,
     failedLabels,
     refresh: refreshManually,
-    refreshAfterEnable: () => refresh(false, true),
+    refreshAfterEnable: () => refresh(true),
   };
 }
