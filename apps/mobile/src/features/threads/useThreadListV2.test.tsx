@@ -1,23 +1,29 @@
 import { act, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
+import { RegistryContext } from "@effect/atom-react";
+import type { OlderSettledShelfEnvironment } from "@t3tools/client-runtime/state/threads";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { AtomRegistry } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 
 import { makeThreadShellFixture } from "../../test-fixtures";
 import { useThreadListV2 } from "./useThreadListV2";
 
-vi.mock("../../state/olderSettledShelf", () => {
-  const isListed = () => true;
-  const unloadedCount = () => 0;
+vi.mock("../../state/threads", async () => {
+  const { Atom } = await import("effect/reactivity");
+  const shelf = Atom.make<ReadonlyMap<EnvironmentId, OlderSettledShelfEnvironment>>(new Map());
   return {
-    useOlderSettledShelf: () => ({ isListed, unloadedCount }),
-    useOlderSettledShelfGrowth: () => undefined,
+    olderSettledThreads: { shelfAtom: () => shelf },
+    threadFamilies: { mountRows: () => () => {} },
   };
 });
+vi.mock("../../state/atom-registry", () => ({ appAtomRegistry: undefined }));
 
 it("reuses a large thread list across tab renders and updates when its inputs change", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   using _globals = { [Symbol.dispose]: () => vi.unstubAllGlobals() };
+  const registry = AtomRegistry.make();
+  using _registry = { [Symbol.dispose]: () => registry.dispose() };
   const environmentId = EnvironmentId.make("environment-1");
   const otherEnvironmentId = EnvironmentId.make("environment-2");
   const threads = Array.from({ length: 1200 }, (_, index) =>
@@ -54,6 +60,13 @@ it("reuses a large thread list across tab renders and updates when its inputs ch
   };
   const seen: Array<ReturnType<typeof useThreadListV2>> = [];
   function Probe(props: { input: typeof input; tab: string }) {
+    return (
+      <RegistryContext value={registry}>
+        <ListProbe {...props} />
+      </RegistryContext>
+    );
+  }
+  function ListProbe(props: { input: typeof input; tab: string }) {
     const result = useThreadListV2(props.input);
     useLayoutEffect(() => {
       seen.push(result);
@@ -70,6 +83,10 @@ it("reuses a large thread list across tab renders and updates when its inputs ch
 
   for (const tab of ["pullRequests", "chats", "settings", "chats"]) {
     await act(async () => root.render(<Probe input={{ ...input }} tab={tab} />));
+    expect(seen.at(-1)!.olderSettledShelf.isListed).toBe(initial.olderSettledShelf.isListed);
+    expect(seen.at(-1)!.olderSettledShelf.unloadedCount).toBe(
+      initial.olderSettledShelf.unloadedCount,
+    );
     expect(seen.at(-1)!.layout).toBe(initial.layout);
     expect(seen.at(-1)!.items).toBe(initial.items);
   }
