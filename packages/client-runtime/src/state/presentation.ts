@@ -26,6 +26,7 @@ import {
 import { type EnvironmentCatalogState, enabledEnvironmentIds } from "./connections.ts";
 import { hasRelayRoute } from "../connection/routes.ts";
 import type { RelayEnvironmentDiscoveryState } from "../relay/discovery.ts";
+import type { RelayClientEnvironmentRecord } from "@t3tools/contracts/relay";
 
 function mapsEqual<K, V>(left: ReadonlyMap<K, V>, right: ReadonlyMap<K, V>): boolean {
   if (left.size !== right.size) {
@@ -83,14 +84,12 @@ export function createEnvironmentPresentationAtoms<E>(input: {
     let previousCatalogEntry: ConnectionCatalogEntry | undefined;
     let previousServerConfig: EnvironmentServerConfig | null = null;
     let lastConnectedLabel: string | undefined;
-    let lastConnectedDiscoveryLabel: string | undefined;
-    let discoveryChangedSinceConnection = false;
+    let lastConnectedDiscovery: RelayClientEnvironmentRecord | undefined;
     return Atom.make((get) => {
       const entry = get(input.catalogValueAtom).entries.get(environmentId);
       if (entry === undefined) {
         lastConnectedLabel = undefined;
-        lastConnectedDiscoveryLabel = undefined;
-        discoveryChangedSinceConnection = false;
+        lastConnectedDiscovery = undefined;
         return null;
       }
       const state = AsyncResult.getOrElse(
@@ -112,25 +111,21 @@ export function createEnvironmentPresentationAtoms<E>(input: {
       let serverConfig = sourceServerConfig;
       let displayEntry = entry;
       if (entry.target._tag === "RelayConnectionTarget" && input.relayDiscoveryValueAtom) {
-        const discoveredLabel = get(input.relayDiscoveryValueAtom).environments.get(environmentId)
-          ?.environment.label;
+        const discovered = get(input.relayDiscoveryValueAtom).environments.get(
+          environmentId,
+        )?.environment;
         if (connection.phase === "connected" && sourceServerConfig !== null) {
           lastConnectedLabel = sourceServerConfig.environment.label;
-          lastConnectedDiscoveryLabel = discoveredLabel;
-          discoveryChangedSinceConnection = false;
-        } else if (
-          discoveredLabel !== undefined &&
-          discoveredLabel !== lastConnectedDiscoveryLabel
-        ) {
-          discoveryChangedSinceConnection = true;
+          lastConnectedDiscovery = discovered;
         }
         // An unchanged relay snapshot cannot replace a newer name received over the live socket.
         const label =
           connection.phase === "connected"
             ? undefined
-            : lastConnectedLabel !== undefined && !discoveryChangedSinceConnection
+            : lastConnectedLabel !== undefined &&
+                (discovered === undefined || discovered === lastConnectedDiscovery)
               ? lastConnectedLabel
-              : discoveredLabel;
+              : discovered?.label;
         if (label !== undefined) {
           if (label !== entry.target.label) {
             // Discovery can refresh a name without rebuilding saved routes or restarting their supervisor.
@@ -152,8 +147,7 @@ export function createEnvironmentPresentationAtoms<E>(input: {
         }
       } else {
         lastConnectedLabel = undefined;
-        lastConnectedDiscoveryLabel = undefined;
-        discoveryChangedSinceConnection = false;
+        lastConnectedDiscovery = undefined;
       }
       previousCatalogEntry = entry;
       previousServerConfig = sourceServerConfig;
