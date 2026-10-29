@@ -26,7 +26,6 @@ import {
   type SourceControlDiscoveryResult,
   type SourceControlRepositoryInfo,
   THREAD_JUMP_KEYBINDING_COMMANDS,
-  isHomeThreadId,
 } from "@t3tools/contracts";
 import { filterFilesystemBrowseEntries } from "@t3tools/client-runtime/state/filesystem";
 import { type ReactNode } from "react";
@@ -421,8 +420,7 @@ export function buildThreadActionItems<TThread extends BuildThreadActionItemsThr
 }): CommandPaletteActionItem[] {
   // Callers order these: recents by last use, search results by rank.
   const visibleThreads = input.threads.filter(
-    (thread) =>
-      thread.archivedAt === null && !isSidebarSubagentThread(thread) && !isHomeThreadId(thread.id),
+    (thread) => thread.archivedAt === null && !isSidebarSubagentThread(thread),
   );
 
   return visibleThreads.map((thread) => {

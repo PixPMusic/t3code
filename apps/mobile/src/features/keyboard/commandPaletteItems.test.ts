@@ -46,11 +46,26 @@ describe("filterCommandPaletteItems", () => {
   });
 
   it("lists message matches after the other results, once, except in actions-only mode", () => {
-    const results = filterCommandPaletteItems(items, "layout", ["siva:one", "mac:one"], NOW);
+    const home = {
+      ...item("studio:home:managed", "Home", "thread"),
+      threadSearch: { id: "home:managed", title: "Home", activityAt: NOW },
+    };
+    const candidates = [...items, home];
+    expect(keys(filterCommandPaletteItems(candidates, "", [], NOW))).not.toContain(home.key);
+    expect(keys(filterCommandPaletteItems(candidates, "home", [], NOW))).not.toContain(home.key);
+    const results = filterCommandPaletteItems(
+      candidates,
+      "layout",
+      ["siva:one", "mac:one", home.key],
+      NOW,
+    );
     expect(results.map((entry) => [entry.key, entry.fromMessages ?? false])).toEqual([
       ["mac:one", false],
       ["siva:one", true],
+      [home.key, true],
     ]);
-    expect(filterCommandPaletteItems(items, "> layout", ["siva:one"], NOW)).toEqual([]);
+    expect(filterCommandPaletteItems(candidates, "> layout", ["siva:one", home.key], NOW)).toEqual(
+      [],
+    );
   });
 });

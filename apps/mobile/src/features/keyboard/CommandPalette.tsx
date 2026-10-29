@@ -439,9 +439,7 @@ export function CommandPalette(props: {
     const threadItems: CommandPaletteItem[] = threads
       .filter(
         (thread) =>
-          thread.archivedAt === null &&
-          thread.lineage.relationshipToParent !== "subagent" &&
-          !isHomeThreadId(thread.id),
+          thread.archivedAt === null && thread.lineage.relationshipToParent !== "subagent",
       )
       .map((thread) => {
         const project = projectByKey.get(scopedProjectKey(thread.environmentId, thread.projectId));
@@ -463,10 +461,18 @@ export function CommandPalette(props: {
             ? { secondary: true }
             : {}),
           run: () =>
-            selectDetail({
-              name: "Thread",
-              params: { environmentId: String(thread.environmentId), threadId: String(thread.id) },
-            }),
+            isHomeThreadId(thread.id)
+              ? navigation.navigate("HomeAgent", {
+                  environmentId: thread.environmentId,
+                  threadId: thread.id,
+                })
+              : selectDetail({
+                  name: "Thread",
+                  params: {
+                    environmentId: String(thread.environmentId),
+                    threadId: String(thread.id),
+                  },
+                }),
         };
       });
     // Recent means used recently: written in or opened, whichever is later.

@@ -175,7 +175,7 @@ describe("buildThreadActionItems", () => {
       icon: null,
       runThread,
     });
-    expect(new Set(items.map((item) => item.value)).size).toBe(2);
+    expect(new Set(items.map((item) => item.value)).size).toBe(3);
     const remoteItem = items.find((item) => item.description === "Remote project · Current thread");
     await remoteItem?.run();
     expect(runThread).toHaveBeenCalledWith(remote);
@@ -271,6 +271,7 @@ describe("buildThreadActionItems", () => {
     const threads = [
       makeThread({ id: ThreadId.make("title"), title: "Disable Convex schema validation" }),
       makeThread({ id: ThreadId.make("message"), title: "Fix schema validation" }),
+      makeThread({ id: ThreadId.make("home:managed"), title: "Home" }),
     ];
     const items = buildThreadActionItems({
       threads,
@@ -278,6 +279,7 @@ describe("buildThreadActionItems", () => {
       icon: null,
       runThread: async () => undefined,
     });
+    expect(items.map((item) => item.value)).toContain("thread:environment-local:home:managed");
     const filter = (threadMessageItems: typeof items) =>
       filterCommandPaletteGroups({
         activeGroups: [],
@@ -290,11 +292,14 @@ describe("buildThreadActionItems", () => {
 
     const before = filter([]);
     // The server matched both; the title match stays where it was.
-    const after = filter([items[0]!, items[1]!].toReversed());
+    const after = filter(items.toReversed());
     expect(before).toEqual([["Threads", ["thread:environment-local:title"]]]);
     expect(after).toEqual([
       ["Threads", ["thread:environment-local:title"]],
-      ["In messages", ["thread:environment-local:message"]],
+      [
+        "In messages",
+        ["thread:environment-local:home:managed", "thread:environment-local:message"],
+      ],
     ]);
   });
 

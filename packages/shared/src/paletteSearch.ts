@@ -1,6 +1,6 @@
 /** Shared ranking keeps command palettes and MCP thread search consistent across surfaces. */
 
-import type { OrchestrationV2ThreadOpens } from "@t3tools/contracts";
+import { isHomeThreadId, type OrchestrationV2ThreadOpens } from "@t3tools/contracts";
 
 import { WORKTREE_BRANCH_PREFIX } from "./git.ts";
 
@@ -1038,6 +1038,7 @@ export function rankMessageMatches<
       if (!subject) return [];
       if (
         options?.withoutTitleMatches &&
+        !isHomeThreadId(subject.id ?? "") &&
         scoreThreadSearch(normalizedQuery, subject, now, { picks: false }) !== null
       ) {
         return [];

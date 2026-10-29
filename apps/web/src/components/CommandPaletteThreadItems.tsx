@@ -12,7 +12,7 @@ import {
   pickedQuery,
   rankMessageMatches,
 } from "@t3tools/shared/paletteSearch";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { isHomeThreadId, type EnvironmentId, type ThreadId } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { MessageSquareIcon } from "lucide-react";
@@ -109,7 +109,7 @@ export function useCommandPaletteThreadItems(input: {
   const [now] = useState(() => Date.now());
 
   const { environments } = useEnvironments();
-  const threadItems = buildThreadActionItems({
+  const candidateItems = buildThreadActionItems({
     threads,
     ...(environments.length > 1
       ? {
@@ -190,7 +190,7 @@ export function useCommandPaletteThreadItems(input: {
     },
   });
 
-  const itemByValue = new Map(threadItems.map((item) => [item.value, item]));
+  const itemByValue = new Map(candidateItems.map((item) => [item.value, item]));
   const itemForMatch = (match: EnvironmentThreadSearchMatch) =>
     itemByValue.get(`thread:${match.environmentId}:${match.threadId}`);
   const rankedMessageItems = rankMessageMatches(
@@ -243,7 +243,7 @@ export function useCommandPaletteThreadItems(input: {
     .flatMap((value) => messageItemByValue.get(value) ?? []);
 
   return {
-    threadItems,
+    threadItems: candidateItems.filter((item) => !isHomeThreadId(item.threadSearch?.id ?? "")),
     threadMessageItems,
     now,
     isSearchPending: messageSearch.isPending,

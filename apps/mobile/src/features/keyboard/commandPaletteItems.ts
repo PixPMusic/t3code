@@ -1,3 +1,4 @@
+import { isHomeThreadId } from "@t3tools/contracts";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import {
   foldSearchQuery,
@@ -49,7 +50,10 @@ export function filterCommandPaletteItems(
 ): CommandPaletteResult[] {
   const actionsOnly = query.startsWith(">");
   const normalizedQuery = foldSearchQuery(actionsOnly ? query.slice(1) : query);
-  const candidates = actionsOnly ? items.filter((item) => item.kind === "action") : items;
+  const candidates = items.filter(
+    (item) =>
+      !isHomeThreadId(item.threadSearch?.id ?? "") && (!actionsOnly || item.kind === "action"),
+  );
   if (!normalizedQuery) return candidates.filter((item) => item.kind !== "project");
 
   // On equal match classes, groups keep this order, as on web.
