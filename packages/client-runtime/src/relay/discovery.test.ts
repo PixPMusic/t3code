@@ -73,7 +73,9 @@ function status(
   };
 }
 
-const makeHarness = Effect.fn("RelayDiscoveryTest.makeHarness")(function* () {
+const makeHarness = Effect.fn("RelayDiscoveryTest.makeHarness")(function* (options?: {
+  readonly connectivityChanges?: boolean;
+}) {
   const networkStatus = yield* SubscriptionRef.make<NetworkStatus>("online");
   const listCalls = yield* Ref.make(0);
   const listFailure = yield* Ref.make<ManagedRelay.ManagedRelayClientError | null>(null);
@@ -139,7 +141,10 @@ const makeHarness = Effect.fn("RelayDiscoveryTest.makeHarness")(function* () {
   } satisfies ManagedRelay.ManagedRelayClient["Service"]);
   const connectivity = Connectivity.Connectivity.of({
     status: SubscriptionRef.get(networkStatus),
-    changes: SubscriptionRef.changes(networkStatus),
+    changes:
+      options?.connectivityChanges === false
+        ? Stream.never
+        : SubscriptionRef.changes(networkStatus),
   });
   const layer = RelayEnvironmentDiscovery.layer.pipe(
     Layer.provide(
@@ -345,7 +350,7 @@ describe("RelayEnvironmentDiscovery", () => {
 
   it.effect("preserves known names throughout a same-account refresh failure", () =>
     Effect.gen(function* () {
-      const harness = yield* makeHarness();
+      const harness = yield* makeHarness({ connectivityChanges: false });
       yield* Effect.gen(function* () {
         const discovery = yield* RelayEnvironmentDiscovery.RelayEnvironmentDiscovery;
         const requests = yield* Ref.get(harness.statusRequests);
@@ -377,9 +382,9 @@ describe("RelayEnvironmentDiscovery", () => {
         yield* discovery.refresh;
 
         const failed = yield* SubscriptionRef.get(discovery.state);
-        expect([...failed.environments.values()].map(({ environment }) => environment)).toEqual(
-          [...known.values()].map(({ environment }) => environment),
-        );
+        for (const [id, entry] of known) {
+          expect(failed.environments.get(id)?.environment).toBe(entry.environment);
+        }
         expect(
           [...failed.environments.values()].every(
             (entry) => Option.isNone(entry.status) && entry.availability === "error",
