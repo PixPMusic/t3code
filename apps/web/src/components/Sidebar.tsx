@@ -142,7 +142,7 @@ import {
   readThreadShell,
   useAllEnvironmentProjectSnapshotsReady,
   useDelegatedUnderParent,
-  useProjects,
+  useUserProjects,
   useServerConfigs,
   useQuietThreadShells,
 } from "../state/entities";
@@ -786,7 +786,7 @@ function isOptimisticDropReleased(input: {
 
 // Build maps in a hook so the compiler can prove they are frozen and cache them.
 function useSidebarLookups() {
-  const projects = useProjects();
+  const projects = useUserProjects();
   const environments = useEnvironmentIdentities();
   const serverConfigs = useServerConfigs();
   const providerEntriesByEnvironment = useAtomValue(sidebarProviderEntriesAtom);

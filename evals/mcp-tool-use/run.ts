@@ -51,6 +51,7 @@ import {
   CHILD_PULL_REQUEST_REPORT_NEXT,
   PullRequestsToolkit,
 } from "../../apps/server/src/mcp/toolkits/pullRequests/tools.ts";
+import { HOME_LAUNCH_WATCH_WARNING } from "../../apps/server/src/mcp/McpToolAccess.ts";
 import { HomeToolkit } from "../../apps/server/src/mcp/toolkits/home/tools.ts";
 import { refreshHomeAgents } from "../../apps/server/src/project/ManagedProjectFolders.ts";
 import { ThreadToolkit } from "../../apps/server/src/mcp/toolkits/thread/tools.ts";
@@ -1066,6 +1067,10 @@ const withProductFields = (name: string, value: unknown, child: boolean): unknow
     case "t3_thread_read":
       return { ...value, thread: linked(value.thread) };
     case "t3_thread_launch":
+      return linked({
+        ...value,
+        ...(value.watchWarning === true ? { watchWarning: HOME_LAUNCH_WATCH_WARNING } : {}),
+      });
     case "t3_thread_send":
     case "run_scheduled_task_now":
       return linked(value);

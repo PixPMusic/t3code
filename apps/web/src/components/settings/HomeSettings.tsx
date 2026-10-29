@@ -54,7 +54,9 @@ export function HomeSettings() {
                 title="Home"
                 description={`Reconnect ${environment.label} to manage Home.`}
               />
-            ) : environment.serverConfig?.homeWorkspaceRoot == null ? (
+            ) : environment.serverConfig === null ? (
+              <SettingsRow title="Home" description="Loading Home settings…" />
+            ) : environment.serverConfig.homeWorkspaceRoot == null ? (
               <SettingsRow title="Home" description="Update this server to use Home." />
             ) : (
               <HomeEnvironmentSettings environmentId={environment.environmentId} />

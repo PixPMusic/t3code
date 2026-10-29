@@ -36,6 +36,9 @@ import {
   unavailable,
 } from "./threadAccess.ts";
 
+export const HOME_LAUNCH_WATCH_WARNING =
+  "Thread created, but Home could not save its watch. Retry t3_thread_watch with the same environmentId as the launch, then use t3_thread_read to check for milestones that already happened. Do not launch it again.";
+
 /** Private constructors only enforce types; the token also blocks runtime construction. */
 const builtHere: unique symbol = Symbol("t3/mcp/McpToolAccess/builtHere");
 
@@ -451,22 +454,28 @@ const routed = Effect.fn("McpToolAccess.routed")(function* <Tools extends Record
               ),
             );
           const result = yield* handle(params);
-          if (Predicate.hasProperty(result, "threadId") && typeof result.threadId === "string")
-            yield* homeService.value
+          if (Predicate.hasProperty(result, "threadId") && typeof result.threadId === "string") {
+            const watched = yield* homeService.value
               .watchLaunch(threadId, {
                 environmentId,
                 threadId: result.threadId as ThreadId,
                 sinceSequence,
               })
               .pipe(
-                Effect.mapError(
-                  (error) =>
-                    new OrchestratorMcpFailure({
-                      code: "orchestration_error",
-                      message: error.message,
-                    }),
+                Effect.as(true),
+                Effect.catch((error) =>
+                  Effect.logWarning(
+                    "Home could not register its launched thread watch",
+                    error,
+                  ).pipe(Effect.as(false)),
                 ),
               );
+            if (!watched)
+              return {
+                ...result,
+                watchWarning: HOME_LAUNCH_WATCH_WARNING,
+              };
+          }
           return result;
         });
     }

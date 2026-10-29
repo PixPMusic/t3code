@@ -1640,7 +1640,7 @@ function renderFeedEntry(
             {presentation.attribution === "guest" ? <GuestBubbleTint /> : null}
             {foldRowId !== null ? (
               <AgentMessageFoldHeader
-                environmentId={props.environmentId}
+                environmentId={message.context?.senderEnvironmentId ?? props.environmentId}
                 senderThreadId={message.senderThreadId}
                 summary={
                   replaceComposerContextReferences(presentation.text, (ref) => ref.label)

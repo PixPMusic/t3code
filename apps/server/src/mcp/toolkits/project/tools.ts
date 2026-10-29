@@ -158,6 +158,7 @@ const ThreadLaunchTool = Tool.make("t3_thread_launch", {
     modelSelection: ModelSelection,
     runId: Schema.NullOr(RunId),
     status: Schema.NullOr(OrchestrationV2RunStatus),
+    watchWarning: Schema.optional(Schema.String),
   }),
   dependencies: [
     ...shared.dependencies,

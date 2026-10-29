@@ -1,6 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import {
   EnvironmentId,
+  HomeUnavailableError,
+  ProjectId,
   OrchestratorMcpEnvironmentTarget,
   OrchestratorMcpFailure,
   ProviderInstanceId,
@@ -22,6 +24,7 @@ import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.t
 import * as McpHttpServer from "./McpHttpServer.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
 import * as McpToolAccess from "./McpToolAccess.ts";
+import { ProjectToolkit } from "./toolkits/project/tools.ts";
 import { liveThreadShell } from "./McpToolAccess.testkit.ts";
 
 const supervisedThreadId = ThreadId.make("thread:supervised");
@@ -529,3 +532,72 @@ it.effect.each(["t3_project_delete", "create_threads", "schedule_task"])(
     );
   },
 );
+
+it.effect("returns a created Home launch even when its automatic watch cannot be saved", () => {
+  const home = ThreadId.make("home:current");
+  const launched = ThreadId.make("launched-work");
+  let launches = 0;
+  const toolkit = Toolkit.make(
+    Tool.make("t3_thread_launch", {
+      ...probe,
+      parameters: Schema.Struct({ projectId: ProjectId }),
+      success: ProjectToolkit.tools.t3_thread_launch.successSchema,
+    }),
+  );
+  return Effect.gen(function* () {
+    const server = yield* McpServer.McpServer;
+    const result = yield* server
+      .callTool({ name: "t3_thread_launch", arguments: { projectId: "work-project" } })
+      .pipe(
+        Effect.provideService(McpInvocationContext.McpInvocationContext, threadCaller(home)),
+        Effect.provideService(McpSchema.McpServerClient, mcpClient),
+      );
+    expect(result.isError).not.toBe(true);
+    const body = result.content
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("");
+    expect(JSON.parse(body)).toMatchObject({
+      threadId: launched,
+      watchWarning: expect.stringContaining("watch"),
+    });
+    expect(launches).toBe(1);
+  }).pipe(
+    Effect.provide(
+      McpHttpServer.toolkitRegistration(
+        toolkit,
+        McpToolAccess.toLayer(toolkit, {
+          t3_thread_launch: McpToolAccess.reads(() =>
+            Effect.sync(() => {
+              launches++;
+              return {
+                threadId: launched,
+                projectId: ProjectId.make("work-project"),
+                modelSelection: {
+                  instanceId: ProviderInstanceId.make("codex"),
+                  model: "gpt-6.1-sol",
+                },
+                runId: null,
+                status: null,
+              };
+            }),
+          ),
+        }),
+      ).pipe(
+        Layer.provideMerge(McpServer.McpServer.layer),
+        Layer.provide(
+          Layer.mock(HomeService.HomeService)({
+            isHome: () => Effect.succeed(true),
+            prepareLaunch: () => Effect.succeed(10),
+            watchLaunch: () => Effect.fail(new HomeUnavailableError({ operation: "save" })),
+          }),
+        ),
+        Layer.provide(
+          Layer.mock(ThreadManagement.ThreadManagementService)({
+            getThreadShell: () => Effect.succeed(liveThreadShell(home)),
+          }),
+        ),
+      ),
+    ),
+  );
+});

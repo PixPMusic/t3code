@@ -166,7 +166,7 @@ describe("buildThreadActionItems", () => {
     const remote = makeThread({ environmentId: EnvironmentId.make("remote-copy") });
     const runThread = vi.fn(async () => {});
     const items = buildThreadActionItems({
-      threads: [local, remote],
+      threads: [local, remote, makeThread({ id: ThreadId.make("home:managed") })],
       activeThread: remote,
       projectByKey: new Map([
         [`${local.environmentId}:${local.projectId}`, { title: "Local project" }],

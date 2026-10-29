@@ -123,7 +123,13 @@ import {
   useEnvironments,
   usePrimaryEnvironmentId,
 } from "../state/environments";
-import { useProjects, useServerConfigs, useThreadShells, waitForProject } from "../state/entities";
+import {
+  useProjects,
+  useUserProjects,
+  useServerConfigs,
+  useThreadShells,
+  waitForProject,
+} from "../state/entities";
 import { resolveThreadActionProjectRef, startNewThreadFromContext } from "../lib/chatThreadActions";
 import {
   appendBrowsePathSegment,
@@ -436,6 +442,7 @@ function OpenCommandPaletteDialog(props: {
     useHandleNewThread();
   const paletteRouteTarget = useThreadRouteTarget();
   const projects = useProjects();
+  const userProjects = useUserProjects();
   const referenceThreadRef =
     pathname === "/pull-requests"
       ? environments.some((environment) => environment.serverConfig !== null)
@@ -1155,7 +1162,7 @@ function OpenCommandPaletteDialog(props: {
 
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
 
-  if (projects.length > 0) {
+  if (userProjects.length > 0) {
     const activeProjectTitle =
       projectPickerEntries.find((entry) => entry.isPreferred)?.group.displayName ??
       (currentProjectId ? (projectTitleById.get(currentProjectId) ?? null) : null);

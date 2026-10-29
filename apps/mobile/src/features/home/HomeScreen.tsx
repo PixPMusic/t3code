@@ -660,13 +660,17 @@ export function HomeScreen(props: HomeScreenProps) {
   if (!hasAnyThreads) {
     return (
       <View className={containerClassName}>
-        <View
+        <HomeScrollView
+          keyboardShouldPersistTaps="handled"
           className={cn(
-            "flex-1 items-center justify-center px-8",
+            "flex-1",
             contentBackground,
             Platform.OS === "android" && "overflow-hidden rounded-t-[28px]",
           )}
-          style={{
+          contentContainerStyle={{
+            flexGrow: 1,
+            alignItems: "center",
+            justifyContent: "center",
             paddingBottom: Platform.OS === "ios" ? iosBottomClearance : Math.max(insets.bottom, 24),
             paddingTop: NATIVE_LIQUID_GLASS_SUPPORTED ? insets.top + 72 : 0,
             paddingLeft: 32 + (contentSideInsets?.left ?? 0),
@@ -699,7 +703,7 @@ export function HomeScreen(props: HomeScreenProps) {
               </View>
             ) : null}
           </View>
-        </View>
+        </HomeScrollView>
       </View>
     );
   }
@@ -758,8 +762,14 @@ export function HomeScreen(props: HomeScreenProps) {
           className="flex-1 overflow-hidden rounded-t-[28px] bg-screen"
           style={{ paddingBottom: insets.bottom }}
         >
-          {v2ListHeader}
-          <View className="flex-1 items-center justify-center px-4">{v2ListEmpty}</View>
+          <HomeScrollView
+            className="flex-1"
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {v2ListHeader}
+            <View className="grow items-center justify-center px-4">{v2ListEmpty}</View>
+          </HomeScrollView>
         </View>
       </View>
     );
