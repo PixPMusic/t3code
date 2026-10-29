@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { restoreSettingsLinkState } from "../settings/settings-navigation";
 import {
+  expandedWorkspaceTab,
   workspaceSelectionsIn,
   workspaceTabColumns,
   workspaceTabNavigationState,
@@ -63,6 +64,17 @@ describe("workspace tab selections", () => {
 
 describe("opening a workspace tab", () => {
   const columns = { columns: true, check: available };
+
+  it("expanding an empty workspace preserves the live tab and leaves open pages alone", () => {
+    for (const selected of ["home", "threads", "pullRequests", "usage"] as const) {
+      const active = (tab: string) => tab === selected;
+      expect(expandedWorkspaceTab([home], active)).toBe(selected);
+      expect(expandedWorkspaceTab([home, settings], active)).toBe("settings");
+      expect(expandedWorkspaceTab([home, homeAgent], active)).toBeUndefined();
+      expect(expandedWorkspaceTab([home, thread], active)).toBeUndefined();
+    }
+    expect(expandedWorkspaceTab([home])).toBe("threads");
+  });
 
   it.each([false, true])("opens Home as one conversation independent of columns: %s", (columns) => {
     const state = { routes: [home, homeAgent, thread] };

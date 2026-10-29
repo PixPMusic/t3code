@@ -5,6 +5,7 @@ import {
 } from "../settings/components/settings-page-targets";
 import { settingsNavigationState } from "../settings/settings-navigation";
 import type { WorkspaceTab } from "./workspace-tabs-state";
+import { NAVIGATION_TAB_ORDER } from "./navigation-tab-order";
 
 type RouteLike = {
   readonly name: string;
@@ -16,6 +17,16 @@ type PullRequestSelection = NonNullable<WorkspaceSelections["pullRequests"]>;
 
 /** Opened when Settings has columns and none of its pages has been opened yet. */
 export const DEFAULT_SETTINGS_PAGE = "SettingsEnvironments" satisfies SettingsPageTarget;
+
+export function expandedWorkspaceTab(
+  routes: readonly { readonly name: string }[],
+  isTabActive?: (tab: WorkspaceTab) => boolean,
+) {
+  if (routes.some((route) => route.name !== "Home" && route.name !== "Settings")) return;
+  return routes.some((route) => route.name === "Settings")
+    ? "settings"
+    : (NAVIGATION_TAB_ORDER.find((tab) => isTabActive?.(tab)) ?? "threads");
+}
 
 export function workspaceTabColumns(
   platform: string,
