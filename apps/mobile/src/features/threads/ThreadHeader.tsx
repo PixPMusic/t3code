@@ -7,7 +7,7 @@ import type { ThreadInspectorMode } from "./thread-inspector-content-stack";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
 import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
-import { useRoute } from "@react-navigation/native";
+import { useNavigationState, useRoute } from "@react-navigation/native";
 import { HomeAgentTitle, useHomeAgentSwitcher } from "../home-agent/HomeAgentTitle";
 
 type ThreadHeaderProps = Parameters<typeof useThreadHeaderOptions>[0] & {
@@ -49,7 +49,10 @@ function ThreadHeaderContent(props: ThreadHeaderProps & { readonly titleContent?
   const { layout, panes, toggleAuxiliaryPane, composerKeyboardActive } =
     useAdaptiveWorkspaceLayout();
   const { onOpenTerminal, onMergeBack } = props.gitControls;
-  const native = useThreadHeaderOptions(props);
+  const returnToHome = useNavigationState(
+    (state) => state.routes[state.index - 1]?.name === "HomeAgent",
+  );
+  const native = useThreadHeaderOptions({ ...props, returnToHome });
   const androidHeaderActions = useMemo<ReadonlyArray<AppBarAction>>(() => {
     const actions: AppBarAction[] = [];
     if (props.onReturnToThread) {
@@ -125,7 +128,9 @@ function ThreadHeaderContent(props: ThreadHeaderProps & { readonly titleContent?
             />
           ) : null
         }
-        onBack={layout.usesSplitView || home ? undefined : goBack}
+        onBack={
+          home || (layout.usesSplitView && !props.draft && !returnToHome) ? undefined : goBack
+        }
         actions={androidHeaderActions}
         hideBottomBorder
         compact={composerKeyboardActive}

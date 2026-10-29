@@ -461,6 +461,7 @@ export function NewTaskDraftScreen(props: {
     const selection = resolveDraftProjectSelection(selectedProjectKey, projects, projectScopes, {
       incomingShareId: props.incomingShareId,
       pickerClosed: initialPickerRef.current === "open" && isFocused,
+      focused: navigation.isFocused(),
     });
     if (selection.kind === "preserve") {
       initialPickerRef.current = null;

@@ -96,8 +96,10 @@ export function resolveDraftProjectSelection(
     readonly incomingShareId: string | undefined;
     /** The draft's first project picker closed and the draft is showing again. */
     readonly pickerClosed: boolean;
+    readonly focused: boolean;
   },
 ): DraftProjectSelectionResolution {
+  if (!draft.focused) return { kind: "preserve" };
   const hasExplicitProjectSelection =
     selectedProjectKey !== null &&
     projects.some(

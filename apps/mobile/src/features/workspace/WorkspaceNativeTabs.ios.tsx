@@ -87,7 +87,6 @@ export function WorkspaceNativeTabs(props: {
   const deviceType = useDeviceType();
   const metrics = useNativeLayoutMetrics();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
-  const hideForKeyboard = keyboardVisible && (metrics?.verticalBarEdge ?? "none") === "none";
   const compactTabs = useCompactWorkspaceTabs();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const floatingTabs = useFloatingWorkspaceTabs();
@@ -95,6 +94,8 @@ export function WorkspaceNativeTabs(props: {
   const { colors } = useControlTheme();
   const selectedTab = workspace.state.selectedTab;
   const homePage = selectedTab === "home" && !workspace.settingsOpen;
+  const hideForKeyboard =
+    homePage && keyboardVisible && (metrics?.verticalBarEdge ?? "none") === "none";
   const homeBottomTabs =
     homePage && NATIVE_LIQUID_GLASS_SUPPORTED && (metrics?.verticalBarEdge ?? "none") === "none";
   const floatingSidebarTabs = floatingTabs || homeBottomTabs;

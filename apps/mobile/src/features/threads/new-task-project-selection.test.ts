@@ -117,12 +117,18 @@ describe("resolveEnvironmentProjectMatch", () => {
 
 describe("resolveDraftProjectSelection", () => {
   const projects = [makeProject("t3code"), makeProject("t3code-2")];
-  const draft = { incomingShareId: undefined, pickerClosed: false };
+  const draft = { incomingShareId: undefined, pickerClosed: false, focused: true };
 
   it("opens the picker instead of auto-selecting the only project", () => {
     expect(resolveDraftProjectSelection(null, projects, [makeScope(projects)], draft)).toEqual({
       kind: "pick",
     });
+    expect(
+      resolveDraftProjectSelection(null, projects, [makeScope(projects)], {
+        ...draft,
+        focused: false,
+      }),
+    ).toEqual({ kind: "preserve" });
   });
 
   it("selects the only logical project for shared content", () => {
@@ -158,6 +164,7 @@ describe("resolveDraftProjectSelection", () => {
       resolveDraftProjectSelection(null, projects, scopes, {
         incomingShareId: "share",
         pickerClosed: true,
+        focused: true,
       }),
     ).toEqual({ kind: "pick" });
   });

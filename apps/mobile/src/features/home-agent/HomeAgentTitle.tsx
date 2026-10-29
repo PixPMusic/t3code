@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { Keyboard, Pressable, View } from "react-native";
+import { Keyboard, Platform, Pressable, View } from "react-native";
 import type { StackHeaderMenuIOS } from "react-native-screens";
 
 import { AppText as Text } from "../../components/ui/AppText";
@@ -9,6 +9,7 @@ import { Menu } from "../../components/ui/Menu";
 import { useServerConfigs } from "../../state/entities";
 import { useWorkspaceEnvironments } from "../../state/workspace";
 import { workspaceSelectionCheck } from "../workspace/workspace-selection-store";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useScaledTextRole } from "../settings/appearance/useScaledTextRole";
 
 export function useHomeAgentSwitcher(environmentId: string) {
@@ -52,12 +53,21 @@ export function HomeAgentAppBar(props: {
   readonly subtitle?: string | undefined;
 }) {
   const switcher = useHomeAgentSwitcher(props.environmentId ?? "");
+  const { themeVariables } = useAppearancePreferences();
   return (
     <AppBar
       title="Home"
       subtitle={props.subtitle}
       sidebar={false}
-      options={{ headerTitle: "Home", headerBackVisible: false, headerTitleMenu: switcher?.menu }}
+      options={{
+        headerTitle: "Home",
+        headerBackVisible: false,
+        headerTitleMenu: switcher?.menu,
+        ...(Platform.OS === "android"
+          ? { contentStyle: { backgroundColor: themeVariables["--color-header"] } }
+          : {}),
+      }}
+      hideBottomBorder
       optionsVersion={switcher?.menu}
       titleContent={
         switcher ? (

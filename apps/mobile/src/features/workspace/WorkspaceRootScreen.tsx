@@ -158,10 +158,14 @@ function WorkspaceRootContent() {
               unstable_headerLeftItems: () => [],
               // Beside a detail column the tab bar names the tab and the detail header the page,
               // so the sidebar keeps the brand.
-              headerTitle:
-                sidebarNavigation || (!settingsOpen && state.selectedTab !== "usage")
-                  ? renderHeaderTitle
-                  : undefined,
+              ...(!settingsOpen && state.selectedTab === "home"
+                ? {}
+                : {
+                    headerTitle:
+                      sidebarNavigation || (!settingsOpen && state.selectedTab !== "usage")
+                        ? renderHeaderTitle
+                        : undefined,
+                  }),
             }}
           />
         ) : (

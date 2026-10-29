@@ -86,6 +86,9 @@ describe("selectWorkspaceDetail", () => {
     expect(draft.routes[1]).toEqual(current.routes[1]);
     const back = apply(draft, StackActions.pop());
     expect(back.routes).toEqual(current.routes);
+    const selected = select(draft, threadB);
+    expect(page(selected).names).toEqual(["Home", "Thread"]);
+    expect(selected.routes[1]?.key).toBe(draft.routes[2]?.key);
   });
 
   it("opens the Home tab from a selection, link, navigate or push", () => {

@@ -411,7 +411,8 @@ function WorkspaceColumns(
             const descriptor = props.descriptors[route.key] ?? screens.descriptors[route.key];
             const inSettingsSlot = settingsDetailIn(props.detail)?.key === route.key;
             const screenKey = inSettingsSlot ? SETTINGS_DETAIL_SCREEN : route.key;
-            return descriptor ? (
+            // Home stays in the route history for Back; its conversation belongs to the Home slot.
+            return descriptor && route.name !== "HomeAgent" ? (
               <ColumnScreen
                 key={screenKey}
                 screenKey={screenKey}
@@ -532,7 +533,7 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
           <V5CardStackView
             {...props}
             onCompose={
-              homeAgent &&
+              (homeAgent || (workspace.state.selectedTab === "home" && !workspace.settingsOpen)) &&
               ((metrics?.verticalBarEdge ?? "none") !== "none" || !NATIVE_LIQUID_GLASS_SUPPORTED)
                 ? startNewTask
                 : undefined

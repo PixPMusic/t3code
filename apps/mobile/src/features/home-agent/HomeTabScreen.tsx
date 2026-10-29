@@ -38,33 +38,34 @@ export function HomeTabScreen() {
       });
     }, [threadId, workspace, selectTab]),
   );
-  if (
+  const loading =
     threadId ||
     source?.connectionState === "connecting" ||
     source?.connectionState === "reconnecting" ||
-    (source?.connectionState === "connected" && source.threadId === undefined)
-  ) {
-    return <LoadingScreen message="Opening Home…" />;
-  }
+    (source?.connectionState === "connected" && source.threadId === undefined);
   return (
     <>
       <HomeAgentAppBar environmentId={source?.environmentId} subtitle={source?.environmentLabel} />
-      <View className="flex-1 items-center justify-center px-8">
-        <EmptyState
-          title="Home"
-          detail="One agent for your work across projects and connected environments."
-          actionLabel={
-            source ? (disconnected ? "Reconnect environment" : "Set up Home") : "Add environment"
-          }
-          onAction={() =>
-            openSettings(
-              navigation,
-              source && !disconnected ? "SettingsHome" : "SettingsEnvironments",
-            )
-          }
-          variant="plain"
-        />
-      </View>
+      {loading ? (
+        <LoadingScreen message="Opening Home…" embedded />
+      ) : (
+        <View className="flex-1 items-center justify-center px-8">
+          <EmptyState
+            title="Home"
+            detail="One agent for your work across projects and connected environments."
+            actionLabel={
+              source ? (disconnected ? "Reconnect environment" : "Set up Home") : "Add environment"
+            }
+            onAction={() =>
+              openSettings(
+                navigation,
+                source && !disconnected ? "SettingsHome" : "SettingsEnvironments",
+              )
+            }
+            variant="plain"
+          />
+        </View>
+      )}
     </>
   );
 }

@@ -24,6 +24,7 @@ export function useThreadHeaderOptions(props: {
   readonly gitControls: Parameters<typeof ThreadGitControls>[0];
   readonly onReturnToThread?: () => void;
   readonly draft?: boolean;
+  readonly returnToHome?: boolean;
   readonly headerTitleMenu?: StackHeaderMenuIOS | undefined;
 }) {
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
@@ -31,11 +32,24 @@ export function useThreadHeaderOptions(props: {
   const usesDuoHeader = usesNativeWorkspaceColumns && isDuoDevice(deviceType);
   const navigation = useNavigation();
   const home = useRoute().name === "HomeAgent";
+  const returnToHome = props.returnToHome;
+  const canGoBack = navigation.canGoBack();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
   const threadCenterHeaderItems = useThreadGitCenterHeaderItems(props.gitControls);
   const compactRightHeaderItems = useThreadGitRightHeaderItems(props.gitControls);
   const splitLeftHeaderItems: NativeHeaderItems = [
+    ...(returnToHome || (props.draft && canGoBack)
+      ? [
+          withNativeGlassHeaderItem({
+            accessibilityLabel: returnToHome ? "Back to Home" : "Back",
+            icon: { name: "chevron.left", type: "sfSymbol" as const },
+            identifier: "thread-left-back",
+            onPress: () => navigation.goBack(),
+            type: "button" as const,
+          }),
+        ]
+      : []),
     ...(!usesDuoHeader
       ? [
           {
@@ -69,7 +83,6 @@ export function useThreadHeaderOptions(props: {
         ]
       : []),
   ];
-  const canGoBack = navigation.canGoBack();
   const compactHomeHeaderItems: NativeHeaderItems = [
     withNativeGlassHeaderItem({
       accessibilityLabel: "Go to threads list",

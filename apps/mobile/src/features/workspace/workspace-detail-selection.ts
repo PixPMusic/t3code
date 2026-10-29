@@ -81,7 +81,7 @@ function workspaceDetailState<
   const leaving = workspace.findIndex((route) => route.key !== undefined && route.key === popping);
   const live = leaving < 0 ? workspace : workspace.slice(0, leaving);
   const home = live.find((route) => route.name === "Home") ?? { name: "Home" };
-  const page = live.find((route) => route.name !== "Home" && route.name !== "Settings");
+  const page = live.findLast((route) => route.name !== "Home" && route.name !== "Settings");
   const reused =
     live.findLast((route) => showsDetail(route, detail)) ??
     (page?.name === detail.name ? page : undefined);
