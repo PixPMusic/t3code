@@ -113,8 +113,26 @@ it("reuses a large thread list across tab renders and updates when its inputs ch
   );
   expect(seen.at(-1)!.layout.items.map((item) => item.thread.title)).toEqual(["Updated title"]);
 
-  await act(async () =>
-    root.render(<Probe input={{ ...input, now: "2026-01-02T00:01:00.000Z" }} tab="chats" />),
+  const clockThreads = threads.map((thread) =>
+    thread.id === "thread-0" ? { ...thread, snoozedUntil: "2026-01-02T00:00:30.000Z" } : thread,
   );
-  expect(seen.at(-1)!.items).not.toBe(initial.items);
+  const clockInput = { ...input, threads: clockThreads, snoozedShelfExpanded: true };
+  await act(async () => root.render(<Probe input={clockInput} tab="chats" />));
+  const beforeClock = seen.at(-1)!;
+  expect(beforeClock.layout.snoozedCount).toBe(1);
+  expect(beforeClock.layout.items.find((item) => item.thread.id === "thread-0")?.snoozed).toBe(
+    true,
+  );
+  await act(async () => root.render(<Probe input={clockInput} tab="settings" />));
+  expect(seen.at(-1)!.items).toBe(beforeClock.items);
+
+  await act(async () =>
+    root.render(<Probe input={{ ...clockInput, now: "2026-01-02T00:01:00.000Z" }} tab="chats" />),
+  );
+  const afterClock = seen.at(-1)!;
+  expect(afterClock.items).not.toBe(beforeClock.items);
+  expect(afterClock.layout.snoozedCount).toBe(0);
+  expect(afterClock.layout.items.find((item) => item.thread.id === "thread-0")?.snoozed).toBe(
+    false,
+  );
 });
