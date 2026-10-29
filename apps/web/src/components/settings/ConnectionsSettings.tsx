@@ -656,9 +656,11 @@ export function ConnectionsSettings({ view }: { readonly view: "environments" | 
     <SettingsRow
       title="Host name"
       description={
-        primaryServerConfig?.environment.capabilities.environmentLabel === true
-          ? "Shown to connected clients and in T3 Connect. Clear it to use this computer’s name."
-          : "Update this environment to set its host name."
+        primaryServerConfig === null
+          ? "Connect to this environment to set its host name."
+          : primaryServerConfig.environment.capabilities.environmentLabel === true
+            ? "Shown to connected clients and in T3 Connect. Clear it to use this computer’s name."
+            : "Update this environment to set its host name."
       }
       control={
         <div className="w-full sm:w-64">

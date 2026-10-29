@@ -82,9 +82,15 @@ export function createEnvironmentPresentationAtoms<E>(input: {
   const presentationAtom = Atom.family((environmentId: EnvironmentId) => {
     let previousCatalogEntry: ConnectionCatalogEntry | undefined;
     let previousServerConfig: EnvironmentServerConfig | null = null;
+    let lastConnectedLabel: string | undefined;
+    let lastConnectedDiscoveryLabel: string | undefined;
+    let discoveryChangedSinceConnection = false;
     return Atom.make((get) => {
       const entry = get(input.catalogValueAtom).entries.get(environmentId);
       if (entry === undefined) {
+        lastConnectedLabel = undefined;
+        lastConnectedDiscoveryLabel = undefined;
+        discoveryChangedSinceConnection = false;
         return null;
       }
       const state = AsyncResult.getOrElse(
@@ -105,13 +111,26 @@ export function createEnvironmentPresentationAtoms<E>(input: {
       );
       let serverConfig = sourceServerConfig;
       let displayEntry = entry;
-      if (
-        connection.phase !== "connected" &&
-        entry.target._tag === "RelayConnectionTarget" &&
-        input.relayDiscoveryValueAtom
-      ) {
-        const label = get(input.relayDiscoveryValueAtom).environments.get(environmentId)
+      if (entry.target._tag === "RelayConnectionTarget" && input.relayDiscoveryValueAtom) {
+        const discoveredLabel = get(input.relayDiscoveryValueAtom).environments.get(environmentId)
           ?.environment.label;
+        if (connection.phase === "connected" && sourceServerConfig !== null) {
+          lastConnectedLabel = sourceServerConfig.environment.label;
+          lastConnectedDiscoveryLabel = discoveredLabel;
+          discoveryChangedSinceConnection = false;
+        } else if (
+          discoveredLabel !== undefined &&
+          discoveredLabel !== lastConnectedDiscoveryLabel
+        ) {
+          discoveryChangedSinceConnection = true;
+        }
+        // An unchanged relay snapshot cannot replace a newer name received over the live socket.
+        const label =
+          connection.phase === "connected"
+            ? undefined
+            : lastConnectedLabel !== undefined && !discoveryChangedSinceConnection
+              ? lastConnectedLabel
+              : discoveredLabel;
         if (label !== undefined) {
           if (label !== entry.target.label) {
             // Discovery can refresh a name without rebuilding saved routes or restarting their supervisor.
@@ -120,7 +139,6 @@ export function createEnvironmentPresentationAtoms<E>(input: {
                 ? previous.entry
                 : { ...entry, target: new RelayConnectionTarget({ environmentId, label }) };
           }
-          // A cached descriptor survives disconnects; only a live socket takes priority over discovery.
           if (sourceServerConfig !== null && sourceServerConfig.environment.label !== label) {
             serverConfig =
               sourceServerConfig === previousServerConfig &&
@@ -132,6 +150,10 @@ export function createEnvironmentPresentationAtoms<E>(input: {
                   };
           }
         }
+      } else {
+        lastConnectedLabel = undefined;
+        lastConnectedDiscoveryLabel = undefined;
+        discoveryChangedSinceConnection = false;
       }
       previousCatalogEntry = entry;
       previousServerConfig = sourceServerConfig;
@@ -209,8 +231,19 @@ export function createEnvironmentPresentationAtoms<E>(input: {
     for (const environmentId of enabledEnvironmentIds(get(input.catalogValueAtom))) {
       const presentation = get(presentationAtom(environmentId));
       if (presentation === null) continue;
-      const serverConfig = get(input.serverConfigValueAtom(environmentId));
+      const rawConfig = get(input.serverConfigValueAtom(environmentId));
       const prior = previous?.get(environmentId);
+      const projectedConfig = presentation.serverConfig;
+      const serverConfig =
+        rawConfig === null || projectedConfig === null
+          ? null
+          : rawConfig.environment === projectedConfig.environment
+            ? rawConfig
+            : prior?.serverConfig != null &&
+                prior.serverConfig.providers === rawConfig.providers &&
+                withoutProviders(prior.serverConfig, projectedConfig) === projectedConfig
+              ? prior.serverConfig
+              : { ...projectedConfig, providers: rawConfig.providers };
       next.set(
         environmentId,
         prior !== undefined &&

@@ -54,6 +54,24 @@ export const EMPTY_RELAY_ENVIRONMENT_DISCOVERY_STATE: RelayEnvironmentDiscoveryS
   error: Option.none(),
 };
 
+function withoutStatuses(
+  environments: RelayEnvironmentDiscoveryState["environments"],
+  availability: RelayEnvironmentAvailability,
+  error: Option.Option<ConnectionAttemptError> = Option.none(),
+) {
+  return new Map(
+    [...environments].map(([id, entry]) => [
+      id,
+      {
+        ...entry,
+        availability,
+        status: Option.none<RelayEnvironmentStatusResponse>(),
+        error,
+      },
+    ]),
+  );
+}
+
 function validateStatus(
   environment: RelayClientEnvironmentRecord,
   status: RelayEnvironmentStatusResponse,
@@ -214,6 +232,7 @@ export const make = Effect.fn("RelayEnvironmentDiscovery.make")(function* () {
       if ((yield* connectivity.status) === "offline") {
         yield* SubscriptionRef.update(state, (current) => ({
           ...current,
+          environments: withoutStatuses(current.environments, "offline"),
           refreshing: false,
           offline: true,
         }));
@@ -224,6 +243,7 @@ export const make = Effect.fn("RelayEnvironmentDiscovery.make")(function* () {
       yield* Ref.set(refreshGeneration, generation);
       yield* SubscriptionRef.update(state, (current) => ({
         ...current,
+        environments: withoutStatuses(current.environments, "checking"),
         refreshing: true,
         offline: false,
         error: Option.none(),
@@ -309,6 +329,7 @@ export const make = Effect.fn("RelayEnvironmentDiscovery.make")(function* () {
           }
           yield* SubscriptionRef.update(state, (current) => ({
             ...current,
+            environments: withoutStatuses(current.environments, "error", Option.some(error)),
             refreshing: false,
             error: Option.some(error),
           }));
@@ -323,6 +344,7 @@ export const make = Effect.fn("RelayEnvironmentDiscovery.make")(function* () {
       networkStatus === "offline"
         ? SubscriptionRef.update(state, (current) => ({
             ...current,
+            environments: withoutStatuses(current.environments, "offline"),
             refreshing: false,
             offline: true,
           }))

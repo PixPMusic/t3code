@@ -754,7 +754,7 @@ export const make = Effect.fn("EnvironmentSupervisor.make")(function* (
           if (longResume) return true;
           return yield* new ConnectionTransientError({
             reason: "timeout",
-            detail: `${target.label} did not respond to a connection health check.`,
+            detail: "The environment did not respond to a connection health check.",
           });
         }
         if (probeEvent._tag === "ProbeCompleted") {

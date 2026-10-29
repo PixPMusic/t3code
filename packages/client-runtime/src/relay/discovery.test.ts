@@ -377,7 +377,14 @@ describe("RelayEnvironmentDiscovery", () => {
         yield* discovery.refresh;
 
         const failed = yield* SubscriptionRef.get(discovery.state);
-        expect(failed.environments).toEqual(known);
+        expect([...failed.environments.values()].map(({ environment }) => environment)).toEqual(
+          [...known.values()].map(({ environment }) => environment),
+        );
+        expect(
+          [...failed.environments.values()].every(
+            (entry) => Option.isNone(entry.status) && entry.availability === "error",
+          ),
+        ).toBe(true);
         expect(failed.environments.get(environments[0]!.environmentId)?.environment.label).toBe(
           `Renamed ${environments[0]!.environmentId}`,
         );

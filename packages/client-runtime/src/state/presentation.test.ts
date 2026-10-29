@@ -144,6 +144,10 @@ describe("environment summary subscriptions", () => {
       expect(
         h.registry.get(h.environmentsAtom).map(({ environmentLabel }) => environmentLabel),
       ).toEqual(["Studio Mac", "My alias"]);
+      expect(
+        h.registry.get(h.full.presentationsWithProvidersAtom).get(FIRST)?.serverConfig?.environment
+          .label,
+      ).toBe("Studio Mac");
       expect(h.registry.get(h.catalog)).toBe(catalog);
       expect(h.registry.get(h.environmentIdsAtom)).toBe(ids);
       const shown = h.registry.get(h.full.presentationAtom(FIRST));
@@ -151,6 +155,13 @@ describe("environment summary subscriptions", () => {
       expect(h.registry.get(h.full.presentationAtom(FIRST))).toBe(shown);
       h.registry.set(h.configs(FIRST), { ...cachedConfig, providers: [] });
       expect(h.registry.get(h.full.presentationAtom(FIRST))).toBe(shown);
+      const withProviders = h.registry.get(h.full.presentationsWithProvidersAtom).get(FIRST);
+      expect(withProviders?.serverConfig?.providers).toBe(
+        h.registry.get(h.configs(FIRST))?.providers,
+      );
+      expect(withProviders?.serverConfig?.environment.label).toBe("Studio Mac");
+      publishDiscovery("Studio Mac");
+      expect(h.registry.get(h.full.presentationsWithProvidersAtom).get(FIRST)).toBe(withProviders);
       h.registry.set(
         h.state,
         AsyncResult.success({ ...AVAILABLE_CONNECTION_STATE, phase: "connected" }),
@@ -161,12 +172,20 @@ describe("environment summary subscriptions", () => {
       });
       publishDiscovery("Detected Mac");
       expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Live socket name");
+      const connected = h.registry.get(h.full.presentationAtom(FIRST));
+      publishDiscovery("Old relay snapshot");
+      expect(h.registry.get(h.full.presentationAtom(FIRST))).toBe(connected);
       const liveConfig = h.registry.get(h.configs(FIRST));
       h.registry.set(h.state, AsyncResult.success({ ...AVAILABLE_CONNECTION_STATE }));
-      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Detected Mac");
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Live socket name");
       expect(h.registry.get(h.configs(FIRST))).toBe(liveConfig);
       h.registry.set(h.configs(FIRST), null);
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Live socket name");
+      publishDiscovery("Detected Mac");
       expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Detected Mac");
+      // A second offline rename may return to the value seen before disconnecting.
+      publishDiscovery("Old relay snapshot");
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Old relay snapshot");
     } finally {
       h.registry.dispose();
     }
