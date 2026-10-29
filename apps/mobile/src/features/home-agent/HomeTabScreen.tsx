@@ -1,6 +1,7 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback } from "react";
 import { View } from "react-native";
+import { HomeAgentAppBar } from "./HomeAgentTitle";
 
 import { EmptyState } from "../../components/ui/EmptyState";
 import { LoadingScreen } from "../../components/LoadingScreen";
@@ -46,21 +47,24 @@ export function HomeTabScreen() {
     return <LoadingScreen message="Opening Home…" />;
   }
   return (
-    <View className="flex-1 items-center justify-center px-8">
-      <EmptyState
-        title="Home"
-        detail="One agent for your work across projects and connected environments."
-        actionLabel={
-          source ? (disconnected ? "Reconnect environment" : "Set up Home") : "Add environment"
-        }
-        onAction={() =>
-          openSettings(
-            navigation,
-            source && !disconnected ? "SettingsHome" : "SettingsEnvironments",
-          )
-        }
-        variant="plain"
-      />
-    </View>
+    <>
+      <HomeAgentAppBar environmentId={source?.environmentId} subtitle={source?.environmentLabel} />
+      <View className="flex-1 items-center justify-center px-8">
+        <EmptyState
+          title="Home"
+          detail="One agent for your work across projects and connected environments."
+          actionLabel={
+            source ? (disconnected ? "Reconnect environment" : "Set up Home") : "Add environment"
+          }
+          onAction={() =>
+            openSettings(
+              navigation,
+              source && !disconnected ? "SettingsHome" : "SettingsEnvironments",
+            )
+          }
+          variant="plain"
+        />
+      </View>
+    </>
   );
 }

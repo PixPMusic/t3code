@@ -34,6 +34,7 @@ import { isSettingsRoute, settingsOpenIn } from "../settings/settings-navigation
 import { workspaceRoutesOf } from "./workspace-overlay-routes";
 import { setNativelyPoppingWorkspaceRoute } from "../workspace/workspace-detail-selection";
 import { useDeviceType, useNativeLayoutMetrics } from "../../native/native-layout-metrics";
+import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 
 import { useAdaptiveWorkspaceLayout } from "./AdaptiveWorkspaceLayout";
 import { WorkspacePaneDivider } from "./workspace-pane-divider";
@@ -476,7 +477,7 @@ function WorkspaceColumns(
 }
 
 function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean }) {
-  const { layout } = useAdaptiveWorkspaceLayout();
+  const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const workspace = useWorkspaceTabs()!;
   // Native dismiss commits the route pop after the transition. Restore the dock
   // when the primary screen starts appearing, including interactive back gestures.
@@ -530,6 +531,12 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
         ) : (
           <V5CardStackView
             {...props}
+            onCompose={
+              homeAgent &&
+              ((metrics?.verticalBarEdge ?? "none") !== "none" || !NATIVE_LIQUID_GLASS_SUPPORTED)
+                ? startNewTask
+                : undefined
+            }
             onRootVisibilityChange={setPrimaryVisible}
             onNativePopChange={setNativelyPoppingWorkspaceRoute}
             descriptors={descriptors}

@@ -13,7 +13,7 @@ import type {
 } from "@t3tools/client-runtime/state/shell";
 import { EnvironmentId, ThreadId, type SidebarProjectGroupingMode } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
-import { useFocusEffect } from "@react-navigation/native";
+import { StackActions, useFocusEffect } from "@react-navigation/native";
 import { NavigationContext, NavigationRouteContext, useNavigation } from "@react-navigation/native";
 import { use, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Keyboard, Platform, useWindowDimensions, View } from "react-native";
@@ -580,15 +580,19 @@ function AdaptiveWorkspaceLayoutContent(
         : undefined;
     const preferences = appAtomRegistry.get(mobilePreferencesAtom);
     const saved = AsyncResult.isSuccess(preferences) ? preferences.value : undefined;
-    handleSelectThreadRoute(
-      newTaskDestination({
-        projects,
-        requestId: uuidv4(),
-        useLastProject: saved?.useLastProjectForNewThreads,
-        currentProject: environmentId && projectId ? { environmentId, projectId } : undefined,
-        lastProject: saved?.lastThreadProject,
-      }),
-    );
+    const destination = newTaskDestination({
+      projects,
+      requestId: uuidv4(),
+      useLastProject: saved?.useLastProjectForNewThreads,
+      currentProject: environmentId && projectId ? { environmentId, projectId } : undefined,
+      lastProject: saved?.lastThreadProject,
+    });
+    if (currentRoute?.name === "Home" && workspace?.isTabActive("home")) {
+      threadSelectionDeferral.run(() => {
+        Keyboard.dismiss();
+        navigation.dispatch(StackActions.push("Thread", destination));
+      });
+    } else handleSelectThreadRoute(destination);
   };
 
   useHardwareKeyboardCommand("newTask", () => {

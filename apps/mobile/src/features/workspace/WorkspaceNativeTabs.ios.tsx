@@ -29,6 +29,8 @@ import { useKeyboardState } from "react-native-keyboard-controller";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
+import { CHAT_CONTENT_MAX_WIDTH } from "../../lib/layout";
+import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 
 const PULL_REQUEST_ICON = require("../../../assets/icons/pull-request.png");
 
@@ -92,6 +94,18 @@ export function WorkspaceNativeTabs(props: {
   const { width } = useWindowDimensions();
   const { colors } = useControlTheme();
   const selectedTab = workspace.state.selectedTab;
+  const homePage = selectedTab === "home" && !workspace.settingsOpen;
+  const homeBottomTabs =
+    homePage && NATIVE_LIQUID_GLASS_SUPPORTED && (metrics?.verticalBarEdge ?? "none") === "none";
+  const floatingSidebarTabs = floatingTabs || homeBottomTabs;
+  const barWidth =
+    homePage && !NATIVE_LIQUID_GLASS_SUPPORTED
+      ? width
+      : deviceType === "pad" && (floatingSidebarTabs || layout.usesSplitView)
+        ? Math.min(280, layout.listPaneWidth ?? width, width)
+        : homeBottomTabs
+          ? Math.min(CHAT_CONTENT_MAX_WIDTH, width)
+          : (layout.listPaneWidth ?? width);
   const selectedSlot = workspace.settingsOpen ? -1 : primaryTabs.indexOf(selectedTab);
   const request = {
     selectedScreenKey: selectedSlot === -1 ? "settings" : NATIVE_WORKSPACE_TAB_SLOTS[selectedSlot]!,
@@ -101,7 +115,7 @@ export function WorkspaceNativeTabs(props: {
     <View style={{ flex: 1 }}>
       <Tabs.Host
         navStateRequest={request}
-        tabBarHidden={props.hidden || !systemTabBar || hideForKeyboard}
+        tabBarHidden={props.hidden || !systemTabBar || homeBottomTabs || hideForKeyboard}
         ios={{
           tabBarControllerMode: "tabBar",
           tabBarMinimizeBehavior: "never",
@@ -154,6 +168,7 @@ export function WorkspaceNativeTabs(props: {
         })}
       </Tabs.Host>
       {(deviceType === "pad" ||
+        homeBottomTabs ||
         compactTabs ||
         (layout.primarySidebarOverlaysContent &&
           !workspaceUsesColumns(selectedTab, workspace.settingsOpen))) &&
@@ -163,21 +178,20 @@ export function WorkspaceNativeTabs(props: {
           pointerEvents="box-none"
           style={{
             position: "absolute",
-            left: 0,
+            left: homeBottomTabs && deviceType !== "pad" ? (width - barWidth) / 2 : 0,
             bottom: 0,
             // UIKit can shrink the sidebar to 280pt independently of its preferred width.
-            width:
-              deviceType === "pad" && (floatingTabs || layout.usesSplitView)
-                ? Math.min(280, layout.listPaneWidth ?? width, width)
-                : (layout.listPaneWidth ?? width),
+            width: barWidth,
             height: 128,
           }}
         >
           <WorkspaceSidebarTabs
-            compact={floatingTabs}
-            reserveComposeSpace={floatingTabs}
+            compact={floatingSidebarTabs}
+            reserveComposeSpace={floatingSidebarTabs}
             onNewTask={
-              floatingTabs && !workspace.settingsOpen && selectedTab === "threads"
+              floatingSidebarTabs &&
+              !workspace.settingsOpen &&
+              (selectedTab === "home" || selectedTab === "threads")
                 ? startNewTask
                 : undefined
             }

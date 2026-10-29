@@ -56,6 +56,7 @@ export function V5CardStackView(
     readonly onRootVisibilityChange?: (visible: boolean) => void;
     /** The card native Back is popping, which the router still shows until the pop finishes. */
     readonly onNativePopChange?: (key: string | null) => void;
+    readonly onCompose?: () => void;
   },
 ) {
   const { preventedRoutes } = usePreventRemoveContext();
@@ -236,6 +237,7 @@ export function V5CardStackView(
                 <NavigationRouteContext value={descriptor.route}>
                   <V5StackHeader
                     options={options}
+                    onCompose={props.onCompose}
                     canGoBack={
                       attached
                         ? props.state.routes.findIndex((current) => current.key === route.key) > 0

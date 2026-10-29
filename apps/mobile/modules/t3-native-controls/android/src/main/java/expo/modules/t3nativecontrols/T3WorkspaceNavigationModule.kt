@@ -321,7 +321,7 @@ class T3WorkspaceNavigationView(
           }
         }
         // Other tabs keep the button's slot so the destinations below never move between tabs.
-        if (selectedTab == "threads") {
+        if (selectedTab == "threads" || selectedTab == "home") {
           newThreadButton(fraction) {
             expanded = false
             onNewThread(emptyMap<String, Any>())

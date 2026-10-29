@@ -73,6 +73,21 @@ const page = (state: State) => ({
 });
 
 describe("selectWorkspaceDetail", () => {
+  it("keeps Home below a new chat so Back returns to the same conversation", () => {
+    const current = push(home(), "HomeAgent", {
+      environmentId: "studio",
+      threadId: "home:studio",
+    });
+    const draft = select(current, {
+      name: "Thread",
+      params: { draft: { requestId: "new-from-home" } },
+    });
+    expect(page(draft).names).toEqual(["Home", "HomeAgent", "Thread"]);
+    expect(draft.routes[1]).toEqual(current.routes[1]);
+    const back = apply(draft, StackActions.pop());
+    expect(back.routes).toEqual(current.routes);
+  });
+
   it("opens the Home tab from a selection, link, navigate or push", () => {
     const current = push(home(), "SettingsAppearance");
     const homeAgent = {

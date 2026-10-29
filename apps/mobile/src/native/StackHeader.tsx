@@ -13,6 +13,7 @@ import {
   WorkspaceSlotOptionsContext,
 } from "./v5-workspace-context";
 import type { ColorValue } from "react-native";
+import type { StackHeaderMenuIOS } from "react-native-screens";
 
 export {
   nativeHeaderScrollEdgeEffects,
@@ -33,6 +34,7 @@ export type AppNativeStackNavigationOptions = Omit<
   readonly unstable_headerToolbarItems?: unknown;
   readonly unstable_navigationItemStyle?: unknown;
   readonly unstable_headerMinimizationBehavior?: unknown;
+  readonly headerTitleMenu?: StackHeaderMenuIOS | undefined;
 };
 
 function useNativeStackNavigation(): NativeStackNavigationProp<ParamListBase> | null {

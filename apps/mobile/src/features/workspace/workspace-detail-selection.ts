@@ -87,6 +87,9 @@ function workspaceDetailState<
     (page?.name === detail.name ? page : undefined);
   const routes = [
     home,
+    ...(page?.name === "HomeAgent" && detail.name === "Thread" && detail.params?.draft
+      ? [page]
+      : []),
     reused ? { ...reused, params: detail.params } : { name: detail.name, params: detail.params },
     ...(sheet ? [sheet] : []),
   ];

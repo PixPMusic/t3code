@@ -141,6 +141,15 @@ describe("Android workspace navigation", () => {
     expect(state.index).toBe(home.index);
     expect(listSelected).toBe(false);
 
+    state = apply(
+      router.getInitialState(options),
+      StackActions.push("Thread", { draft: { requestId: "from-home-setup" } }),
+    );
+    listSelected = false;
+    back();
+    expect(names(state)).toEqual(["Home"]);
+    expect(listSelected).toBe(false);
+
     // Confirming a Git action from the inline inspector can duplicate the current thread.
     state = apply(parent, StackActions.push("Thread", thread.params));
     back();

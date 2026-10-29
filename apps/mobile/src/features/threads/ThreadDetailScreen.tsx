@@ -1,4 +1,5 @@
 import { useOpenThreadInspector } from "./thread-inspector-navigation";
+import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { useSidebarWorkspaceTabs } from "../workspace/useSystemWorkspaceTabBar";
 import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
 import {
@@ -448,6 +449,14 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   const windowMetrics = useNativeLayoutMetrics();
   const nativeMetrics = usesNativeWorkspaceColumns ? columnMetrics : screenMetrics;
   const controlInsets = deriveBottomControlInsets(nativeMetrics);
+  const homeComposerInset =
+    Platform.OS === "ios" &&
+    NATIVE_LIQUID_GLASS_SUPPORTED &&
+    deviceType !== "pad" &&
+    isHomeThreadId(props.selectedThread.id) &&
+    (windowMetrics?.verticalBarEdge ?? "none") === "none"
+      ? 16
+      : 0;
   const selectedThreadKey = scopedThreadKey(props.environmentId, props.selectedThread.id);
   const childThreadInputs = useChildThreadInputs({
     environmentId: props.environmentId,
@@ -1122,7 +1131,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
   const contentMaxWidth =
     Platform.OS === "android"
       ? ANDROID_READING_MAX_WIDTH
-      : isSplitLayout
+      : isSplitLayout || isHomeThreadId(props.selectedThread.id)
         ? CHAT_CONTENT_MAX_WIDTH
         : undefined;
   const providerSubagentProvider = props.serverConfig?.providers.find(
@@ -1149,7 +1158,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
           ),
           right: undefined,
         }
-      : { width: "auto", right: controlInsets.right },
+      : { width: "auto", right: controlInsets.right + homeComposerInset },
   );
   const selectedInstanceId = props.selectedThread.modelSelection.instanceId;
   useAtomMount(threadStreamHaptics(props.selectedThreadDetailRef));
@@ -1450,7 +1459,7 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
                 {
                   position: "absolute",
                   bottom: controlInsets.bottom,
-                  left: controlInsets.left,
+                  left: controlInsets.left + homeComposerInset,
                   right: controlInsets.right,
                 },
                 composerWidthStyle,

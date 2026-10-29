@@ -3,6 +3,7 @@ import { StackActions, useNavigation, useRoute } from "@react-navigation/native"
 import { threadHeaderAppearance } from "./thread-header-appearance";
 import { isDuoDevice } from "../../lib/device-type";
 import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
+import type { StackHeaderMenuIOS } from "react-native-screens";
 import { useDeviceType } from "../../native/native-layout-metrics";
 import { useNativeWorkspaceColumnsSupported } from "../../native/NativeWorkspaceColumns";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
@@ -23,6 +24,7 @@ export function useThreadHeaderOptions(props: {
   readonly gitControls: Parameters<typeof ThreadGitControls>[0];
   readonly onReturnToThread?: () => void;
   readonly draft?: boolean;
+  readonly headerTitleMenu?: StackHeaderMenuIOS | undefined;
 }) {
   const usesNativeWorkspaceColumns = useNativeWorkspaceColumnsSupported();
   const deviceType = useDeviceType();
@@ -81,6 +83,7 @@ export function useThreadHeaderOptions(props: {
   const options: AppNativeStackNavigationOptions = {
     ...threadHeaderAppearance(props.usesNativeHeaderGlass),
     headerTitle: props.title,
+    headerTitleMenu: props.headerTitleMenu,
     title: props.title,
     headerBackVisible: !layout.usesSplitView && !home,
     unstable_headerLeftItems: home
@@ -104,6 +107,7 @@ export function useThreadHeaderOptions(props: {
     optionsVersion: [
       splitLeftHeaderItems,
       home,
+      props.headerTitleMenu,
       threadCenterHeaderItems,
       compactRightHeaderItems,
       usesDuoHeader,

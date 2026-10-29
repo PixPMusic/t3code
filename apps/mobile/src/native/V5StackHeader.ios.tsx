@@ -40,6 +40,7 @@ type Options = NativeStackNavigationOptions & {
   readonly headerSubtitleStyle?: { color?: string; fontSize?: number; fontFamily?: string };
   readonly unstable_headerCenterItems?: () => NativeStackHeaderItem[];
   readonly unstable_headerToolbarItems?: () => ToolbarItem[];
+  readonly headerTitleMenu?: StackHeaderMenuIOS | undefined;
 };
 
 type MenuElementInput =
@@ -359,6 +360,7 @@ export function V5StackHeader(props: {
           titleItem: isValidElement(titleElement)
             ? { id: "title", render: () => titleElement }
             : undefined,
+          titleMenu: options.headerTitleMenu,
           largeTitleEnabled: options.headerLargeTitle,
           backButtonDisplayMode: options.headerBackButtonDisplayMode ?? "minimal",
           backButtonMenuEnabled: options.headerBackButtonMenuEnabled ?? true,

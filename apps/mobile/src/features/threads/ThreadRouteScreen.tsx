@@ -101,6 +101,7 @@ import {
   threadRouteOpensDraft,
 } from "./thread-route-hydration";
 import { ThreadHeader } from "./ThreadHeader";
+import { HomeAgentAppBar } from "../home-agent/HomeAgentTitle";
 import {
   useAndroidWorkspaceBack,
   useWorkspaceBackNavigation,
@@ -126,10 +127,22 @@ function firstRouteParam(value: string | string[] | undefined): string | null {
 }
 
 function ThreadRouteFallbackLayout(props: { readonly children: ReactNode }) {
-  const homeAgent = useRoute().name === "HomeAgent";
+  const route = useRoute();
+  const homeAgent = route.name === "HomeAgent";
   const goBack = useWorkspaceBackNavigation("threads");
   const { layout } = useAdaptiveWorkspaceLayout();
   const { themeVariables } = useAppearancePreferences();
+  if (homeAgent)
+    return (
+      <>
+        <HomeAgentAppBar
+          environmentId={
+            (route.params as { readonly environmentId?: string } | undefined)?.environmentId
+          }
+        />
+        <ThreadScreenFallback>{props.children}</ThreadScreenFallback>
+      </>
+    );
   if (Platform.OS !== "android")
     return <ThreadScreenFallback>{props.children}</ThreadScreenFallback>;
 

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { AppBar } from "../../components/ui/AppBar";
 import { ScreenHeaderButton } from "../../components/ui/ScreenHeaderButton";
 import type { AppBarAction } from "../../components/ui/AppBar.types";
@@ -8,18 +8,42 @@ import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
 import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
 import { useRoute } from "@react-navigation/native";
+import { HomeAgentTitle, useHomeAgentSwitcher } from "../home-agent/HomeAgentTitle";
 
-export function ThreadHeader(
-  props: Parameters<typeof useThreadHeaderOptions>[0] & {
-    readonly hasThreadCwd: boolean;
-    readonly hasWorkspaceRoot: boolean;
-    readonly fileInspectorSupported: boolean;
-    readonly inspectorMode: ThreadInspectorMode | null;
-    readonly onToggleInspector: () => void;
-    readonly onOpenGitInspector: () => void;
-    readonly onOpenFilesInspector: () => void;
-  },
-) {
+type ThreadHeaderProps = Parameters<typeof useThreadHeaderOptions>[0] & {
+  readonly hasThreadCwd: boolean;
+  readonly hasWorkspaceRoot: boolean;
+  readonly fileInspectorSupported: boolean;
+  readonly inspectorMode: ThreadInspectorMode | null;
+  readonly onToggleInspector: () => void;
+  readonly onOpenGitInspector: () => void;
+  readonly onOpenFilesInspector: () => void;
+};
+
+export function ThreadHeader(props: ThreadHeaderProps) {
+  return useRoute().name === "HomeAgent" ? (
+    <HomeThreadHeader {...props} />
+  ) : (
+    <ThreadHeaderContent {...props} />
+  );
+}
+
+function HomeThreadHeader(props: ThreadHeaderProps) {
+  const switcher = useHomeAgentSwitcher(String(props.gitControls.environmentId));
+  return (
+    <ThreadHeaderContent
+      {...props}
+      headerTitleMenu={switcher?.menu}
+      titleContent={
+        switcher ? (
+          <HomeAgentTitle title={props.title} subtitle={props.subtitle} switcher={switcher} />
+        ) : undefined
+      }
+    />
+  );
+}
+
+function ThreadHeaderContent(props: ThreadHeaderProps & { readonly titleContent?: ReactNode }) {
   const goBack = useWorkspaceBackNavigation("threads");
   const home = useRoute().name === "HomeAgent";
   const { layout, panes, toggleAuxiliaryPane, composerKeyboardActive } =
@@ -82,6 +106,7 @@ export function ThreadHeader(
     <>
       <AppBar
         title={props.title}
+        titleContent={props.titleContent}
         subtitle={props.subtitle}
         sidebar={home ? false : native.sidebar}
         options={native.options}

@@ -1,5 +1,6 @@
 import type { NavigationState } from "@react-navigation/native";
 import { resetRootStack, type RootStackNavigation } from "./root-stack-reset";
+import { isDraftThreadRoute } from "../features/threads/thread-route-state";
 
 function androidWorkspaceBackReturnsToThread(state: NavigationState) {
   const current = state.routes[state.index];
@@ -7,7 +8,8 @@ function androidWorkspaceBackReturnsToThread(state: NavigationState) {
   return (
     current?.name === "Thread" &&
     (state.routes[state.index - 1]?.name === "Thread" ||
-      state.routes[state.index - 1]?.name === "HomeAgent") &&
+      state.routes[state.index - 1]?.name === "HomeAgent" ||
+      (state.routes[state.index - 1]?.name === "Home" && isDraftThreadRoute(current))) &&
     params !== undefined &&
     !parentThreadIsBelow(state, params)
   );
