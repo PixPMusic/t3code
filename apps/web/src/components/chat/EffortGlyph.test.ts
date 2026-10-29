@@ -59,14 +59,19 @@ describe("resolveEffortGlyph", () => {
       kind: "bars",
       label: "Off",
     });
-    expect(resolveEffortGlyph(descriptor(["off", "on"]), "off")).toMatchObject({
-      kind: "thinking",
-      enabled: false,
-    });
-    expect(resolveEffortGlyph(descriptor(["off", "on"]), "on")).toMatchObject({
-      kind: "thinking",
-      enabled: true,
-    });
+    for (const ids of [
+      ["off", "on"],
+      ["on", "off"],
+    ]) {
+      expect(resolveEffortGlyph(descriptor(ids), "off")).toMatchObject({
+        kind: "thinking",
+        enabled: false,
+      });
+      expect(resolveEffortGlyph(descriptor(ids), "on")).toMatchObject({
+        kind: "thinking",
+        enabled: true,
+      });
+    }
   });
 
   it.each([true, false])("distinguishes binary thinking from an effort scale: %s", (enabled) => {

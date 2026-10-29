@@ -38,10 +38,10 @@ export function resolveEffortGlyph(
   const index = levels.findIndex((option) => option.id === current);
   if (index < 0) return null;
   const label = levels[index]!.label;
-  const startsAtOff = OFF_LEVELS.has(levels[0]!.id);
-  if (startsAtOff && levels.length === 2) {
-    return { kind: "thinking" as const, enabled: index > 0, label };
+  if (levels.length === 2 && levels.some((level) => OFF_LEVELS.has(level.id))) {
+    return { kind: "thinking" as const, enabled: !OFF_LEVELS.has(current), label };
   }
+  const startsAtOff = OFF_LEVELS.has(levels[0]!.id);
   return {
     kind: "bars" as const,
     count: startsAtOff ? levels.length - 1 : levels.length,
