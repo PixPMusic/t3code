@@ -126,6 +126,7 @@ function firstRouteParam(value: string | string[] | undefined): string | null {
 }
 
 function ThreadRouteFallbackLayout(props: { readonly children: ReactNode }) {
+  const homeAgent = useRoute().name === "HomeAgent";
   const goBack = useWorkspaceBackNavigation("threads");
   const { layout } = useAdaptiveWorkspaceLayout();
   const { themeVariables } = useAppearancePreferences();
@@ -135,9 +136,9 @@ function ThreadRouteFallbackLayout(props: { readonly children: ReactNode }) {
   return (
     <>
       <AppBar
-        title="Thread"
+        title={homeAgent ? "Home" : "Thread"}
         options={{ contentStyle: { backgroundColor: themeVariables["--color-header"] } }}
-        onBack={layout.usesSplitView ? undefined : goBack}
+        onBack={homeAgent || layout.usesSplitView ? undefined : goBack}
         hideBottomBorder
       />
       <ThreadScreenFallback>{props.children}</ThreadScreenFallback>

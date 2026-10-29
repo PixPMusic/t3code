@@ -98,7 +98,8 @@ export function threadLinkRefs(
 ): ReadonlyArray<ScopedThreadRef> {
   const refs = new Map<string, ScopedThreadRef>();
   for (const match of markdown.matchAll(THREAD_LINK_OUTSIDE_CODE)) {
-    const href = match.groups?.href ?? match.groups?.autolink;
+    // Hermes omits named groups from matchAll results, but preserves numbered captures.
+    const href = match[6] ?? match[7];
     const link = href === undefined ? null : parseThreadLinkHref(href);
     if (link === null) continue;
     for (const ref of threadLinkCandidates(link, messageEnvironmentId)) {

@@ -2,7 +2,6 @@ import { useWorkspaceSidebarHeaderItem } from "../layout/useWorkspaceSidebarHead
 import { StackActions, useNavigation, useRoute } from "@react-navigation/native";
 import { threadHeaderAppearance } from "./thread-header-appearance";
 import { isDuoDevice } from "../../lib/device-type";
-import { useHomeAgentRail } from "../home-agent/home-agent-navigation";
 import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
 import { useDeviceType } from "../../native/native-layout-metrics";
 import { useNativeWorkspaceColumnsSupported } from "../../native/NativeWorkspaceColumns";
@@ -30,7 +29,6 @@ export function useThreadHeaderOptions(props: {
   const usesDuoHeader = usesNativeWorkspaceColumns && isDuoDevice(deviceType);
   const navigation = useNavigation();
   const home = useRoute().name === "HomeAgent";
-  const homeRail = useHomeAgentRail();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
   const threadCenterHeaderItems = useThreadGitCenterHeaderItems(props.gitControls);
@@ -79,16 +77,6 @@ export function useThreadHeaderOptions(props: {
       type: "button" as const,
     }),
   ];
-  const closeHomeHeaderItems: NativeHeaderItems = [
-    withNativeGlassHeaderItem({
-      accessibilityLabel: "Close Home",
-      icon: { name: "xmark", type: "sfSymbol" as const },
-      identifier: "home-close",
-      onPress: () =>
-        canGoBack ? navigation.goBack() : navigation.dispatch(StackActions.replace("Home")),
-      type: "button" as const,
-    }),
-  ];
 
   const options: AppNativeStackNavigationOptions = {
     ...threadHeaderAppearance(props.usesNativeHeaderGlass),
@@ -96,7 +84,7 @@ export function useThreadHeaderOptions(props: {
     title: props.title,
     headerBackVisible: !layout.usesSplitView && !home,
     unstable_headerLeftItems: home
-      ? () => (homeRail ? [] : closeHomeHeaderItems)
+      ? () => []
       : layout.usesSplitView
         ? () => splitLeftHeaderItems
         : canGoBack
@@ -115,9 +103,7 @@ export function useThreadHeaderOptions(props: {
     // Factories re-read only on version changes; include displayed items and hidden callback state such as default refs.
     optionsVersion: [
       splitLeftHeaderItems,
-      closeHomeHeaderItems,
       home,
-      homeRail,
       threadCenterHeaderItems,
       compactRightHeaderItems,
       usesDuoHeader,

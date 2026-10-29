@@ -27,8 +27,8 @@ export function useWorkspaceBackNavigation(tab: WorkspaceTab) {
   const returnToList = useWorkspaceListNavigation(tab);
   return () => {
     if (route.name === "HomeAgent") {
-      if (navigation.canGoBack()) navigation.goBack();
-      else navigation.dispatch(StackActions.replace("Home"));
+      dispatch?.({ type: "select", tab: "threads" });
+      resetAndroidWorkspace(navigation);
       return;
     }
     if (Platform.OS === "android") {
@@ -44,7 +44,7 @@ export function useAndroidWorkspaceBack(tab: WorkspaceTab) {
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== "android") return;
-      if (route.name !== "HomeAgent") dispatch?.({ type: "select", tab });
+      dispatch?.({ type: "select", tab: route.name === "HomeAgent" ? "home" : tab });
       const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
         if (Keyboard.isVisible()) Keyboard.dismiss();
         else goBack();

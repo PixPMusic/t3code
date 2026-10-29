@@ -1,13 +1,20 @@
-import { Keyboard, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { SymbolView } from "../../components/ui/AppSymbol";
 import { GlassSurface } from "../../components/ui/GlassSurface";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { WORKSPACE_DOCK } from "./workspace-tabs-state";
-import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
+import {
+  NAVIGATION_TAB_ICONS,
+  WORKSPACE_TAB_LABELS,
+  useEnabledNavigationTabs,
+} from "./navigation-tabs";
+import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
 
 export function WorkspaceDock(props: { readonly onNewTask: () => void }) {
   const workspace = useWorkspaceTabs()!;
+  const tabs = [...useEnabledNavigationTabs(), "settings" as const];
+  const selectTab = useSelectWorkspaceTab();
   return (
     <View
       className="w-full flex-row items-center justify-between"
@@ -15,24 +22,26 @@ export function WorkspaceDock(props: { readonly onNewTask: () => void }) {
     >
       <GlassSurface
         style={{
-          width: WORKSPACE_DOCK.tabsWidth,
+          flex: 1,
           height: WORKSPACE_DOCK.height,
           borderRadius: WORKSPACE_DOCK.height / 2,
         }}
       >
         <View className="flex-1 flex-row p-1" accessibilityRole="tablist">
-          {(["threads", "pullRequests"] as const).map((tab) => {
-            const selected = workspace.state.selectedTab === tab;
+          {tabs.map((tab) => {
+            const selected =
+              tab === "settings"
+                ? workspace.settingsOpen
+                : !workspace.settingsOpen && workspace.state.selectedTab === tab;
             return (
               <Pressable
                 key={tab}
                 accessibilityRole="tab"
-                accessibilityLabel={tab === "threads" ? "Threads" : "Pull requests"}
+                accessibilityLabel={tab === "settings" ? "Settings" : WORKSPACE_TAB_LABELS[tab]}
                 accessibilityState={{ selected }}
                 onPress={() => {
                   if (selected) return;
-                  Keyboard.dismiss();
-                  workspace.dispatch({ type: "select", tab });
+                  selectTab(tab);
                 }}
                 className={
                   selected
@@ -41,7 +50,7 @@ export function WorkspaceDock(props: { readonly onNewTask: () => void }) {
                 }
               >
                 <SymbolView
-                  name={tab === "threads" ? "text.bubble" : PullRequestGlyph.pullRequest}
+                  name={tab === "settings" ? "gearshape" : NAVIGATION_TAB_ICONS[tab]}
                   size={23}
                   tintColorClassName={selected ? "accent-focus" : "accent-icon"}
                 />

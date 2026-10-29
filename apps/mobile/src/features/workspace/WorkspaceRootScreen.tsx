@@ -1,3 +1,4 @@
+import { HomeTabScreen } from "../home-agent/HomeTabScreen";
 import { WorkspaceNoTabs } from "./WorkspaceNoTabs";
 import { WORKSPACE_TAB_LABELS, useEnabledNavigationTabs } from "./navigation-tabs";
 import { WorkspaceExtraTab } from "./WorkspaceExtraTab";
@@ -193,6 +194,8 @@ function WorkspaceRootContent() {
             <SettingsRouteScreen />
           ) : enabled.length === 0 ? (
             <WorkspaceNoTabs />
+          ) : state.selectedTab === "home" ? (
+            <HomeTabScreen />
           ) : state.selectedTab === "threads" ? (
             <HomeRouteScreen />
           ) : state.selectedTab === "pullRequests" ? (
@@ -222,7 +225,9 @@ function WorkspaceRootContent() {
 export function WorkspaceRootScreen() {
   const { layout } = useAdaptiveWorkspaceLayout();
   const workspace = useWorkspaceTabs();
-  return Platform.OS === "android" && layout.usesSplitView ? (
+  return Platform.OS === "android" &&
+    layout.usesSplitView &&
+    workspace?.state.selectedTab !== "home" ? (
     <HomeRouteScreen />
   ) : workspace ? (
     <WorkspaceRootContent />

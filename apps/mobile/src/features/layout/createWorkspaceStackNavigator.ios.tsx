@@ -517,12 +517,11 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
     render: () => (
       <WorkspaceNativeTabs
         hidden={
-          (homeAgent && (metrics?.verticalBarEdge ?? "none") === "none") ||
-          (!workspacePage &&
-            projection.detail.length > 0 &&
-            !primaryVisible &&
-            !layout.usesSplitView &&
-            (metrics?.verticalBarEdge ?? "none") === "none")
+          !workspacePage &&
+          projection.detail.length > 0 &&
+          !primaryVisible &&
+          !layout.usesSplitView &&
+          (metrics?.verticalBarEdge ?? "none") === "none"
         }
       >
         {props.nativeColumns && !workspacePage ? (
@@ -634,7 +633,10 @@ function WorkspaceStackNavigator({
   return (
     <NativeWorkspaceModeContext value={usesNativeWorkspaceColumns}>
       <NavigationContent>
-        <WorkspaceTabsProvider settingsOpen={settingsOpen}>
+        <WorkspaceTabsProvider
+          settingsOpen={settingsOpen}
+          routes={state.routes.slice(0, state.index + 1)}
+        >
           <WorkspaceStackView
             nativeColumns={usesNativeWorkspaceColumns}
             {...rest}

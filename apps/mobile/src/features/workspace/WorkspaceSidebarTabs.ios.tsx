@@ -34,6 +34,7 @@ export function WorkspaceSidebarTabs(props: {
   const tabBarKey = tabs.join(":");
   return (
     <NativeSidebarTabBar
+      pointerEvents="box-none"
       key={tabBarKey}
       tabs={tabs}
       selectedTab={selectedNavigationTab(

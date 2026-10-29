@@ -68,7 +68,8 @@ import {
   type ProviderSubagentStatus,
 } from "@t3tools/client-runtime/state/thread-execution";
 import { formatModelSlugName, resolveSelectableModel } from "@t3tools/shared/model";
-import { isProviderNativeSubagentThread } from "@t3tools/contracts";
+import { isHomeThreadId, isProviderNativeSubagentThread } from "@t3tools/contracts";
+import { WORKSPACE_DOCK } from "../workspace/workspace-tabs-state";
 import type { QueuedRunEdit } from "../../state/queued-run-edit";
 import type { FollowUpBehavior } from "../../lib/followUpBehavior";
 import type { ActiveTurnComposerAction } from "@t3tools/client-runtime/state/composer-dispatch";
@@ -510,6 +511,11 @@ function ThreadDetailBody(props: ThreadDetailScreenProps) {
     (alignedBottomInset !== undefined
       ? alignedBottomInset - THREAD_COMPOSER_BOTTOM_GUTTER
       : Math.max(bottomSafeArea, 12)) - (hasSidebarTabBar ? 3 : 0),
+    Platform.OS === "ios" &&
+      isHomeThreadId(props.selectedThread.id) &&
+      (windowMetrics?.verticalBarEdge ?? "none") === "none"
+      ? Math.max(bottomSafeArea, 12) + WORKSPACE_DOCK.height + WORKSPACE_DOCK.gap
+      : 0,
   );
   const composerKeyboardOffset = composerBottomInset;
   const contentPresentationKind = props.contentPresentation.kind;

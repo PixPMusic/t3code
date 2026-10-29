@@ -108,20 +108,30 @@ export function workspaceDetailRouter<Action extends NavigationAction>(
       );
     },
     getStateForAction(state, action, options) {
+      const openHome = (homeAction: Action) => {
+        const opened = original.getStateForAction(state, homeAction, options);
+        if (!opened) return opened;
+        const resolved = original.getRehydratedState(opened, options);
+        const root =
+          state.routes.find((route) => route.name === "Home") ??
+          original.getInitialState(options).routes[0]!;
+        return {
+          ...resolved,
+          index: 1,
+          routes: [root, resolved.routes[resolved.index]!],
+        };
+      };
       const payload = action.payload as
         | { readonly name?: string; readonly params?: { readonly threadId?: string } }
         | undefined;
       if (
         ["NAVIGATE", "PUSH", "REPLACE"].includes(action.type) &&
-        payload?.name === "Thread" &&
-        payload.params?.threadId &&
-        isHomeThreadId(payload.params.threadId)
+        (payload?.name === "HomeAgent" ||
+          (payload?.name === "Thread" &&
+            payload.params?.threadId &&
+            isHomeThreadId(payload.params.threadId)))
       ) {
-        return original.getStateForAction(
-          state,
-          { ...action, payload: { ...payload, name: "HomeAgent" } } as Action,
-          options,
-        );
+        return openHome({ ...action, payload: { ...payload, name: "HomeAgent" } } as Action);
       }
       if (action.type !== SELECT_WORKSPACE_DETAIL) {
         return original.getStateForAction(state, action, options);
@@ -132,14 +142,10 @@ export function workspaceDetailRouter<Action extends NavigationAction>(
         detail.params?.threadId &&
         isHomeThreadId(detail.params.threadId)
       ) {
-        return original.getStateForAction(
-          state,
-          {
-            type: "NAVIGATE",
-            payload: { name: "HomeAgent", params: detail.params },
-          } as unknown as Action,
-          options,
-        );
+        return openHome({
+          type: "NAVIGATE",
+          payload: { name: "HomeAgent", params: detail.params },
+        } as unknown as Action);
       }
       const next = workspaceDetailState(state, detail, sheet, nativelyPoppingRoute);
       const reset = { type: "RESET", payload: { ...next, stale: false } };

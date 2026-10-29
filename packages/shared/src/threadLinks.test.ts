@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { EnvironmentId, ThreadId, type ScopedThreadRef } from "@t3tools/contracts";
 
 import {
@@ -135,12 +135,22 @@ describe("thread links", () => {
   });
 
   it("lists the threads a message's links can name, outside code", () => {
-    expect(
-      threadLinkRefs(
-        "<t3-thread://v2/there/t1> [a](t3-thread://v1/t%3A2) `<t3-thread://v2/code/t3>`",
-        local,
-      ),
-    ).toEqual([ref("there", "t1"), ref("local", "t%3A2"), ref("local", "t:2")]);
+    const markdown =
+      "<t3-thread://v2/there/t1> [a](t3-thread://v1/t%3A2) `<t3-thread://v2/code/t3>`";
+    const expected = [ref("there", "t1"), ref("local", "t%3A2"), ref("local", "t:2")];
+    expect(threadLinkRefs(markdown, local)).toEqual(expected);
+    const matchAll = RegExp.prototype[Symbol.matchAll];
+    using _hermes = vi.spyOn(RegExp.prototype, Symbol.matchAll).mockImplementation(function* (
+      this: RegExp,
+      input: string,
+    ) {
+      for (const match of matchAll.call(this, input)) {
+        delete match.groups;
+        yield match;
+      }
+      return undefined;
+    });
+    expect(threadLinkRefs(markdown, local)).toEqual(expected);
   });
 
   it("writes a titleless autolink that opens that exact thread", () => {

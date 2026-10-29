@@ -1,4 +1,5 @@
 import { useAndroidFloatingTabs } from "../settings/appearance/AppearancePreferencesProvider";
+import { HomeTabScreen } from "../home-agent/HomeTabScreen";
 import { WorkspaceNoTabs } from "./WorkspaceNoTabs";
 import { useEnabledNavigationTabs } from "./navigation-tabs";
 import { NAVIGATION_TAB_ORDER } from "./navigation-tab-order";
@@ -54,7 +55,9 @@ export function WorkspaceRootScreen() {
         tabs={TABS}
         selected={tab}
         renderTab={(tab) =>
-          tab === "threads" ? (
+          tab === "home" ? (
+            <HomeTabScreen />
+          ) : tab === "threads" ? (
             <HomeRouteScreen />
           ) : tab !== "pullRequests" ? (
             <WorkspaceExtraTab tab={tab} />
@@ -96,7 +99,9 @@ export function WorkspaceRootScreen() {
               tabs={TABS}
               selected={tab}
               renderTab={(tab) =>
-                tab === "threads" ? (
+                tab === "home" ? (
+                  <HomeTabScreen />
+                ) : tab === "threads" ? (
                   <HomeRouteScreen />
                 ) : tab !== "pullRequests" ? (
                   <WorkspaceExtraTab tab={tab} />

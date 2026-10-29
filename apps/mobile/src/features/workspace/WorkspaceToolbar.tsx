@@ -17,13 +17,8 @@ import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands
 import { WorkspaceDock } from "./WorkspaceDock";
 import { WorkspaceSearchField } from "./WorkspaceSearchField";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
-import { WORKSPACE_TOOLBAR, type WorkspaceTab } from "./workspace-tabs-state";
-import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
-
-const TABS: ReadonlyArray<{ id: WorkspaceTab; label: string; icon: AppSymbolName }> = [
-  { id: "threads", label: "Threads", icon: "text.bubble" },
-  { id: "pullRequests", label: "PRs", icon: PullRequestGlyph.pullRequest },
-];
+import { WORKSPACE_TOOLBAR } from "./workspace-tabs-state";
+import { NAVIGATION_TAB_ICONS, WORKSPACE_TAB_LABELS } from "./navigation-tabs";
 
 function ToolbarButton(props: {
   label: string;
@@ -93,7 +88,10 @@ export function WorkspaceToolbar(props: {
   if (!workspace) return null;
   const { state, dispatch } = workspace;
   const tab = state.tabs[state.selectedTab];
-  const activeTab = TABS.find((item) => item.id === state.selectedTab)!;
+  const activeTab = {
+    label: WORKSPACE_TAB_LABELS[state.selectedTab],
+    icon: NAVIGATION_TAB_ICONS[state.selectedTab],
+  };
   const searching = tab.searchMode !== "resting";
   const expanded = tab.searchMode === "expanded" && !keyboardVisible;
   const showNavigation = !searching || expanded;

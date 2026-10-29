@@ -24,8 +24,8 @@ describe("navigation tab order", () => {
   it("fills missing sections and drops removed placeholders, duplicates, and Settings", () => {
     expect(
       resolveNavigationTabOrder(["usage", "home", "issues", "settings", "usage", null]),
-    ).toEqual(["usage", "threads", "pullRequests"]);
-    expect(resolveNavigationTabOrder()).toEqual(NAVIGATION_TAB_ORDER);
+    ).toEqual(["usage", "home", "threads", "pullRequests"]);
+    expect(resolveNavigationTabOrder()).toEqual(["home", "threads", "pullRequests", "usage"]);
   });
 
   it("moves a section without changing the relative order of the others", () => {
@@ -51,16 +51,14 @@ describe("navigation tab order", () => {
   it("removes hidden sections from navigation and restores their saved positions", () => {
     const order = moveNavigationTab(undefined, "usage", 0);
     const hidden = toggleNavigationTabVisibility([], "usage");
-    expect(enabledNavigationTabs(order, hidden)).toEqual(["threads", "pullRequests"]);
+    expect(enabledNavigationTabs(order, hidden)).toEqual(["home", "threads", "pullRequests"]);
     expect(toggleNavigationTabVisibility(hidden, "usage")).toEqual([]);
     expect(visibleNavigationTabs(order, [], 5)).toEqual(order);
-    expect(enabledNavigationTabs(undefined, ["home", "issues", "settings"])).toEqual(
-      NAVIGATION_TAB_ORDER,
-    );
+    expect(enabledNavigationTabs(undefined, ["issues", "settings"])).toEqual(NAVIGATION_TAB_ORDER);
   });
 
   it("falls back when the selected section is hidden, including when all are hidden", () => {
-    expect(resolveSelectedNavigationTab(undefined, ["threads"], "threads")).toBe("pullRequests");
+    expect(resolveSelectedNavigationTab(undefined, ["threads"], "threads")).toBe("home");
     expect(resolveSelectedNavigationTab(undefined, ["threads"], "usage")).toBe("usage");
     expect(
       resolveSelectedNavigationTab(undefined, NAVIGATION_TAB_ORDER, "threads"),

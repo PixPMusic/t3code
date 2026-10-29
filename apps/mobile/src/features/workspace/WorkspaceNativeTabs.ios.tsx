@@ -24,7 +24,8 @@ import {
   useSystemWorkspaceTabBar,
 } from "./useSystemWorkspaceTabBar";
 import { useControlTheme } from "../../components/ui/useControlTheme";
-import { useDeviceType } from "../../native/native-layout-metrics";
+import { useDeviceType, useNativeLayoutMetrics } from "../../native/native-layout-metrics";
+import { useKeyboardState } from "react-native-keyboard-controller";
 import { WorkspaceSidebarTabs } from "./WorkspaceSidebarTabs";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
@@ -82,6 +83,9 @@ export function WorkspaceNativeTabs(props: {
   const [provenance, setProvenance] = useState(0);
   const systemTabBar = useSystemWorkspaceTabBar();
   const deviceType = useDeviceType();
+  const metrics = useNativeLayoutMetrics();
+  const keyboardVisible = useKeyboardState((state) => state.isVisible);
+  const hideForKeyboard = keyboardVisible && (metrics?.verticalBarEdge ?? "none") === "none";
   const compactTabs = useCompactWorkspaceTabs();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const floatingTabs = useFloatingWorkspaceTabs();
@@ -97,7 +101,7 @@ export function WorkspaceNativeTabs(props: {
     <View style={{ flex: 1 }}>
       <Tabs.Host
         navStateRequest={request}
-        tabBarHidden={props.hidden || !systemTabBar}
+        tabBarHidden={props.hidden || !systemTabBar || hideForKeyboard}
         ios={{
           tabBarControllerMode: "tabBar",
           tabBarMinimizeBehavior: "never",
@@ -133,8 +137,8 @@ export function WorkspaceNativeTabs(props: {
                     ? { type: "templateSource", templateSource: PULL_REQUEST_ICON }
                     : { type: "sfSymbol", name: NAVIGATION_TAB_ICONS[tab] },
                 selectedIcon:
-                  !settings && tab === "threads"
-                    ? { type: "sfSymbol", name: "text.bubble.fill" }
+                  !settings && (tab === "threads" || tab === "home")
+                    ? { type: "sfSymbol", name: tab === "home" ? "house.fill" : "text.bubble.fill" }
                     : undefined,
                 overrideScrollViewContentInsetAdjustmentBehavior: false,
               }}
@@ -153,7 +157,8 @@ export function WorkspaceNativeTabs(props: {
         compactTabs ||
         (layout.primarySidebarOverlaysContent &&
           !workspaceUsesColumns(selectedTab, workspace.settingsOpen))) &&
-      !props.hidden ? (
+      !props.hidden &&
+      !hideForKeyboard ? (
         <View
           pointerEvents="box-none"
           style={{

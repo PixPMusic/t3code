@@ -53,6 +53,7 @@ export type PullRequestListPreferences = typeof PullRequestListPreferences.Type;
  * that page's route key: reopening under the same key reuses the screen a tab kept mounted.
  */
 const WorkspaceSelections = Schema.Struct({
+  home: Schema.optional(Schema.Struct({ environmentId: Schema.String })),
   threads: Schema.optional(
     Schema.Struct({
       environmentId: Schema.String,

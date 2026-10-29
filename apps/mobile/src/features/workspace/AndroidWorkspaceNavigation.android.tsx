@@ -1,6 +1,5 @@
 import { selectedNavigationTab, visibleNavigationTabs } from "./navigation-tab-order";
 import { requireNativeView } from "expo";
-import { CommonActions, useNavigation } from "@react-navigation/native";
 import {
   Keyboard,
   processColor,
@@ -14,16 +13,13 @@ import { useKeyboardState } from "react-native-keyboard-controller";
 
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
-import { rootNavigationRef } from "../../lib/rootNavigation";
 import { useWorkspaceConnectionState } from "../../state/workspace";
 import { androidWorkspaceNavigationColors } from "./android-workspace-navigation-colors";
-import {
-  androidWorkspaceTabNavigationState,
-  type AndroidWorkspaceNavigationTab,
-} from "./android-workspace-tabs";
+import { type AndroidWorkspaceNavigationTab } from "./android-workspace-tabs";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useAndroidWorkspaceRoot } from "./AndroidWorkspaceTabsProvider";
 import { useNavigationTabOrder, useHiddenNavigationTabs } from "./navigation-tabs";
+import { useSelectWorkspaceTab } from "./useSelectWorkspaceTab";
 import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { FLOATING_TABS, floatingTabsMetrics } from "./floating-workspace-tabs";
 
@@ -75,7 +71,7 @@ export function AndroidWorkspaceNavigation(props: {
   const order = useNavigationTabOrder();
   const hidden = useHiddenNavigationTabs();
   const root = useAndroidWorkspaceRoot();
-  const navigation = useNavigation();
+  const selectTab = useSelectWorkspaceTab();
   const insets = useSafeAreaInsets();
   const toolbar = useToolbarLayout();
   const connectionState = useWorkspaceConnectionState();
@@ -136,17 +132,7 @@ export function AndroidWorkspaceNavigation(props: {
         onTabSelected={(event) => {
           Keyboard.dismiss();
           const tab = event.nativeEvent.tab;
-          if (tab !== "settings") workspace.dispatch({ type: "select", tab });
-          // Reset the root stack even when a nested settings navigator has focus.
-          // The provider renders inside the root stack's layout, so the container's root state is
-          // that stack's current state.
-          const rootState = rootNavigationRef.getRootState();
-          if (root && rootState) {
-            navigation.dispatch({
-              ...CommonActions.reset(androidWorkspaceTabNavigationState(rootState, tab, rail)),
-              target: root.key,
-            });
-          }
+          selectTab(tab);
           props.onSelect?.();
         }}
         onNewThread={() => {

@@ -73,7 +73,7 @@ const page = (state: State) => ({
 });
 
 describe("selectWorkspaceDetail", () => {
-  it("opens Home above the current workspace from a selection, link, or push", () => {
+  it("opens the Home tab from a selection, link, navigate or push", () => {
     const current = push(home(), "SettingsAppearance");
     const homeAgent = {
       name: "Thread",
@@ -84,14 +84,16 @@ describe("selectWorkspaceDetail", () => {
       selectWorkspaceDetail(homeAgent),
       link,
       StackActions.push("Thread", homeAgent.params),
+      StackActions.push("HomeAgent", homeAgent.params),
+      { type: "NAVIGATE", payload: { name: "HomeAgent", params: homeAgent.params } },
     ]) {
       const opened = apply(current, action as RouterAction);
       expect(page(opened)).toEqual({
-        names: ["Home", "SettingsAppearance", "HomeAgent"],
-        index: 2,
+        names: ["Home", "HomeAgent"],
+        index: 1,
       });
-      expect(opened.routes[2]?.params).toEqual(homeAgent.params);
-      expect(page(apply(opened, StackActions.pop()))).toEqual(page(current));
+      expect(opened.routes[1]?.params).toEqual(homeAgent.params);
+      expect(page(apply(opened, StackActions.pop()))).toEqual(page(home()));
     }
     const cold = router.getRehydratedState(
       { stale: true, routes: [{ name: "Home" }, homeAgent] },

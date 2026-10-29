@@ -49,6 +49,9 @@ it("holds navigation until the container is ready, then runs it once", () => {
   const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
   whenRootNavigationReady(failing);
   whenRootNavigationReady(navigate);
+  const cancelled = vi.fn();
+  const cancel = whenRootNavigationReady(cancelled);
+  cancel?.();
   expect(navigate).not.toHaveBeenCalled();
 
   const detach = attachRootNavigation(fakeContainer());
@@ -56,6 +59,7 @@ it("holds navigation until the container is ready, then runs it once", () => {
   flushRootNavigationQueue();
   expect(failing).toHaveBeenCalledOnce();
   expect(navigate).toHaveBeenCalledOnce();
+  expect(cancelled).not.toHaveBeenCalled();
   expect(logged).toHaveBeenCalledOnce();
 
   whenRootNavigationReady(navigate);

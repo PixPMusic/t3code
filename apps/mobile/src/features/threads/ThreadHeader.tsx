@@ -7,7 +7,7 @@ import type { ThreadInspectorMode } from "./thread-inspector-content-stack";
 import { useThreadHeaderOptions } from "./useThreadHeaderOptions";
 import { useWorkspaceBackNavigation } from "../workspace/useAndroidWorkspaceNavigation";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
-import { useHomeAgentRail } from "../home-agent/home-agent-navigation";
+import { useRoute } from "@react-navigation/native";
 
 export function ThreadHeader(
   props: Parameters<typeof useThreadHeaderOptions>[0] & {
@@ -21,7 +21,7 @@ export function ThreadHeader(
   },
 ) {
   const goBack = useWorkspaceBackNavigation("threads");
-  const homeRail = useHomeAgentRail();
+  const home = useRoute().name === "HomeAgent";
   const { layout, panes, toggleAuxiliaryPane, composerKeyboardActive } =
     useAdaptiveWorkspaceLayout();
   const { onOpenTerminal, onMergeBack } = props.gitControls;
@@ -83,7 +83,7 @@ export function ThreadHeader(
       <AppBar
         title={props.title}
         subtitle={props.subtitle}
-        sidebar={homeRail ? false : native.sidebar}
+        sidebar={home ? false : native.sidebar}
         options={native.options}
         optionsVersion={native.optionsVersion}
         trailing={
@@ -100,7 +100,7 @@ export function ThreadHeader(
             />
           ) : null
         }
-        onBack={layout.usesSplitView || homeRail ? undefined : goBack}
+        onBack={layout.usesSplitView || home ? undefined : goBack}
         actions={androidHeaderActions}
         hideBottomBorder
         compact={composerKeyboardActive}

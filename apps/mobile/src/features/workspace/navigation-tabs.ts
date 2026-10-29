@@ -19,6 +19,7 @@ export const WORKSPACE_TAB_LABELS = {
 };
 
 export const NAVIGATION_TAB_ICONS = {
+  home: "house",
   threads: "text.bubble",
   pullRequests: PullRequestGlyph.pullRequest,
   usage: "chart.bar.xaxis",

@@ -28,12 +28,16 @@ export function attachRootNavigation(
 const pendingUntilReady: Array<() => void> = [];
 
 /** Runs `navigate` now if the container is ready, otherwise once it becomes ready. */
-export function whenRootNavigationReady(navigate: () => void): void {
+export function whenRootNavigationReady(navigate: () => void) {
   if (rootNavigationRef.isReady()) {
     navigate();
     return;
   }
   pendingUntilReady.push(navigate);
+  return () => {
+    const index = pendingUntilReady.indexOf(navigate);
+    if (index >= 0) pendingUntilReady.splice(index, 1);
+  };
 }
 
 /** Wired to the container's `onReady`. */

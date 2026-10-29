@@ -22,7 +22,11 @@ export function workspaceTabColumns(
   tab: WorkspaceTab | "settings",
   columns: boolean,
 ) {
-  return columns && (platform === "ios" || (platform === "android" && tab === "settings"));
+  return (
+    tab !== "home" &&
+    columns &&
+    (platform === "ios" || (platform === "android" && tab === "settings"))
+  );
 }
 
 // Pages a Settings row opens, minus Project overview: it shows the project chosen in the
@@ -39,6 +43,9 @@ export function rememberedSettingsPage(selections: WorkspaceSelections): Setting
 
 /** Whether a remembered chat or pull request can still be opened. */
 export interface WorkspaceSelectionCheck {
+  readonly home?: (
+    selection: WorkspaceSelections["home"],
+  ) => { readonly environmentId: string; readonly threadId: string } | undefined;
   readonly thread: (selection: ThreadSelection) => boolean;
   readonly pullRequest: (selection: PullRequestSelection) => boolean;
 }
@@ -89,8 +96,14 @@ function samePullRequest(
 export function workspaceSelectionsIn(
   routes: readonly RouteLike[],
   previous: WorkspaceSelections,
+  rememberDetails = true,
 ): WorkspaceSelections {
   let next = previous;
+  const homeAgent = routes.findLast((route) => route.name === "HomeAgent");
+  const homeEnvironmentId = stringParam(homeAgent?.params, "environmentId");
+  if (homeEnvironmentId && homeEnvironmentId !== next.home?.environmentId)
+    next = { ...next, home: { environmentId: homeEnvironmentId } };
+  if (!rememberDetails) return next;
   const thread = routes.findLast((route) => route.name === "Thread");
   const environmentId = stringParam(thread?.params, "environmentId");
   const threadId = stringParam(thread?.params, "threadId");
@@ -219,10 +232,21 @@ export function workspaceTabNavigationState<
     return { ...settings, index: routes.length - 1, routes };
   }
   const home = state.routes.find((route) => route.name === "Home") ?? { name: "Home" };
+  const target = tab === "home" ? options.check.home?.(selections.home) : undefined;
+  const homeAgent = target
+    ? (state.routes.find(
+        (route) =>
+          route.name === "HomeAgent" &&
+          stringParam(route.params, "environmentId") === target.environmentId &&
+          stringParam(route.params, "threadId") === target.threadId,
+      ) ?? { name: "HomeAgent", params: target })
+    : undefined;
   const detail =
-    options.columns && tab !== "usage"
-      ? detailRoute(state, tab, selections, options.check)
-      : undefined;
+    tab === "home"
+      ? homeAgent
+      : options.columns && (tab === "threads" || tab === "pullRequests")
+        ? detailRoute(state, tab, selections, options.check)
+        : undefined;
   const routes = [...[home, ...(detail ? [detail] : [])].map(keyed), ...overlays];
   return { ...state, index: routes.length - 1, routes };
 }

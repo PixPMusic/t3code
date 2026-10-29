@@ -18,6 +18,8 @@ import { rootStackState, type RootStackNavigation } from "../../lib/root-stack-r
 import { workspaceRoutesOf } from "../layout/workspace-overlay-routes";
 import type { WorkspaceSelections } from "../../persistence/mobile-preferences";
 import { appAtomRegistry } from "../../state/atom-registry";
+import { environmentServerConfigsAtom } from "../../state/server";
+import { resolveHomeEnvironment } from "../home-agent/resolve-home-environment";
 import { environmentPresentations } from "../../state/presentation";
 import {
   environmentThreadShells,
@@ -30,7 +32,7 @@ import {
   type WorkspaceSelectionCheck,
 } from "./workspace-tab-navigation";
 
-// Only iOS columns reopen a remembered page; Android always opens a tab on its list.
+// Only iOS columns reopen detail pages; both platforms remember Home's environment.
 const REMEMBERS = Platform.OS === "ios";
 
 // Read synchronously when a tab opens, so it lives in memory and is saved when the app leaves
@@ -65,10 +67,10 @@ function withoutRouteKeys(saved: WorkspaceSelections | undefined): WorkspaceSele
 
 /** Loads the saved selections once; pages visited before it resolves win over saved ones. */
 export function hydrateWorkspaceSelections() {
-  if (!REMEMBERS) return Promise.resolve();
   hydration ??= loadPreferences()
     .then((preferences) => {
-      selections = { ...withoutRouteKeys(preferences.workspaceSelections), ...selections };
+      const loaded = withoutRouteKeys(preferences.workspaceSelections);
+      selections = { ...(REMEMBERS ? loaded : { home: loaded.home }), ...selections };
       saved = selections;
       AppState.addEventListener("change", (status) => {
         if (status !== "active") save();
@@ -87,8 +89,8 @@ export function currentWorkspaceSelections() {
  * showing. The initial state, such as a cold start's reopened chat, reaches only `onReady`.
  */
 export function recordWorkspaceSelections(state: NavigationState | undefined) {
-  if (!REMEMBERS || !state) return;
-  selections = workspaceSelectionsIn(state.routes.slice(0, state.index + 1), selections);
+  if (!state) return;
+  selections = workspaceSelectionsIn(state.routes.slice(0, state.index + 1), selections, REMEMBERS);
 }
 
 function environmentRemoved(environmentId: string) {
@@ -106,6 +108,19 @@ function environmentRemoved(environmentId: string) {
  * snapshot has loaded without it. Before it loads there is nothing to contradict it.
  */
 export const workspaceSelectionCheck: WorkspaceSelectionCheck = {
+  home: (selection) => {
+    const configs = appAtomRegistry.get(environmentServerConfigsAtom);
+    const environments = [
+      ...appAtomRegistry.get(environmentPresentations.presentationsAtom).keys(),
+    ].map((environmentId) => ({
+      environmentId,
+      threadId: configs.get(environmentId)?.settings.home.threadId,
+    }));
+    const environment = resolveHomeEnvironment(environments, selection?.environmentId);
+    return environment?.threadId
+      ? { environmentId: environment.environmentId, threadId: environment.threadId }
+      : undefined;
+  },
   thread: (selection) => {
     if (environmentRemoved(selection.environmentId)) return false;
     const environmentId = selection.environmentId as EnvironmentId;
@@ -140,7 +155,10 @@ export function settingsLinkPage() {
  * It waits for the first layout metrics as long as the workspace itself does.
  */
 export async function launchWorkspaceURL(): Promise<string | null> {
-  if (!REMEMBERS) return null;
+  if (!REMEMBERS) {
+    await hydrateWorkspaceSelections();
+    return null;
+  }
   const metrics = firstNativeLayoutMetrics(NATIVE_METRICS_TIMEOUT_MS);
   await hydrateWorkspaceSelections();
   const thread = selections.threads;

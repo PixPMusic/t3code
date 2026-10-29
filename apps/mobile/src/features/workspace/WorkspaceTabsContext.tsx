@@ -1,8 +1,13 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { createContext, use, useState, type Dispatch, type ReactNode } from "react";
+import { Keyboard } from "react-native";
 
+import { rootNavigationRef } from "../../lib/rootNavigation";
 import { mobilePreferencesAtom } from "../../state/preferences";
+import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
+import { currentWorkspaceSelections, workspaceSelectionCheck } from "./workspace-selection-store";
+import { workspaceTabNavigationState } from "./workspace-tab-navigation";
 import {
   navigationCustomizationAvailable,
   resolveHiddenNavigationTabs,
@@ -12,6 +17,7 @@ import {
   initialWorkspaceTabsState,
   resolveWorkspaceTabOrder,
   workspaceTabsReducer,
+  workspaceTabForRoutes,
   type WorkspaceSearchTab,
   type WorkspaceTab,
   type WorkspaceTabsAction,
@@ -55,6 +61,7 @@ function resolveWorkspaceTabsSelection(
 function createWorkspaceTabsModel() {
   const stored = Atom.make(initialWorkspaceTabsState());
   const scrollOffsets: Record<WorkspaceSearchTab, number> = {
+    home: 0,
     threads: 0,
     pullRequests: 0,
     usage: 0,
@@ -75,15 +82,45 @@ function createWorkspaceTabsModel() {
 export function WorkspaceTabsProvider(props: {
   readonly children: ReactNode;
   readonly settingsOpen?: boolean;
+  readonly routes?: readonly { readonly name: string }[];
 }) {
   const registry = use(RegistryContext);
   const [model] = useState(createWorkspaceTabsModel);
-  const state = useAtomValue(model.resolved);
+  const storedState = useAtomValue(model.resolved);
+  const state = workspaceTabsReducer(storedState, {
+    type: "select",
+    tab: workspaceTabForRoutes(props.routes ?? [], storedState.selectedTab),
+  });
+  const currentState = () => {
+    const stored = registry.get(model.resolved);
+    const root = rootNavigationRef.getRootState();
+    return workspaceTabsReducer(stored, {
+      type: "select",
+      tab: workspaceTabForRoutes(root?.routes.slice(0, root.index + 1) ?? [], stored.selectedTab),
+    });
+  };
+  useHardwareKeyboardCommand("home.open", () => {
+    const root = rootNavigationRef.getRootState();
+    if (!root) return false;
+    Keyboard.dismiss();
+    registry.set(
+      model.stored,
+      workspaceTabsReducer(currentState(), { type: "select", tab: "home" }),
+    );
+    rootNavigationRef.dispatch({
+      type: "RESET",
+      target: root.key,
+      payload: workspaceTabNavigationState(root, "home", currentWorkspaceSelections(), {
+        columns: false,
+        check: workspaceSelectionCheck,
+      }),
+    });
+  });
   const context = {
     state,
     dispatch: (action: WorkspaceTabsAction) =>
-      registry.set(model.stored, workspaceTabsReducer(registry.get(model.resolved), action)),
-    isTabActive: (tab: WorkspaceTab) => registry.get(model.resolved).selectedTab === tab,
+      registry.set(model.stored, workspaceTabsReducer(currentState(), action)),
+    isTabActive: (tab: WorkspaceTab) => currentState().selectedTab === tab,
     bottomClearance: 0,
     settingsOpen: props.settingsOpen ?? false,
     getScrollOffset: model.getScrollOffset,

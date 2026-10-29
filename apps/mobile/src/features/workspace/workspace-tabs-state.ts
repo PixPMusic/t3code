@@ -40,9 +40,10 @@ function emptyTab(): WorkspaceTabState {
 
 export function initialWorkspaceTabsState(): WorkspaceTabsState {
   return {
-    selectedTab: "threads",
+    selectedTab: "home",
     selectionRevision: 0,
     tabs: {
+      home: emptyTab(),
       threads: emptyTab(),
       pullRequests: emptyTab(),
       usage: emptyTab(),
@@ -107,8 +108,24 @@ export function workspaceTabsReducer(
   return { ...state, tabs: { ...state.tabs, [tab]: next } };
 }
 
+export function workspaceTabForRoutes(
+  routes: readonly { readonly name: string }[],
+  fallback: WorkspaceTab,
+): WorkspaceTab {
+  const route = routes.findLast((route) =>
+    ["Home", "HomeAgent", "Thread", "PullRequest"].includes(route.name),
+  );
+  return route?.name === "HomeAgent"
+    ? "home"
+    : route?.name === "Thread"
+      ? "threads"
+      : route?.name === "PullRequest"
+        ? "pullRequests"
+        : fallback;
+}
+
 export const WORKSPACE_TOOLBAR = { height: 48, expandedGap: 10, edge: 16, gap: 8 };
-export const WORKSPACE_DOCK = { height: 48, tabsWidth: 176, gap: 12, bottomGap: 6 };
+export const WORKSPACE_DOCK = { height: 48, gap: 12, bottomGap: 6 };
 
 export function workspaceDockBottomClearance(input: {
   readonly bottomInset: number;

@@ -19,6 +19,11 @@ const pullRequest = {
   params: { environmentId: "env", projectId: "project", repository: "o/r", number: 7 },
 };
 const settings = { key: "settings", name: "Settings" };
+const homeAgent = {
+  key: "home-agent",
+  name: "HomeAgent",
+  params: { environmentId: "env", threadId: "home:current" },
+};
 const available = { thread: () => true, pullRequest: () => true };
 const names = (state: { routes: readonly { name: string }[] }) =>
   state.routes.map((route) => route.name);
@@ -31,12 +36,20 @@ describe("workspace tab selections", () => {
       threads: thread.params,
       pullRequests: pullRequest.params,
     });
+    expect(workspaceSelectionsIn([home, homeAgent], afterPullRequest).home).toEqual({
+      environmentId: "env",
+    });
     const afterSettings = workspaceSelectionsIn(
       [home, settings, { key: "appearance", name: "SettingsAppearance" }],
       afterPullRequest,
     );
     expect(afterSettings.settings).toBe("SettingsAppearance");
     expect(workspaceSelectionsIn([home, thread], afterSettings)).toBe(afterSettings);
+    const android = workspaceSelectionsIn([home, homeAgent, thread], {}, false);
+    expect(android).toEqual({ home: { environmentId: "env" } });
+    expect(
+      workspaceSelectionsIn([home, settings, { name: "SettingsAppearance" }], android, false),
+    ).toBe(android);
   });
 
   it("doesn't remember pages a Settings row doesn't open", () => {
@@ -50,6 +63,39 @@ describe("workspace tab selections", () => {
 
 describe("opening a workspace tab", () => {
   const columns = { columns: true, check: available };
+
+  it.each([false, true])("opens Home as one conversation independent of columns: %s", (columns) => {
+    const state = { routes: [home, homeAgent, thread] };
+    const current = workspaceTabNavigationState(
+      state,
+      "home",
+      { home: { environmentId: "env" } },
+      { columns, check: { ...available, home: () => homeAgent.params } },
+    );
+    expect(names(current)).toEqual(["Home", "HomeAgent"]);
+    expect(current.routes[1]).toBe(homeAgent);
+    const fresh = workspaceTabNavigationState(
+      state,
+      "home",
+      {},
+      {
+        columns,
+        check: { ...available, home: () => ({ environmentId: "env", threadId: "home:fresh" }) },
+      },
+    );
+    expect(fresh.routes[1]?.params).toEqual({ environmentId: "env", threadId: "home:fresh" });
+    expect(fresh.routes[1]?.key).not.toBe(homeAgent.key);
+    expect(
+      names(
+        workspaceTabNavigationState(
+          state,
+          "home",
+          {},
+          { columns, check: { ...available, home: () => undefined } },
+        ),
+      ),
+    ).toEqual(["Home"]);
+  });
 
   it("opens Android Settings beside its default page only in a wide window", () => {
     const open = (wide: boolean) =>

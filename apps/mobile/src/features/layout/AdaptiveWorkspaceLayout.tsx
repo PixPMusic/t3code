@@ -192,7 +192,9 @@ function AdaptiveWorkspaceLayoutContent(
   const workspacePage =
     pathname.startsWith("/home-agent/") ||
     (Platform.OS === "android" &&
-      (androidSettingsOpen || workspace?.state.selectedTab === "usage"));
+      (androidSettingsOpen ||
+        workspace?.state.selectedTab === "usage" ||
+        workspace?.state.selectedTab === "home"));
   const navigation = useNavigation();
   const activeRoleOwner = useRef<symbol | null>(null);
   const [primarySidebarPreferredVisible, setPrimarySidebarPreferredVisible] = useState(true);
@@ -549,8 +551,10 @@ function AdaptiveWorkspaceLayoutContent(
     handleSelectDetail({ name: "Thread", params });
 
   const projects = useProjects();
-  const compactAndroidSettings =
-    Platform.OS === "android" && androidSettingsOpen && !layout.usesSplitView;
+  const compactAndroidPage =
+    Platform.OS === "android" &&
+    (androidSettingsOpen || pathname.startsWith("/home-agent/")) &&
+    !layout.usesSplitView;
   // Reads the open page when pressed, so the layout context doesn't change on every navigation.
   const handleStartNewTask = () => {
     const state = rootStackState(navigation);
@@ -957,7 +961,7 @@ function AdaptiveWorkspaceLayoutContent(
               <SafeAreaInsetsContext
                 value={
                   floatingTabsEnabled &&
-                  (compactAndroidSettings || (layout.usesSplitView && workspacePage))
+                  (compactAndroidPage || (layout.usesSplitView && workspacePage))
                     ? {
                         ...safeAreaInsets,
                         bottom:
@@ -966,7 +970,7 @@ function AdaptiveWorkspaceLayoutContent(
                           FLOATING_TABS.edge +
                           floatingTabs.height,
                       }
-                    : compactAndroidSettings
+                    : compactAndroidPage
                       ? { ...safeAreaInsets, bottom: 0 }
                       : safeAreaInsets
                 }
@@ -976,13 +980,13 @@ function AdaptiveWorkspaceLayoutContent(
                 </View>
               </SafeAreaInsetsContext>
               {floatingTabsEnabled &&
-              (compactAndroidSettings || (layout.usesSplitView && workspacePage)) ? (
+              (compactAndroidPage || (layout.usesSplitView && workspacePage)) ? (
                 <FloatingWorkspaceTabs
                   paneWidth={layout.usesSplitView ? (layout.listPaneWidth ?? undefined) : undefined}
-                  fillWidth={compactAndroidSettings}
+                  fillWidth={compactAndroidPage}
                   onNewThread={handleStartNewTask}
                 />
-              ) : compactAndroidSettings ? (
+              ) : compactAndroidPage ? (
                 <AndroidWorkspaceNavigation onNewThread={handleStartNewTask} />
               ) : null}
             </WorkspaceSettledContentWidthContext>
