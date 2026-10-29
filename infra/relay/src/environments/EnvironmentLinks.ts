@@ -119,6 +119,7 @@ export class EnvironmentLinks extends Context.Service<
       readonly userId: string;
       readonly request: RelayEnvironmentLinkRequest;
       readonly proof: RelayEnvironmentLinkProofPayload;
+      readonly challengeIssuedAt: string;
       readonly endpoint: RelayManagedEndpoint;
     }) => Effect.Effect<void, EnvironmentLinkUpsertPersistenceError>;
     readonly listDeliveryUsersForEnvironment: (input: {
@@ -248,6 +249,9 @@ const make = Effect.gen(function* () {
       const now = DateTime.formatIso(yield* DateTime.now);
       const { request, proof } = input;
       const environmentId = proof.environmentId;
+      // The relay-issued challenge fences stale proofs without depending on the host clock.
+      const keepPushedLabel = sql<boolean>`${relayEnvironmentLinks.environmentPublicKey} = ${proof.environmentPublicKey}
+        AND ${relayEnvironmentLinks.labelUpdatedAt} >= ${input.challengeIssuedAt}`;
       // Inherit opt-in only from links proven by the same key; anyone can claim the public environment id.
       const inheritedHoldWebhooks = sql<boolean>`EXISTS (
         SELECT 1 FROM ${relayEnvironmentLinks} AS other
@@ -281,8 +285,8 @@ const make = Effect.gen(function* () {
           target: [relayEnvironmentLinks.userId, relayEnvironmentLinks.environmentId],
           set: {
             environmentPublicKey: proof.environmentPublicKey,
-            environmentLabel: proof.descriptor.label,
-            labelUpdatedAt: now,
+            environmentLabel: sql`CASE WHEN ${keepPushedLabel} THEN ${relayEnvironmentLinks.environmentLabel} ELSE ${proof.descriptor.label} END`,
+            labelUpdatedAt: sql`CASE WHEN ${keepPushedLabel} THEN ${relayEnvironmentLinks.labelUpdatedAt} ELSE ${now} END`,
             endpointHttpBaseUrl: endpoint.httpBaseUrl,
             endpointWsBaseUrl: endpoint.wsBaseUrl,
             endpointProviderKind: endpoint.providerKind,

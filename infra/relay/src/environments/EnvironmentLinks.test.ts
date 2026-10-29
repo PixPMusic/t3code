@@ -6,6 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { ne } from "drizzle-orm";
 import * as Layer from "effect/Layer";
+import * as TestClock from "effect/testing/TestClock";
 import { PgDialect } from "drizzle-orm/pg-core";
 
 import * as RelayDb from "../db.ts";
@@ -146,7 +147,21 @@ describe("EnvironmentLinks", () => {
           ),
         );
         const database = drizzle({ client: pg });
+        const insertion = database.insert(relayEnvironmentLinks);
         const db = {
+          insert: () => ({
+            values: (values: Parameters<typeof insertion.values>[0]) => ({
+              onConflictDoUpdate: (
+                conflict: Parameters<ReturnType<typeof insertion.values>["onConflictDoUpdate"]>[0],
+              ) =>
+                Effect.promise(() =>
+                  database
+                    .insert(relayEnvironmentLinks)
+                    .values(values)
+                    .onConflictDoUpdate(conflict),
+                ),
+            }),
+          }),
           update: () => ({
             set: (values: Parameters<ReturnType<typeof database.update>["set"]>[0]) => ({
               where: (
@@ -198,6 +213,42 @@ describe("EnvironmentLinks", () => {
             ),
         );
         expect(counted).toEqual([{ environmentId: "env-1" }]);
+        yield* TestClock.setTime(Date.parse(at(40)));
+        for (const [challengeAt, key, proofLabel, expectedLabel, expectedWatermark] of [
+          [20, "key", "Stale link proof", "Latest name", 30],
+          [35, "key", "Fresh link proof", "Fresh link proof", 40],
+          [15, "replacement-key", "Replacement host", "Replacement host", 40],
+        ] as const) {
+          yield* links.upsert({
+            userId: "user-1",
+            challengeIssuedAt: at(challengeAt),
+            request: {
+              notificationsEnabled: false,
+              liveActivitiesEnabled: false,
+              managedTunnelsEnabled: false,
+            } as never,
+            proof: {
+              environmentId: "env-1",
+              environmentPublicKey: key,
+              iat: Date.parse(at(55)) / 1_000,
+              descriptor: { label: proofLabel },
+            } as never,
+            endpoint: {
+              httpBaseUrl: "https://e",
+              wsBaseUrl: "wss://e",
+              providerKind: "direct",
+            } as never,
+          });
+          const [linked] = yield* Effect.promise(() =>
+            database.select().from(relayEnvironmentLinks),
+          );
+          expect(linked).toMatchObject({
+            environmentLabel: expectedLabel,
+            labelUpdatedAt: at(expectedWatermark),
+            environmentPublicKey: key,
+            updatedAt: at(40),
+          });
+        }
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -216,6 +267,7 @@ describe("EnvironmentLinks", () => {
       const links = yield* EnvironmentLinks.EnvironmentLinks;
       yield* links.upsert({
         userId: "user-1",
+        challengeIssuedAt: "1970-01-01T00:00:00.000Z",
         request: {
           notificationsEnabled: false,
           liveActivitiesEnabled: false,

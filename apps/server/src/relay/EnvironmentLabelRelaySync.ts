@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
 import * as Stream from "effect/Stream";
 
@@ -12,7 +13,7 @@ const pushEnvironmentLabel = Effect.fn("EnvironmentLabelRelaySync.push")(functio
   environmentLabel: string,
 ) {
   const connection = yield* readRelayConnection;
-  if (connection === null) return;
+  if (connection === null) return false;
   const environment = yield* ServerEnvironment.ServerEnvironment;
   const descriptor = yield* environment.getDescriptorForSettings({ environmentLabel });
   const client = yield* makeRelayEnvironmentClient(connection);
@@ -20,6 +21,7 @@ const pushEnvironmentLabel = Effect.fn("EnvironmentLabelRelaySync.push")(functio
     params: { environmentId: descriptor.environmentId },
     payload: { label: descriptor.label },
   });
+  return true;
 });
 
 /**
@@ -32,17 +34,25 @@ export const layer = Layer.effectDiscard(
     const settings = yield* ServerSettings.ServerSettingsService;
     const changes = yield* settings.subscribeChanges;
     const initial = yield* settings.getEnvironmentLabel;
-    const push = (environmentLabel: string) =>
-      pushEnvironmentLabel(environmentLabel).pipe(
+    const lastPushedLabel = yield* Ref.make<string | null>(null);
+    const push = Effect.fn("EnvironmentLabelRelaySync.sync")(function* (environmentLabel: string) {
+      if ((yield* Ref.get(lastPushedLabel)) === environmentLabel) return;
+      yield* pushEnvironmentLabel(environmentLabel).pipe(
         Effect.timeout("10 seconds"),
         Effect.retry({ schedule: Schedule.exponential("2 seconds"), times: 3 }),
+        Effect.tap((sent) => (sent ? Ref.set(lastPushedLabel, environmentLabel) : Effect.void)),
         Effect.catchCause((cause) =>
-          Effect.logWarning("Could not send the host name to T3 Connect", { cause }),
+          Ref.set(lastPushedLabel, null).pipe(
+            Effect.andThen(
+              Effect.logWarning("Could not send the host name to T3 Connect", { cause }),
+            ),
+          ),
         ),
       );
+    });
     yield* Stream.concat(
       Stream.make(initial),
       changes.pipe(Stream.map((next) => next.environmentLabel)),
-    ).pipe(Stream.changes, Stream.runForEach(push), Effect.forkScoped);
+    ).pipe(Stream.runForEach(push), Effect.forkScoped);
   }),
 );

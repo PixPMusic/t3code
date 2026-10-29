@@ -6,6 +6,7 @@ import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
+import * as TestClock from "effect/testing/TestClock";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
@@ -21,8 +22,15 @@ it.effect("sends the current host name at startup and only changed names thereaf
   Effect.gen(function* () {
     const changes = yield* PubSub.unbounded<ServerSettings>();
     const pushed = yield* Queue.unbounded<{ readonly url: string; readonly body: unknown }>();
+    const failedAttempts = yield* Queue.unbounded<void>();
+    let remainingFailures = 0;
     const fetch: typeof globalThis.fetch = Object.assign(
       (input: Parameters<typeof globalThis.fetch>[0], init?: RequestInit) => {
+        if (remainingFailures > 0) {
+          remainingFailures -= 1;
+          Queue.offerUnsafe(failedAttempts, undefined);
+          return Promise.reject(new Error("Relay unavailable"));
+        }
         Queue.offerUnsafe(pushed, {
           url: String(input instanceof Request ? input.url : input),
           body: JSON.parse(String(init?.body)),
@@ -68,5 +76,20 @@ it.effect("sends the current host name at startup and only changed names thereaf
     yield* PubSub.publish(changes, settingsWith("Studio Mac", false));
     yield* PubSub.publish(changes, settingsWith("", false));
     assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Detected Mac" });
+
+    remainingFailures = 4;
+    yield* PubSub.publish(changes, settingsWith("Retry Mac"));
+    yield* Queue.take(failedAttempts);
+    for (const delay of ["2 seconds", "4 seconds", "8 seconds"] as const) {
+      yield* TestClock.adjust(delay);
+      yield* Queue.take(failedAttempts);
+    }
+    yield* PubSub.publish(changes, settingsWith("", true));
+    yield* PubSub.publish(changes, settingsWith("Retry Mac", false));
+    yield* PubSub.publish(changes, settingsWith("Retry Mac", true));
+    yield* PubSub.publish(changes, settingsWith("After Retry"));
+    assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Detected Mac" });
+    assert.deepEqual((yield* Queue.take(pushed)).body, { label: "Retry Mac" });
+    assert.deepEqual((yield* Queue.take(pushed)).body, { label: "After Retry" });
   }).pipe(Effect.scoped),
 );
