@@ -6234,6 +6234,7 @@ const layerScratchPromotionTest = ScratchThreadPromotion.layer.pipe(
   Layer.provide(
     Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
       scratchRoot: Effect.succeedSome(SCRATCH_ROOT),
+      homeRoot: "/managed/home",
       isScratchProject: (projectId) => Effect.succeed(projectId === SCRATCH_PROJECT_ID),
       namedProjectsRoot: "/projects",
     }),

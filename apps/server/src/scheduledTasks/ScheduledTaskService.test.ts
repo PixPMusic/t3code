@@ -446,6 +446,7 @@ it.effect("a bound run follows its thread when promotion moves it mid-send", () 
           Layer.mock(SecretRequests.SecretRequests)({}),
           Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
             namedProjectsRoot: "/projects",
+            homeRoot: "/managed/home",
             isScratchProject: () => Effect.succeed(false),
           }),
           NodeCrypto.layer,
