@@ -23,17 +23,15 @@ const pushEnvironmentLabel = Effect.fn("EnvironmentLabelRelaySync.push")(functio
 });
 
 /**
- * Pushes the host name to T3 Connect when it changes, so Connect clients see
- * it before their next status check. Managed tunnel status checks also correct lost pushes.
+ * Pushes the current host name to T3 Connect at startup and when it changes.
+ * Managed tunnel status checks also correct lost pushes.
  * Pushes run one at a time so an older name cannot land after a newer one.
  */
 export const layer = Layer.effectDiscard(
   Effect.gen(function* () {
     const settings = yield* ServerSettings.ServerSettingsService;
     const changes = yield* settings.subscribeChanges;
-    const initial = yield* settings.getEnvironmentLabel.pipe(
-      Effect.orElseSucceed((): string | null => null),
-    );
+    const initial = yield* settings.getEnvironmentLabel;
     const push = (environmentLabel: string) =>
       pushEnvironmentLabel(environmentLabel).pipe(
         Effect.timeout("10 seconds"),
@@ -44,12 +42,7 @@ export const layer = Layer.effectDiscard(
       );
     yield* Stream.concat(
       Stream.make(initial),
-      changes.pipe(Stream.map((next): string | null => next.environmentLabel)),
-    ).pipe(
-      Stream.changes,
-      Stream.drop(1),
-      Stream.runForEach((environmentLabel) => push(environmentLabel ?? "")),
-      Effect.forkScoped,
-    );
+      changes.pipe(Stream.map((next) => next.environmentLabel)),
+    ).pipe(Stream.changes, Stream.runForEach(push), Effect.forkScoped);
   }),
 );

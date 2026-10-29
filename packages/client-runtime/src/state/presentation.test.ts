@@ -131,6 +131,11 @@ describe("environment summary subscriptions", () => {
       h.registry.set(h.configs(SECOND), null);
       expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Old saved host");
       const ids = h.registry.get(h.environmentIdsAtom);
+      const cachedConfig = {
+        ...config(),
+        environment: { ...config().environment, label: "Cached old name" },
+      };
+      h.registry.set(h.configs(FIRST), cachedConfig);
       publishDiscovery("Studio Mac");
       expect(h.registry.get(h.identitiesAtom).map(({ label }) => label)).toEqual([
         "Studio Mac",
@@ -144,12 +149,22 @@ describe("environment summary subscriptions", () => {
       const shown = h.registry.get(h.full.presentationAtom(FIRST));
       publishDiscovery("Studio Mac");
       expect(h.registry.get(h.full.presentationAtom(FIRST))).toBe(shown);
+      h.registry.set(h.configs(FIRST), { ...cachedConfig, providers: [] });
+      expect(h.registry.get(h.full.presentationAtom(FIRST))).toBe(shown);
+      h.registry.set(
+        h.state,
+        AsyncResult.success({ ...AVAILABLE_CONNECTION_STATE, phase: "connected" }),
+      );
       h.registry.set(h.configs(FIRST), {
         ...config(),
         environment: { ...config().environment, label: "Live socket name" },
       });
       publishDiscovery("Detected Mac");
       expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Live socket name");
+      const liveConfig = h.registry.get(h.configs(FIRST));
+      h.registry.set(h.state, AsyncResult.success({ ...AVAILABLE_CONNECTION_STATE }));
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Detected Mac");
+      expect(h.registry.get(h.configs(FIRST))).toBe(liveConfig);
       h.registry.set(h.configs(FIRST), null);
       expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Detected Mac");
     } finally {

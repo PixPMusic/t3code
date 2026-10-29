@@ -81,6 +81,7 @@ export function createEnvironmentPresentationAtoms<E>(input: {
 }) {
   const presentationAtom = Atom.family((environmentId: EnvironmentId) => {
     let previousCatalogEntry: ConnectionCatalogEntry | undefined;
+    let previousServerConfig: EnvironmentServerConfig | null = null;
     return Atom.make((get) => {
       const entry = get(input.catalogValueAtom).entries.get(environmentId);
       if (entry === undefined) {
@@ -91,27 +92,6 @@ export function createEnvironmentPresentationAtoms<E>(input: {
         () => AVAILABLE_CONNECTION_STATE,
       );
       const previous = Option.getOrNull(get.self<EnvironmentPresentation | null>());
-      const serverConfig = withoutProviders(
-        get(input.serverConfigValueAtom(environmentId)),
-        previous?.serverConfig ?? null,
-      );
-      let displayEntry = entry;
-      if (
-        serverConfig === null &&
-        entry.target._tag === "RelayConnectionTarget" &&
-        input.relayDiscoveryValueAtom
-      ) {
-        const label = get(input.relayDiscoveryValueAtom).environments.get(environmentId)
-          ?.environment.label;
-        if (label !== undefined && label !== entry.target.label) {
-          // Discovery can refresh a name without rebuilding saved routes or restarting their supervisor.
-          displayEntry =
-            previousCatalogEntry === entry && previous?.entry.target.label === label
-              ? previous.entry
-              : { ...entry, target: new RelayConnectionTarget({ environmentId, label }) };
-        }
-      }
-      previousCatalogEntry = entry;
       // The supervisor never publishes this placeholder; an enabled one starts out connecting.
       const connection: EnvironmentConnectionPresentation =
         entry.unsupportedReason !== undefined
@@ -119,6 +99,42 @@ export function createEnvironmentPresentationAtoms<E>(input: {
           : state === AVAILABLE_CONNECTION_STATE && entry.enabled
             ? { phase: "connecting", error: null, traceId: null }
             : presentConnectionState(state);
+      const sourceServerConfig = withoutProviders(
+        get(input.serverConfigValueAtom(environmentId)),
+        previousServerConfig,
+      );
+      let serverConfig = sourceServerConfig;
+      let displayEntry = entry;
+      if (
+        connection.phase !== "connected" &&
+        entry.target._tag === "RelayConnectionTarget" &&
+        input.relayDiscoveryValueAtom
+      ) {
+        const label = get(input.relayDiscoveryValueAtom).environments.get(environmentId)
+          ?.environment.label;
+        if (label !== undefined) {
+          if (label !== entry.target.label) {
+            // Discovery can refresh a name without rebuilding saved routes or restarting their supervisor.
+            displayEntry =
+              previousCatalogEntry === entry && previous?.entry.target.label === label
+                ? previous.entry
+                : { ...entry, target: new RelayConnectionTarget({ environmentId, label }) };
+          }
+          // A cached descriptor survives disconnects; only a live socket takes priority over discovery.
+          if (sourceServerConfig !== null && sourceServerConfig.environment.label !== label) {
+            serverConfig =
+              sourceServerConfig === previousServerConfig &&
+              previous?.serverConfig?.environment.label === label
+                ? previous.serverConfig
+                : {
+                    ...sourceServerConfig,
+                    environment: { ...sourceServerConfig.environment, label },
+                  };
+          }
+        }
+      }
+      previousCatalogEntry = entry;
+      previousServerConfig = sourceServerConfig;
       const next = {
         entry: displayEntry,
         connection:

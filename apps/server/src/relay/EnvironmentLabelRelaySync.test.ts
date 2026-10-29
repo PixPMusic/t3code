@@ -17,7 +17,7 @@ import * as EnvironmentLabelRelaySync from "./EnvironmentLabelRelaySync.ts";
 const settingsWith = (environmentLabel: string, enableProviderUpdateChecks = true) =>
   ({ environmentLabel, enableProviderUpdateChecks }) as ServerSettings;
 
-it.effect("sends the effective host name to T3 Connect only when it changes", () =>
+it.effect("sends the current host name at startup and only changed names thereafter", () =>
   Effect.gen(function* () {
     const changes = yield* PubSub.unbounded<ServerSettings>();
     const pushed = yield* Queue.unbounded<{ readonly url: string; readonly body: unknown }>();
@@ -47,7 +47,7 @@ it.effect("sends the effective host name to T3 Connect only when it changes", ()
           } as never),
       }),
       Layer.mock(ServerSettingsService.ServerSettingsService)({
-        getEnvironmentLabel: Effect.succeed(""),
+        getEnvironmentLabel: Effect.succeed("Saved Mac"),
         subscribeChanges: PubSub.subscribe(changes).pipe(Effect.map(Stream.fromSubscription)),
       }),
     );
@@ -55,7 +55,11 @@ it.effect("sends the effective host name to T3 Connect only when it changes", ()
       Effect.provideService(FetchHttpClient.Fetch, fetch),
     );
 
+    yield* PubSub.publish(changes, settingsWith("Saved Mac", false));
     yield* PubSub.publish(changes, settingsWith("Studio Mac"));
+    const initial = yield* Queue.take(pushed);
+    assert.equal(initial.url, "https://relay.test/v1/environments/environment-1/label");
+    assert.deepEqual(initial.body, { label: "Saved Mac" });
     const renamed = yield* Queue.take(pushed);
     assert.equal(renamed.url, "https://relay.test/v1/environments/environment-1/label");
     assert.deepEqual(renamed.body, { label: "Studio Mac" });
