@@ -19,9 +19,10 @@ const SUPPRESS: NotificationBehavior = {
 export function foregroundNotificationBehavior(
   notification: Notification,
   deepLinkOnScreen: string | null,
+  handledByHome = false,
 ): NotificationBehavior {
   const target = extractAgentNotificationDeepLink({ notification });
-  if (target !== null && target === deepLinkOnScreen) {
+  if (handledByHome || (target !== null && target === deepLinkOnScreen)) {
     return SUPPRESS;
   }
   return SHOW;

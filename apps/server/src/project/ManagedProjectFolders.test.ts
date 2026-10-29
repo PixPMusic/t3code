@@ -533,3 +533,29 @@ it.effect("removes the folder when the create is cancelled before the project ex
     );
   }),
 );
+
+it.effect(
+  "keeps Home notes while refreshing managed instructions and its isolated Git repository",
+  () =>
+    withScratch(({ baseDir }) =>
+      Effect.gen(function* () {
+        const folders = yield* ManagedProjectFolders.ManagedProjectFolders;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const first = yield* folders.ensureHomeProject;
+        const agents = path.join(first.workspaceRoot, "AGENTS.md");
+        const original = yield* fs.readFileString(agents);
+        yield* fs.writeFileString(agents, `${original}\nAlways use the demo project.\n`);
+        const next = yield* folders.ensureHomeProject;
+        assert.strictEqual(next.projectId, first.projectId);
+        assert.include(yield* fs.readFileString(agents), "Always use the demo project.");
+        assert.include(yield* fs.readFileString(agents), "t3_environment_links");
+        assert.isTrue(yield* fs.exists(path.join(baseDir, "home", ".git")));
+        assert.isTrue(yield* folders.isInHomeFolder(path.join(first.workspaceRoot, "notes")));
+        assert.isFalse(yield* folders.isInHomeFolder(`${first.workspaceRoot}-other`));
+        assert.isFalse(
+          yield* folders.isInHomeFolder(path.join(first.workspaceRoot, "..", "other")),
+        );
+      }),
+    ),
+);

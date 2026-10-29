@@ -2931,7 +2931,11 @@ const make = Effect.gen(function* () {
             operation: "thread-send",
           }),
           threadId: input.threadId,
-          ...(parent === undefined ? {} : { senderThreadId: parent.thread.id }),
+          ...(parent === undefined
+            ? scope.client?.homeThreadId === undefined
+              ? {}
+              : { senderThreadId: scope.client.homeThreadId }
+            : { senderThreadId: parent.thread.id }),
           messageId,
           text: input.message,
           attachments: [],

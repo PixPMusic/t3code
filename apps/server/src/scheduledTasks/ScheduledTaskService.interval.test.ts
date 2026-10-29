@@ -25,6 +25,8 @@ const dependencies = Layer.mergeAll(
     launch: () => Effect.die("synthetic dispatch failure"),
   }),
   Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+    homeRoot: "/managed/home",
+    isInHomeFolder: () => Effect.succeed(false),
     namedProjectsRoot: "/projects",
     isScratchProject: () => Effect.succeed(false),
   }),

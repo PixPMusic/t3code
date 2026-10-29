@@ -1,3 +1,4 @@
+import { isHomeProject } from "@t3tools/client-runtime/state/projects";
 import type * as DateTime from "effect/DateTime";
 import { useAtomValue } from "@effect/atom-react";
 import type {
@@ -91,6 +92,24 @@ export function useEnvironmentThreadRefs(
 
 export function useProjects(): ReadonlyArray<EnvironmentProject> {
   return useAtomValue(environmentProjects.projectsAtom);
+}
+
+const userProjectsAtom = Atom.withEquality(
+  Atom.make((get) => {
+    const configs = get(environmentServerConfigsAtom);
+    return get(environmentProjects.projectsAtom).filter(
+      (project) => !isHomeProject(project, configs.get(project.environmentId)?.homeWorkspaceRoot),
+    );
+  }),
+  arrayElementsEqual,
+).pipe(Atom.withLabel("web-user-projects"));
+
+export function useUserProjects(): ReadonlyArray<EnvironmentProject> {
+  return useAtomValue(userProjectsAtom);
+}
+
+export function readUserProjects(): ReadonlyArray<EnvironmentProject> {
+  return appAtomRegistry.get(userProjectsAtom);
 }
 
 /** Providers are left out; read them with `useEnvironmentProviders()`. */

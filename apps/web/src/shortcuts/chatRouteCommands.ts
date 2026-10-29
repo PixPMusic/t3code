@@ -15,7 +15,7 @@ import { selectProjectGroupingSettings } from "@t3tools/client-runtime/state/pro
 import { selectActiveRightPanel, useRightPanelStore } from "../rightPanelStore";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { buildSidebarProjectSnapshots } from "../sidebarProjectGrouping";
-import { readProjects, readThreadShell } from "../state/entities";
+import { readUserProjects, readThreadShell } from "../state/entities";
 import { environmentPresentations } from "../state/presentation";
 import { primaryEnvironmentIdAtom } from "../state/primaryEnvironment";
 import { readEnvironmentScope } from "../state/session";
@@ -70,7 +70,7 @@ export function installChatRouteCommands(router: AnyRouter): () => void {
       activeDraftThread,
       activeThread: activeThread ?? undefined,
       defaultProjectRef: resolveDefaultProjectRef(
-        readProjects(),
+        readUserProjects(),
         useUiStateStore.getState().projectOrder,
       ),
       handleNewThread,
@@ -78,7 +78,7 @@ export function installChatRouteCommands(router: AnyRouter): () => void {
   };
   const readProjectGroupCount = () =>
     buildSidebarProjectSnapshots({
-      projects: readProjects(),
+      projects: readUserProjects(),
       settings: selectProjectGroupingSettings(getClientSettings()),
       primaryEnvironmentId: appAtomRegistry.get(primaryEnvironmentIdAtom),
       resolveEnvironmentLabel: () => null,

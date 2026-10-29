@@ -24,6 +24,7 @@ import { androidWorkspaceDestinationAnimation } from "./lib/android-workspace-na
 import { getCompactBrandHeaderOptions } from "./components/CompactBrandTitle";
 import { WorkspaceConnectionStatusProvider } from "./features/home/WorkspaceConnectionTitle";
 import { WorkspaceRootScreen } from "./features/workspace/WorkspaceRootScreen";
+import { HomeAgentRouteScreen } from "./features/home-agent/HomeAgentRouteScreen";
 import {
   recordHomeFocus,
   recordHomeTransitionEnd,
@@ -129,6 +130,7 @@ import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
 import { SettingsAboutRouteScreen } from "./features/settings/SettingsAboutRouteScreen";
 import { SettingsNotificationsRouteScreen } from "./features/settings/SettingsNotificationsRouteScreen";
 import { SettingsRouteScreen } from "./features/settings/SettingsRouteScreen";
+import { SettingsHomeRouteScreen } from "./features/settings/SettingsHomeRouteScreen";
 import { SettingsLabsRouteScreen } from "./features/settings/ThreadSettingsSections";
 import { SettingsEnvironmentFilterProvider } from "./features/settings/settings-environment-filter";
 import { openSettings, settingsOpenIn } from "./features/settings/settings-navigation";
@@ -301,6 +303,11 @@ const SETTINGS_SCREENS = {
     screen: SettingsThreadsRouteScreen,
     linking: "settings/thread-preferences",
     options: { ...SETTINGS_PAGE_OPTIONS, title: "Threads" },
+  }),
+  SettingsHome: createNativeStackScreen({
+    screen: SettingsHomeRouteScreen,
+    linking: "settings/home",
+    options: { ...SETTINGS_PAGE_OPTIONS, title: "Home" },
   }),
   SettingsAbout: createNativeStackScreen({
     screen: SettingsAboutRouteScreen,
@@ -725,6 +732,11 @@ const RootStackConfig = createWorkspaceStackNavigator({
       screen: ThreadRouteScreen,
       linking: { path: "threads/:environmentId?/:threadId?", alias: ["new/draft"] },
       options: THREAD_HEADER_OPTIONS,
+    }),
+    HomeAgent: createNativeStackScreen({
+      screen: HomeAgentRouteScreen,
+      linking: "home-agent/:environmentId/:threadId",
+      options: { ...THREAD_HEADER_OPTIONS, presentation: "fullScreenModal" },
     }),
     NewTaskProject: createNativeStackScreen({
       screen: NewTaskRouteScreen,

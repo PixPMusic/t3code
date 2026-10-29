@@ -7,6 +7,7 @@ import type {
   StackNavigationState,
 } from "@react-navigation/native";
 import { workspaceRoutesOf } from "../layout/workspace-overlay-routes";
+import { isHomeThreadId } from "@t3tools/contracts";
 
 type RootParams = ReactNavigation.RootParamList;
 
@@ -45,6 +46,13 @@ const IDENTITY = {
 } as const;
 
 type RouteLike = { readonly name: string; readonly key?: string; readonly params?: object };
+
+function homeAgentRoute<R extends RouteLike>(route: R): R {
+  const params = route.params as { readonly threadId?: string } | undefined;
+  return route.name === "Thread" && params?.threadId && isHomeThreadId(params.threadId)
+    ? { ...route, name: "HomeAgent" }
+    : route;
+}
 
 function showsDetail(route: RouteLike, detail: WorkspaceDetail) {
   if (route.name !== detail.name) return false;
@@ -90,11 +98,49 @@ export function workspaceDetailRouter<Action extends NavigationAction>(
   original: Router<StackNavigationState<ParamListBase>, Action>,
 ): Partial<Router<StackNavigationState<ParamListBase>, Action>> {
   return {
+    getRehydratedState(state, options) {
+      if (state.routes.every((route) => homeAgentRoute(route) === route)) {
+        return original.getRehydratedState(state, options);
+      }
+      return original.getRehydratedState(
+        { ...state, stale: true, routes: state.routes.map(homeAgentRoute) },
+        options,
+      );
+    },
     getStateForAction(state, action, options) {
+      const payload = action.payload as
+        | { readonly name?: string; readonly params?: { readonly threadId?: string } }
+        | undefined;
+      if (
+        ["NAVIGATE", "PUSH", "REPLACE"].includes(action.type) &&
+        payload?.name === "Thread" &&
+        payload.params?.threadId &&
+        isHomeThreadId(payload.params.threadId)
+      ) {
+        return original.getStateForAction(
+          state,
+          { ...action, payload: { ...payload, name: "HomeAgent" } } as Action,
+          options,
+        );
+      }
       if (action.type !== SELECT_WORKSPACE_DETAIL) {
         return original.getStateForAction(state, action, options);
       }
       const { detail, sheet } = (action as unknown as SelectWorkspaceDetailAction).payload;
+      if (
+        detail.name === "Thread" &&
+        detail.params?.threadId &&
+        isHomeThreadId(detail.params.threadId)
+      ) {
+        return original.getStateForAction(
+          state,
+          {
+            type: "NAVIGATE",
+            payload: { name: "HomeAgent", params: detail.params },
+          } as unknown as Action,
+          options,
+        );
+      }
       const next = workspaceDetailState(state, detail, sheet, nativelyPoppingRoute);
       const reset = { type: "RESET", payload: { ...next, stale: false } };
       return original.getStateForAction(state, reset as unknown as Action, options);

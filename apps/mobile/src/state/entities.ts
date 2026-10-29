@@ -1,5 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { deriveReportedModelSelection } from "@t3tools/client-runtime/state/thread-execution";
+import { isHomeProject } from "@t3tools/client-runtime/state/projects";
+import { arrayElementsEqual } from "@t3tools/client-runtime/state/entities";
 
 import { appAtomRegistry } from "./atom-registry";
 import type {
@@ -166,8 +168,21 @@ export function waitForProject(
 }
 
 export function useProjects(): ReadonlyArray<EnvironmentProject> {
-  return useAtomValue(environmentProjects.projectsAtom);
+  return useAtomValue(userProjectsAtom);
 }
+
+const userProjectsAtom = Atom.withEquality(
+  Atom.make((get) => {
+    const projects = get(environmentProjects.projectsAtom);
+    const configs = get(environmentServerConfigsAtom);
+    const homeProject = (project: EnvironmentProject) =>
+      isHomeProject(project, configs.get(project.environmentId)?.homeWorkspaceRoot);
+    return projects.some(homeProject)
+      ? projects.filter((project) => !homeProject(project))
+      : projects;
+  }),
+  arrayElementsEqual,
+).pipe(Atom.withLabel("mobile-user-projects"));
 
 export function useThreadShells(): ReadonlyArray<EnvironmentThreadShell> {
   return useAtomValue(environmentThreadShells.threadShellsAtom);

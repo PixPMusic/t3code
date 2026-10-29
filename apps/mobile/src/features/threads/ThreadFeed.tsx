@@ -41,6 +41,7 @@ import { formatDiffCount } from "@t3tools/client-runtime/diff-count";
 import type { WorkflowOpening } from "@t3tools/client-runtime/state/subagentRuntime";
 import {
   AuthFilesystemReadScope,
+  isHomeThreadId,
   idleCompactionOf,
   type OrchestrationMessageContext,
   ThreadId,
@@ -1026,7 +1027,10 @@ function AgentMessageFoldHeader(props: {
   const senderShell = useQuietThreadShell(
     props.senderThreadId ? scopeThreadRef(props.environmentId, props.senderThreadId) : null,
   );
-  const label = senderShell?.title.trim() || "Agent";
+  const label =
+    props.senderThreadId && isHomeThreadId(props.senderThreadId)
+      ? "Home"
+      : senderShell?.title.trim() || "Agent";
   return (
     <Pressable
       accessibilityRole="button"
@@ -3366,7 +3370,11 @@ export const ThreadFeed = memo(function ThreadFeed({
           >
             <ThreadFeedPlaceholder
               title="No conversation yet"
-              detail="Ask the agent to inspect the repo, run a command, or continue the active thread."
+              detail={
+                isHomeThreadId(props.threadId)
+                  ? "Ask what’s running, start work in a project, or follow a thread."
+                  : "Ask the agent to inspect the repo, run a command, or continue the active thread."
+              }
               topInset={topContentInset}
               bottomInset={bottomContentInset}
               horizontalPadding={horizontalPadding}

@@ -16,6 +16,7 @@ import * as Schema from "effect/Schema";
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai";
 
 import { OrchestratorProjectionError } from "../orchestration-v2/Orchestrator.ts";
+import * as HomeService from "../home/HomeService.ts";
 import * as PeerForwarding from "../peer/PeerForwarding.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import * as McpHttpServer from "./McpHttpServer.ts";
@@ -465,4 +466,25 @@ it.effect("refuses a linked environment to a tool that acts as its calling threa
     ).pipe(Effect.scoped, Effect.exit);
     expect(Exit.isFailure(built) && Cause.hasDies(built.cause)).toBe(true);
   }),
+);
+
+it.effect.each(["reads", "writes", "starts_threads"])(
+  "a former Home cannot use the ordinary %s tool",
+  (tool) => {
+    const oldHome = ThreadId.make("home:former");
+    return call(tool, threadCaller(oldHome)).pipe(
+      Effect.map((outcome) => expect(outcome).toBe("capability_denied")),
+      Effect.provide(
+        probeServer(
+          Layer.mock(ThreadManagement.ThreadManagementService)({
+            getThreadShell: () => Effect.succeed(liveThreadShell(oldHome)),
+          }),
+        ).pipe(
+          Layer.provide(
+            Layer.mock(HomeService.HomeService)({ isHome: () => Effect.succeed(false) }),
+          ),
+        ),
+      ),
+    );
+  },
 );

@@ -603,6 +603,8 @@ it.effect(
         Layer.mock(DirectEndpoints.DirectEndpoints)({ resolve: () => Effect.succeed([]) }),
         Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
           scratchRoot: Effect.succeedNone,
+          homeRoot: "/managed/home",
+          isInHomeFolder: () => Effect.succeed(false),
           namedProjectsRoot: process.cwd(),
         }),
         Layer.mock(ScratchThreadPromotion.ScratchThreadPromotion)({}),
@@ -780,6 +782,8 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
       Layer.mock(DirectEndpoints.DirectEndpoints)({ resolve: () => Effect.succeed([]) }),
       Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
         scratchRoot: Effect.succeedNone,
+        homeRoot: "/managed/home",
+        isInHomeFolder: () => Effect.succeed(false),
         namedProjectsRoot: process.cwd(),
       }),
       Layer.mock(ScratchThreadPromotion.ScratchThreadPromotion)({}),

@@ -955,3 +955,94 @@ it.effect("only the caller that prepared a pending upload can discard it", () =>
     ),
   ),
 );
+
+it.effect.each([false, true])(
+  "permission requests are exposed to Home=%s and remain hidden from ordinary agents",
+  (home) => {
+    const shell = McpToolAccessTestkit.liveThreadShell(threadId);
+    const requestId = RuntimeRequestId.make("approval-home");
+    const projection = McpToolAccessTestkit.idleThreadProjection(shell);
+    const dispatched: string[] = [];
+    return Effect.gen(function* () {
+      const server = yield* McpServer.McpServer;
+      const invoke = (args: Record<string, unknown>) =>
+        server.callTool({ name: "t3_pending_request", arguments: args }).pipe(
+          Effect.provideService(McpInvocationContext.McpInvocationContext, {
+            ...scope,
+            ...(home ? { homeThreadId: ThreadId.make("home:current") } : {}),
+          }),
+          Effect.provideService(McpSchema.McpServerClient, client),
+        );
+      const listed = yield* invoke({ action: "list" });
+      expect(listed.structuredContent).toEqual({ requestIds: home ? [requestId] : [] });
+      const read = yield* invoke({ action: "read", requestId });
+      expect(read.isError === true).toBe(!home);
+      if (home)
+        expect(read.structuredContent).toMatchObject({
+          requestId,
+          kind: "command",
+          prompt: "Run the demo build?",
+        });
+      const respond = yield* invoke({ action: "respond", requestId, decision: "accept" });
+      expect(respond.isError === true).toBe(!home);
+      expect(dispatched).toEqual(home ? ["runtime-request.respond"] : []);
+    }).pipe(
+      Effect.provide(
+        layerThreadToolkit.pipe(
+          Layer.provideMerge(McpServer.McpServer.layer),
+          Layer.provide(NodeCrypto.layer),
+          Layer.provide(
+            Layer.mock(ThreadManagement.ThreadManagementService)({
+              getThreadShell: () => Effect.succeed(shell),
+              getProjectThreadRecords: () =>
+                Effect.succeed({
+                  ...projection,
+                  runtimeRequests: [
+                    {
+                      id: requestId,
+                      threadId,
+                      nodeId: NodeId.make("root"),
+                      runId: null,
+                      providerTurnId: null,
+                      nativeRequestRef: null,
+                      kind: "command",
+                      status: "pending",
+                      responseCapability: { type: "message" },
+                      createdAt: shell.createdAt,
+                      resolvedAt: null,
+                    },
+                  ],
+                  turnItems: [
+                    {
+                      id: TurnItemId.make("approval-item"),
+                      threadId,
+                      runId: null,
+                      nodeId: null,
+                      providerThreadId: null,
+                      providerTurnId: null,
+                      nativeItemRef: null,
+                      parentItemId: null,
+                      ordinal: 0,
+                      status: "waiting",
+                      title: null,
+                      startedAt: shell.createdAt,
+                      completedAt: null,
+                      updatedAt: shell.updatedAt,
+                      type: "approval_request",
+                      requestId,
+                      requestKind: "command",
+                      prompt: "Run the demo build?",
+                    },
+                  ],
+                }),
+              dispatch: (command) => {
+                dispatched.push(command.type);
+                return Effect.succeed({ sequence: 1 } as never);
+              },
+            }),
+          ),
+        ),
+      ),
+    );
+  },
+);

@@ -1,6 +1,14 @@
-import { ProviderInstanceId, type ModelSelection } from "@t3tools/contracts";
+import {
+  EnvironmentId,
+  ProjectId,
+  ProviderInstanceId,
+  type ModelSelection,
+} from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
-import { resolveNewThreadModelSelectionOverride } from "./chatThreadActions";
+import {
+  resolveNewThreadModelSelectionOverride,
+  resolveThreadActionProjectRef,
+} from "./chatThreadActions";
 
 const PROJECT_DEFAULT_SELECTION: ModelSelection = {
   instanceId: ProviderInstanceId.make("codex"),
@@ -12,6 +20,25 @@ const CARRIED_SELECTION: ModelSelection = {
 };
 
 describe("chatThreadActions", () => {
+  it("starts ordinary work outside Home's managed project", () => {
+    const environmentId = EnvironmentId.make("environment");
+    const projectId = ProjectId.make("home-project");
+    const defaultProjectRef = { environmentId, projectId: ProjectId.make("app") };
+    const context = {
+      activeThread: { id: "home:active", environmentId, projectId },
+      activeDraftThread: { environmentId, projectId },
+      defaultProjectRef,
+      handleNewThread: async () => undefined,
+    };
+    expect(resolveThreadActionProjectRef(context)).toEqual(defaultProjectRef);
+    expect(resolveThreadActionProjectRef({ ...context, defaultProjectRef: null })).toBeNull();
+    expect(
+      resolveThreadActionProjectRef({
+        ...context,
+        activeThread: { ...context.activeThread, id: "ordinary" },
+      }),
+    ).toEqual({ environmentId, projectId });
+  });
   it("does not carry a non-explicit model from the destination draft back into itself", () => {
     expect(
       resolveNewThreadModelSelectionOverride({

@@ -1,8 +1,16 @@
 import * as Notifications from "expo-notifications";
+import { isHomeWatchedLaunch } from "@t3tools/client-runtime/state/home";
+import { appAtomRegistry } from "../../state/atom-registry";
+import { environmentServerConfigsAtom } from "../../state/server";
+import { parseActiveThreadPath } from "../keyboard/hardwareKeyboardCommands";
 
 import { setAndroidThreadOnScreen } from "./androidNotifications";
 import { foregroundNotificationBehavior } from "./foregroundNotificationBehavior";
-import { routeAgentNotificationResponseOnce, threadDeepLinkOnScreen } from "./notificationPayload";
+import {
+  extractAgentNotificationDeepLink,
+  routeAgentNotificationResponseOnce,
+  threadDeepLinkOnScreen,
+} from "./notificationPayload";
 import { consumeLastAgentNotificationResponse } from "./notificationResponseConsumer";
 
 let deepLinkOnScreen: string | null = null;
@@ -21,8 +29,18 @@ export function setAgentNotificationPathname(pathname: string): void {
 export function installAgentNotificationNavigation(navigate: (href: string) => void): () => void {
   const handledResponseIds = new Set<string>();
   Notifications.setNotificationHandler({
-    handleNotification: (notification) =>
-      Promise.resolve(foregroundNotificationBehavior(notification, deepLinkOnScreen)),
+    handleNotification: (notification) => {
+      const link = extractAgentNotificationDeepLink({ notification });
+      const target = link === null ? null : parseActiveThreadPath(link);
+      const handledByHome =
+        target !== null &&
+        [...appAtomRegistry.get(environmentServerConfigsAtom).values()].some((config) =>
+          isHomeWatchedLaunch(config.settings.home, target),
+        );
+      return Promise.resolve(
+        foregroundNotificationBehavior(notification, deepLinkOnScreen, handledByHome),
+      );
+    },
   });
 
   const handleResponse = (response: Notifications.NotificationResponse): void => {

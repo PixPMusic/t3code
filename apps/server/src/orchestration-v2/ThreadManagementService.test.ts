@@ -3,6 +3,7 @@ import {
   CommandId,
   EnvironmentId,
   MessageId,
+  NodeId,
   type OrchestrationV2Command,
   type OrchestrationV2Run,
   type OrchestrationV2ProviderThread,
@@ -768,4 +769,44 @@ it.effect("Force stop refuses once a newer run has started, before killing anyth
     expect(error.reason).toBe("superseded");
     expect(killed).toBe(false);
   }),
+);
+
+it.effect(
+  "refuses forks and local delegated tasks that would create another agent in Home's folder",
+  () => {
+    const dispatched: string[] = [];
+    const homeId = ThreadId.make("home:managed");
+    const commands: OrchestrationV2Command[] = [
+      {
+        type: "thread.fork",
+        commandId: CommandId.make("home-fork"),
+        sourceThreadId: homeId,
+        targetThreadId: ThreadId.make("fork"),
+        sourcePoint: { type: "latest_stable" },
+        createdBy: "user",
+        creationSource: "mobile",
+      },
+      {
+        type: "delegated_task.request",
+        commandId: CommandId.make("home-child"),
+        parentThreadId: homeId,
+        parentRunId: RunId.make("home-run"),
+        parentNodeId: NodeId.make("home-node"),
+        task: "Local helper",
+        modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        createdBy: "agent",
+        creationSource: "mcp",
+      },
+    ];
+    return Effect.gen(function* () {
+      const threads = yield* ThreadManagementService.ThreadManagementService;
+      for (const command of commands) {
+        const failure = yield* threads.dispatch(command).pipe(Effect.flip);
+        expect(failure._tag).toBe("OrchestratorCommandRejectedError");
+      }
+      expect(dispatched).toEqual([]);
+    }).pipe(Effect.provide(layerDispatchChokepointTest(ServerSettings.layerTest())(dispatched)));
+  },
 );

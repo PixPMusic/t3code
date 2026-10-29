@@ -70,7 +70,7 @@ function normalizeThreadDeepLink(value: string): string | null {
 }
 
 export function threadDeepLinkOnScreen(pathname: string): string | null {
-  const match = /^\/threads\/([^/]+)\/([^/]+)(?:\/|$)/.exec(pathname);
+  const match = /^\/(?:threads|home-agent)\/([^/]+)\/([^/]+)(?:\/|$)/.exec(pathname);
   if (!match?.[1] || !match[2]) {
     return null;
   }

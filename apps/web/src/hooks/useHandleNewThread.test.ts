@@ -144,6 +144,9 @@ vi.mock("@effect/atom-react", () => ({
       ? { newWorktreesStartFromOrigin: !testState.targetSettings.newWorktreesStartFromOrigin }
       : testServerConfigs(),
 }));
+vi.mock("@t3tools/client-runtime/state/projects", () => ({
+  isHomeProject: () => false,
+}));
 vi.mock("@t3tools/client-runtime/environment", () => ({
   scopedProjectKey: () => "remote-project",
   scopeProjectRef: (environmentId: string, projectId: string) => ({ environmentId, projectId }),
@@ -152,6 +155,7 @@ vi.mock("@t3tools/client-runtime/environment", () => ({
 vi.mock("@t3tools/contracts", () => ({
   DEFAULT_RUNTIME_MODE: "default",
   DEFAULT_SERVER_SETTINGS: {},
+  isHomeThreadId: (id: string) => id.startsWith("home:"),
 }));
 vi.mock("@t3tools/shared/projectSettings", () => ({
   resolveProjectSettings: (
@@ -226,7 +230,7 @@ vi.mock("../state/entities", () => {
     readProjects: () => (testState.projectRemoved ? [] : [project]),
     readThreadShell: () => null,
     readThreadShells: () => [],
-    useProjects: () => [],
+    useUserProjects: () => [],
     useThread: () => null,
   };
 });

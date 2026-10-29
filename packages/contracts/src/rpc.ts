@@ -1,3 +1,4 @@
+import { HomeEnableInput, HomeThreadResult, HomeUnavailableError } from "./home.ts";
 import {
   OrchestrationV2SearchThreadError,
   OrchestrationV2SearchThreadInput,
@@ -506,6 +507,9 @@ export const WS_METHODS = {
   peerLinksLink: "peerLinks.link",
   peerLinksUnlink: "peerLinks.unlink",
   peerLinksAnswerRequest: "peerLinks.answerRequest",
+  homeEnable: "home.enable",
+  homeDisable: "home.disable",
+  homeStartFresh: "home.startFresh",
   serverUpdateSettings: "server.updateSettings",
   serverDiscoverSourceControl: "server.discoverSourceControl",
   serverSearchAcpRegistry: "server.searchAcpRegistry",
@@ -804,6 +808,21 @@ const WsPeerLinksUnlinkRpc = Rpc.make(WS_METHODS.peerLinksUnlink, {
 const WsPeerLinksAnswerRequestRpc = Rpc.make(WS_METHODS.peerLinksAnswerRequest, {
   payload: PeerLinkRequestAnswerInput,
   error: Schema.Union([PeerLinkRequestError, EnvironmentAuthorizationError]),
+});
+
+const WsHomeEnableRpc = Rpc.make(WS_METHODS.homeEnable, {
+  payload: HomeEnableInput,
+  success: HomeThreadResult,
+  error: Schema.Union([HomeUnavailableError, EnvironmentAuthorizationError]),
+});
+const WsHomeDisableRpc = Rpc.make(WS_METHODS.homeDisable, {
+  payload: Schema.Struct({}),
+  error: Schema.Union([HomeUnavailableError, EnvironmentAuthorizationError]),
+});
+const WsHomeStartFreshRpc = Rpc.make(WS_METHODS.homeStartFresh, {
+  payload: Schema.Struct({}),
+  success: HomeThreadResult,
+  error: Schema.Union([HomeUnavailableError, EnvironmentAuthorizationError]),
 });
 
 const WsServerUpdateSettingsRpc = Rpc.make(WS_METHODS.serverUpdateSettings, {
@@ -1978,6 +1997,9 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerRunStorageCleanupRpc,
   WsServerGetStorageCleanupReportRpc,
   WsServerGetDatabaseStorageRpc,
+  WsHomeEnableRpc,
+  WsHomeDisableRpc,
+  WsHomeStartFreshRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,
   WsPeerLinksLinkRpc,

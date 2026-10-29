@@ -43,6 +43,8 @@ class T3KeyboardCommandsView(
         "copyThreadReference"
       event.keyCode == KeyEvent.KEYCODE_H && event.isShiftPressed && !event.isAltPressed ->
         "cycleHost"
+      event.keyCode == KeyEvent.KEYCODE_0 && event.isShiftPressed && !event.isAltPressed ->
+        "home.open"
       else -> null
     }
   }

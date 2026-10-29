@@ -144,6 +144,13 @@ export function isScratchProject(
   );
 }
 
+export function isHomeProject(
+  project: { readonly workspaceRoot: string },
+  homeWorkspaceRoot: string | null | undefined,
+): boolean {
+  return homeWorkspaceRoot != null && findProjectByPath([project], homeWorkspaceRoot) !== undefined;
+}
+
 export function inferProjectTitleFromPath(value: string): string {
   const normalized = normalizeProjectPathForDispatch(value);
   const absolutePath = splitAbsolutePath(normalized);

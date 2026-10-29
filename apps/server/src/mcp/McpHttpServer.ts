@@ -15,6 +15,7 @@ import { AiError, McpProtocol, McpSchema, McpServer, Tool, Toolkit } from "effec
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import {
   DeviceToolError,
+  isHomeThreadId,
   OrchestratorMcpFailure,
   PreviewAutomationError,
   ProviderInteractionMode,
@@ -45,6 +46,10 @@ import * as McpToolAccess from "./McpToolAccess.ts";
 import * as OrchestratorMcpService from "./OrchestratorMcpService.ts";
 import { PreviewControlsToolkit } from "./toolkits/previewControls/tools.ts";
 import * as PreviewControlsHandlers from "./toolkits/previewControls/handlers.ts";
+import * as HomeService from "../home/HomeService.ts";
+import * as HomeWatchEvents from "../home/HomeWatchEvents.ts";
+import { HomeToolkit } from "./toolkits/home/tools.ts";
+import * as HomeHandlers from "./toolkits/home/handlers.ts";
 import { EnvironmentToolkit } from "./toolkits/environment/tools.ts";
 import * as EnvironmentHandlers from "./toolkits/environment/handlers.ts";
 import { ProjectToolkit } from "./toolkits/project/tools.ts";
@@ -222,13 +227,34 @@ const makeMcpAuthMiddleware = Effect.gen(function* () {
         offerOAuth: Option.isSome(clients) && !looksLikeProviderToken(token),
       });
     }
-    const limited = withModeLimit(invocation, request);
+    let limited = withModeLimit(invocation, request);
     if (limited === undefined) return invalidModeLimit;
+    const homeThread = request.headers[McpInvocationContext.HOME_THREAD_HEADER];
+    if (
+      homeThread !== undefined &&
+      isHomeThreadId(homeThread) &&
+      limited.client?.linked === true &&
+      limited.client.access === "full-access"
+    ) {
+      limited = {
+        ...limited,
+        client: { ...limited.client, homeThreadId: ThreadId.make(homeThread) },
+      };
+    }
+    const localHome =
+      limited.thread !== undefined &&
+      isHomeThreadId(limited.thread.threadId) &&
+      (yield* serverSettings.getSettings.pipe(
+        Effect.map((settings) => settings.home.threadId === limited.thread!.threadId),
+        Effect.orElseSucceed(() => false),
+      ));
+    const homeThreadId = localHome ? limited.thread!.threadId : limited.client?.homeThreadId;
     const linkedEnvironments = yield* linksEnabled;
     if (limited.client?.linked === true && !linkedEnvironments) return linkedEnvironmentsOff;
     return yield* httpEffect.pipe(
       Effect.provideService(McpInvocationContext.McpInvocationContext, {
         ...limited,
+        homeThreadId,
         linkedEnvironments,
       }),
       Effect.map(normalizeMcpHttpResponse),
@@ -1152,6 +1178,7 @@ export const layerTools = Layer.mergeAll(
   layerAttachmentToolkit,
   layerProjectRegistration,
   layerEnvironmentToolkit,
+  toolkitRegistration(HomeToolkit, HomeHandlers.layer),
   layerPreviewControlsRegistration,
   layerWorktreeToolkitRegistration,
   layerPullRequestsToolkit,
@@ -1159,4 +1186,14 @@ export const layerTools = Layer.mergeAll(
   layerHtmlToolkit,
 );
 
-export const layer = layerTools.pipe(Layer.provideMerge(layerMcpTransport));
+export const layer = Layer.unwrap(
+  Effect.gen(function* () {
+    const home = yield* HomeService.HomeService;
+    const events = yield* HomeWatchEvents.HomeWatchEvents;
+    return layerTools.pipe(
+      Layer.provideMerge(layerMcpTransport),
+      Layer.provide(Layer.succeed(HomeService.HomeService, home)),
+      Layer.provide(Layer.succeed(HomeWatchEvents.HomeWatchEvents, events)),
+    );
+  }),
+);

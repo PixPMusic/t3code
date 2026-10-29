@@ -1,4 +1,6 @@
 import { useActiveNewTask } from "../../state/active-new-task";
+import { isHomeThreadId } from "@t3tools/contracts";
+import { HomeAgentLinks } from "../home-agent/HomeAgentLinks";
 import { ThreadUndoNotice } from "../home/ThreadUndoNotice";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
 import { resolveScratchProjectScopeKey } from "@t3tools/client-runtime/state/project-grouping";
@@ -147,7 +149,7 @@ function ThreadNavigationSidebarPane(
   const enabledTabs = useEnabledNavigationTabs();
   const floatingTabs = floatingTabsMetrics(enabledTabs.length + 1, scale, fabSize, props.width);
   const projects = useProjects();
-  const threads = useNavigationThreadShells();
+  const threads = useNavigationThreadShells().filter((thread) => !isHomeThreadId(thread.id));
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const searchInputRef = useRef<TextInputInstance>(null);
@@ -732,6 +734,9 @@ function ThreadNavigationSidebarPane(
                 renderScrollComponent={Platform.OS === "ios" ? NativeScrollView : undefined}
                 itemLayoutAnimation={THREAD_SIDEBAR_ROW_LAYOUT}
                 data={listItems}
+                ListHeaderComponent={
+                  <HomeAgentLinks environmentId={options.selectedEnvironmentId} />
+                }
                 drawDistance={500}
                 estimatedItemSize={64}
                 extraData={listExtraData}
@@ -802,6 +807,9 @@ function ThreadNavigationSidebarPane(
               <AnimatedLegendList
                 itemLayoutAnimation={THREAD_SIDEBAR_ROW_LAYOUT}
                 data={listItems}
+                ListHeaderComponent={
+                  <HomeAgentLinks environmentId={options.selectedEnvironmentId} />
+                }
                 drawDistance={500}
                 estimatedItemSize={64}
                 extraData={listExtraData}

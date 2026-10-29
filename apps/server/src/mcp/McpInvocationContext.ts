@@ -47,6 +47,7 @@ export interface McpClientCaller {
   readonly narrowedTo?: ClientModes | undefined;
   /** The origin an outside client reached; its thread links open the web app there. */
   readonly webOrigin?: string | undefined;
+  readonly homeThreadId?: ThreadId | undefined;
 }
 
 /**
@@ -56,6 +57,7 @@ export interface McpClientCaller {
  * `clientModeCeiling`), so a client gains nothing by sending a broad one.
  */
 export const MODE_LIMIT_HEADER = "t3-mode-limit";
+export const HOME_THREAD_HEADER = "t3-home-thread";
 
 export interface ClientModes {
   readonly runtimeMode: RuntimeMode;
@@ -106,6 +108,7 @@ export interface McpInvocationScope {
   readonly client: McpClientCaller | undefined;
   /** False while the Linked environments beta is off here; `/mcp` reads it per request. */
   readonly linkedEnvironments?: boolean;
+  readonly homeThreadId?: ThreadId | undefined;
 }
 
 /**

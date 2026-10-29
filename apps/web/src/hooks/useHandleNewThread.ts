@@ -1,3 +1,4 @@
+import { isHomeProject } from "@t3tools/client-runtime/state/projects";
 import {
   scopedProjectKey,
   scopeProjectRef,
@@ -26,7 +27,7 @@ import {
   readProjects,
   readThreadShell,
   readThreadShells,
-  useProjects,
+  useUserProjects,
   useQuietThreadShell,
 } from "../state/entities";
 import {
@@ -139,6 +140,15 @@ export function createNewThreadHandler(router: AnyRouter) {
         candidate.id === projectRef.projectId &&
         candidate.environmentId === projectRef.environmentId,
     );
+    if (
+      project &&
+      isHomeProject(
+        project,
+        environmentServerConfigs.get(projectRef.environmentId)?.homeWorkspaceRoot,
+      )
+    ) {
+      return Promise.resolve(null);
+    }
     const abandonedSinceRequest = () =>
       routeChangedSinceRequest() || (project !== undefined && readProject(projectRef) === null);
     const projectSettings = resolveProjectSettings(
@@ -453,7 +463,7 @@ export function useHandleNewThread() {
         : useComposerDraftStore.getState().getDraftSession(routeTarget.draftId)
       : null,
   );
-  const projects = useProjects();
+  const projects = useUserProjects();
   const handleNewThread = useNewThreadHandler();
   const defaultProjectRef = resolveDefaultProjectRef(projects, projectOrder);
 

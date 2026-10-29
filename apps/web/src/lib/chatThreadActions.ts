@@ -1,3 +1,4 @@
+import { isHomeThreadId } from "@t3tools/contracts";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type {
   EnvironmentId,
@@ -13,6 +14,7 @@ type ComposerModelSelectionState = Pick<
 >;
 
 interface ThreadContextLike {
+  readonly id?: string;
   environmentId: EnvironmentId;
   projectId: ProjectId;
 }
@@ -70,6 +72,8 @@ export function hasExplicitComposerModelSelection(
 export function resolveThreadActionProjectRef(
   context: ChatThreadActionContext,
 ): ScopedProjectRef | null {
+  if (context.activeThread && isHomeThreadId(context.activeThread.id ?? ""))
+    return context.defaultProjectRef;
   if (context.activeThread) {
     return scopeProjectRef(context.activeThread.environmentId, context.activeThread.projectId);
   }

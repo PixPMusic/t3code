@@ -1,3 +1,5 @@
+import { useHomes } from "../state/home";
+import { HouseIcon } from "lucide-react";
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
 
@@ -428,6 +430,7 @@ function OpenCommandPaletteDialog(props: {
   const { environments } = useEnvironments();
   const desktopLocalBootstraps = useDesktopLocalBootstraps();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const homes = useHomes();
   const availableSettingsSearchItems = useAvailableSettingsSearchItems();
   const { activeDraftThread, activeThread, defaultProjectRef, handleNewThread } =
     useHandleNewThread();
@@ -1504,6 +1507,23 @@ function OpenCommandPaletteDialog(props: {
       await navigate({ to: "/usage" });
     },
   });
+
+  for (const [index, home] of homes.entries()) {
+    actionItems.push({
+      kind: "action",
+      value: `action:home:${home.environmentId}`,
+      searchTerms: ["home", "agent", "all projects", home.label],
+      title: homes.length > 1 ? `Open Home on ${home.label}` : "Open Home",
+      icon: <HouseIcon className={ITEM_ICON_CLASS} />,
+      ...(index === 0 ? { shortcutCommand: "home.open" as const } : {}),
+      run: async () => {
+        await navigate({
+          to: "/$environmentId/$threadId",
+          params: buildThreadRouteParams(scopeThreadRef(home.environmentId, home.threadId)),
+        });
+      },
+    });
+  }
 
   for (const direction of [1, -1] as const) {
     const title = direction === 1 ? "Focus Next Workspace Area" : "Focus Previous Workspace Area";

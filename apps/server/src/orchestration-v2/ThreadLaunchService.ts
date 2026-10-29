@@ -4,6 +4,7 @@ import * as TerminalManager from "../terminal/Manager.ts";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import {
   CommandId,
+  isHomeThreadId,
   type ChatAttachment,
   type MessageId,
   type ModelSelection,
@@ -826,6 +827,25 @@ const make = Effect.gen(function* () {
           }),
         ),
       );
+      const homeLaunch =
+        input.creationSource === "server" &&
+        input.createdBy === "user" &&
+        input.threadId !== undefined &&
+        isHomeThreadId(input.threadId);
+      const roots = [
+        project.workspaceRoot,
+        ...(input.workspaceStrategy.type === "existing_worktree"
+          ? [input.workspaceStrategy.worktreePath]
+          : []),
+      ];
+      for (const root of roots) {
+        if (!homeLaunch && (yield* managedFolders.isInHomeFolder(root))) {
+          return yield* mapError(
+            input,
+            "resolve-project",
+          )("Only Home can run in Home's managed folder. Pass a project or scratch:true.");
+        }
+      }
       if (input.reuseExistingThread === true && input.threadId === undefined) {
         return yield* mapError(
           input,

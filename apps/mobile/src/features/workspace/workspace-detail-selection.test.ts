@@ -26,6 +26,7 @@ const options = {
   routeNames: [
     "Home",
     "Thread",
+    "HomeAgent",
     "ThreadFiles",
     "PullRequest",
     "PullRequestReviewers",
@@ -72,6 +73,33 @@ const page = (state: State) => ({
 });
 
 describe("selectWorkspaceDetail", () => {
+  it("opens Home above the current workspace from a selection, link, or push", () => {
+    const current = push(home(), "SettingsAppearance");
+    const homeAgent = {
+      name: "Thread",
+      params: { environmentId: "env", threadId: "home:agent" },
+    } as const;
+    const link = workspaceDetailLinkAction({ routes: [homeAgent] });
+    for (const action of [
+      selectWorkspaceDetail(homeAgent),
+      link,
+      StackActions.push("Thread", homeAgent.params),
+    ]) {
+      const opened = apply(current, action as RouterAction);
+      expect(page(opened)).toEqual({
+        names: ["Home", "SettingsAppearance", "HomeAgent"],
+        index: 2,
+      });
+      expect(opened.routes[2]?.params).toEqual(homeAgent.params);
+      expect(page(apply(opened, StackActions.pop()))).toEqual(page(current));
+    }
+    const cold = router.getRehydratedState(
+      { stale: true, routes: [{ name: "Home" }, homeAgent] },
+      options,
+    );
+    expect(page(cold)).toEqual({ names: ["Home", "HomeAgent"], index: 1 });
+  });
+
   it("swaps the open thread in place instead of pushing another", () => {
     const first = select(home(), threadA);
     const second = select(first, threadB);

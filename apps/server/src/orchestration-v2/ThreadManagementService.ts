@@ -11,6 +11,7 @@ import type {
 import {
   type ChatAttachment,
   CommandId,
+  isHomeThreadId,
   MessageId,
   OrchestrationV2StopWorkflowError,
   type OrchestrationV2StopWorkflowInput,
@@ -729,11 +730,25 @@ const make = Effect.gen(function* () {
     }
   };
 
-  const dispatch: ThreadManagementServiceShape["dispatch"] = (command) =>
-    ensureCommandTranscripts(command).pipe(
+  const dispatch: ThreadManagementServiceShape["dispatch"] = (command) => {
+    if (
+      (command.type === "thread.fork" && isHomeThreadId(command.sourceThreadId)) ||
+      (command.type === "delegated_task.request" && isHomeThreadId(command.parentThreadId))
+    ) {
+      return Effect.fail(
+        new Orchestrator.OrchestratorCommandRejectedError({
+          commandId: command.commandId,
+          commandType: command.type,
+          cause:
+            "Another agent cannot start in Home's managed folder. Launch it in a project or a linked environment.",
+        }),
+      );
+    }
+    return ensureCommandTranscripts(command).pipe(
       Effect.andThen(assertDispatchTargetEnabled(command)),
       Effect.andThen(orchestrator.dispatch(command)),
     );
+  };
 
   const getProjectThreadRecords: ThreadManagementServiceShape["getProjectThreadRecords"] = (
     input,

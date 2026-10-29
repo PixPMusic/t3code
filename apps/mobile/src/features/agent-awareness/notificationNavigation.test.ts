@@ -6,6 +6,7 @@ import { consumeLastAgentNotificationResponse } from "./notificationResponseCons
 import {
   extractAgentNotificationDeepLink,
   routeAgentNotificationResponseOnce,
+  threadDeepLinkOnScreen,
 } from "./notificationPayload";
 
 function responseWithData(data: Record<string, unknown>, identifier = "notification-1") {
@@ -53,6 +54,9 @@ describe("consumeLastAgentNotificationResponse", () => {
 
 describe("extractAgentNotificationDeepLink", () => {
   it("uses explicit deep links from APNs payload data", () => {
+    expect(threadDeepLinkOnScreen("/home-agent/env/home%3Aagent")).toBe(
+      "/threads/env/home%3Aagent",
+    );
     expect(
       extractAgentNotificationDeepLink(
         responseWithData({

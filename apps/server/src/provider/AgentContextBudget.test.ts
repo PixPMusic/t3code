@@ -49,7 +49,11 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(DocumentText)({}),
   Layer.mock(GitVcsDriver)({}),
   Layer.mock(GitWorkflowService)({}),
-  Layer.mock(ManagedProjectFolders)({ namedProjectsRoot: "" }),
+  Layer.mock(ManagedProjectFolders)({
+    homeRoot: "/managed/home",
+    isInHomeFolder: () => Effect.succeed(false),
+    namedProjectsRoot: "",
+  }),
   Layer.mock(McpProviderSessions)({}),
   Layer.mock(OrchestratorV2)({}),
   Layer.mock(PeerForwarding)({}),

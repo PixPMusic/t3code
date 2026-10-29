@@ -231,6 +231,8 @@ const withService = <A, E>(
           }),
       }),
       Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+        homeRoot: "/managed/home",
+        isInHomeFolder: () => Effect.succeed(false),
         namedProjectsRoot: "/projects",
         isScratchProject: () => Effect.succeed(false),
       }),

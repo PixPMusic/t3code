@@ -311,6 +311,21 @@ export function CommandPalette(props: {
         searchTerms: ["preferences", "configuration"],
         run: () => selectTab("settings"),
       },
+      ...[...serverConfigs].flatMap(([environmentId, config]) => {
+        const threadId = config.settings.home.threadId;
+        return threadId === null
+          ? []
+          : [
+              {
+                key: `home:${environmentId}`,
+                kind: "action" as const,
+                title: "Open Home",
+                detail: config.environment.label,
+                searchTerms: ["home", "agent", "all projects"],
+                run: () => navigation.navigate("HomeAgent", { environmentId, threadId }),
+              },
+            ];
+      }),
       {
         key: "appearance",
         kind: "action",
@@ -469,6 +484,7 @@ export function CommandPalette(props: {
     projects,
     runCommand,
     savedConnectionsById,
+    serverConfigs,
     selectDetail,
     startTriage,
     threads,

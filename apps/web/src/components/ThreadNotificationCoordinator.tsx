@@ -1,3 +1,5 @@
+import { isHomeWatchedLaunch } from "@t3tools/client-runtime/state/home";
+import { environmentServerConfigsAtom } from "../state/server";
 import {
   type EnvironmentThreadShell,
   type PendingSubagentRequest,
@@ -79,6 +81,12 @@ export function startThreadNotifications(
     kind: ThreadNotificationKind,
   ) => {
     const { thread, status } = state;
+    if (
+      [...registry.get(environmentServerConfigsAtom).values()].some((config) =>
+        isHomeWatchedLaunch(config.settings.home, { environmentId, threadId: thread.id }),
+      )
+    )
+      return;
     const { notificationMode: mode, inAppNotificationsEnabled } = getClientSettings();
     const active = (router.state.matches.at(-1)?.params ?? {}) as {
       environmentId?: string;

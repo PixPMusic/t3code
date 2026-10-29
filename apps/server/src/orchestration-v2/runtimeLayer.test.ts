@@ -313,6 +313,8 @@ const layerScheduledTasksTest = ScheduledTaskService.layer.pipe(
       Layer.mock(ThreadManagementService.ThreadManagementService)({}),
       Layer.mock(SecretRequests.SecretRequests)({}),
       Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+        homeRoot: "/managed/home",
+        isInHomeFolder: () => Effect.succeed(false),
         namedProjectsRoot: "/projects",
         isScratchProject: () => Effect.succeed(false),
       }),

@@ -222,7 +222,11 @@ export const layer = McpToolAccess.toLayer(ProjectToolkit, {
             : {
                 initialMessage: {
                   messageId,
-                  ...(caller === undefined ? {} : { senderThreadId: caller.id }),
+                  ...(caller === undefined
+                    ? scope.client?.homeThreadId === undefined
+                      ? {}
+                      : { senderThreadId: scope.client.homeThreadId }
+                    : { senderThreadId: caller.id }),
                   text: input.message ?? "",
                   attachments,
                 },

@@ -1,5 +1,6 @@
 import {
   type EnvironmentId,
+  isHomeThreadId,
   type OrchestrationV2LinkOrigin,
   OrchestratorMcpEnvironmentTarget,
   OrchestratorMcpFailure,
@@ -20,6 +21,7 @@ import {
   DispatchModeLimit,
   type DispatchModeRefusal,
 } from "../orchestration-v2/DispatchModeLimit.ts";
+import * as HomeService from "../home/HomeService.ts";
 import * as PeerForwarding from "../peer/PeerForwarding.ts";
 import { assertNotLinked, assertSameLink, callerLinkOrigin } from "./linkOrigin.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
@@ -404,6 +406,54 @@ const routed = Effect.fn("McpToolAccess.routed")(function* <Tools extends Record
         if (Option.isNone(forwarding)) return yield* linksUnavailable;
         return yield* forwarding.value.call(scope, tool, target, { ...params, environmentId });
       });
+  }
+  const homeService = yield* Effect.serviceOption(HomeService.HomeService);
+  {
+    for (const name of Object.keys(handlers)) {
+      const handle = handlers[name] as (
+        params: Record<string, unknown>,
+      ) => Effect.Effect<unknown, OrchestratorMcpFailure>;
+      handlers[name] = (params: Record<string, unknown>) =>
+        Effect.gen(function* () {
+          const scope = yield* McpInvocationContext.McpInvocationContext;
+          const threadId = scope.thread?.threadId;
+          if (threadId === undefined || !isHomeThreadId(threadId)) return yield* handle(params);
+          if (Option.isNone(homeService) || !(yield* homeService.value.isHome(threadId)))
+            return yield* new OrchestratorMcpFailure({
+              code: "capability_denied",
+              message: "This thread is no longer Home.",
+            });
+          if (name === "t3_project_delete" || name === "create_threads")
+            return yield* new OrchestratorMcpFailure({
+              code: "capability_denied",
+              message:
+                "Home archives or settles work and launches it with t3_thread_launch in an explicit project or Scratch folder.",
+            });
+          if (name !== "t3_thread_launch") return yield* handle(params);
+          if (params.projectId === undefined && params.scratch !== true)
+            return yield* new OrchestratorMcpFailure({
+              code: "target_required",
+              message: "Home launches need projectId or scratch:true.",
+            });
+          const environmentId =
+            typeof params.environmentId === "string"
+              ? (params.environmentId as EnvironmentId)
+              : undefined;
+          const sinceSequence = yield* homeService.value
+            .prepareLaunch(threadId, environmentId)
+            .pipe(Effect.mapError(unavailable));
+          const result = yield* handle(params);
+          if (Predicate.hasProperty(result, "threadId") && typeof result.threadId === "string")
+            yield* homeService.value
+              .watchLaunch(threadId, {
+                environmentId,
+                threadId: result.threadId as ThreadId,
+                sinceSequence,
+              })
+              .pipe(Effect.mapError(unavailable));
+          return result;
+        });
+    }
   }
   return handlers as Toolkit.HandlersFrom<Tools>;
 });

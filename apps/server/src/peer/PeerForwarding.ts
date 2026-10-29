@@ -147,6 +147,7 @@ const make = Effect.gen(function* () {
       args.clientRequestId = yield* scopedRequestId(scope.requestNamespace, args.clientRequestId);
     }
     return yield* peers.call({
+      ...(scope.homeThreadId === undefined ? {} : { homeThreadId: scope.homeThreadId }),
       environmentId,
       tool: toolName,
       arguments: args,

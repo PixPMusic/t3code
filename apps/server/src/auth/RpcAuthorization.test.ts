@@ -46,9 +46,13 @@ describe("RPC authorization scopes", () => {
   });
 
   it("keeps triage, which seeds an agent that reads logs and the database, behind operate scope", () => {
-    expect(requiredScopeForRpcMethod(WS_METHODS.serverPrepareTriage)).toBe(
-      AuthOrchestrationOperateScope,
-    );
+    for (const method of [
+      WS_METHODS.serverPrepareTriage,
+      WS_METHODS.homeEnable,
+      WS_METHODS.homeDisable,
+      WS_METHODS.homeStartFresh,
+    ])
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
   });
 
   it("separates passive terminal observation from operations that can change a shell", () => {

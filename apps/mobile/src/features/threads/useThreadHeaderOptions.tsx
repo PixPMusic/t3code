@@ -1,5 +1,5 @@
 import { useWorkspaceSidebarHeaderItem } from "../layout/useWorkspaceSidebarHeaderItem";
-import { StackActions, useNavigation } from "@react-navigation/native";
+import { StackActions, useNavigation, useRoute } from "@react-navigation/native";
 import { threadHeaderAppearance } from "./thread-header-appearance";
 import { isDuoDevice } from "../../lib/device-type";
 import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
@@ -28,6 +28,7 @@ export function useThreadHeaderOptions(props: {
   const deviceType = useDeviceType();
   const usesDuoHeader = usesNativeWorkspaceColumns && isDuoDevice(deviceType);
   const navigation = useNavigation();
+  const home = useRoute().name === "HomeAgent";
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
   const threadCenterHeaderItems = useThreadGitCenterHeaderItems(props.gitControls);
@@ -76,17 +77,29 @@ export function useThreadHeaderOptions(props: {
       type: "button" as const,
     }),
   ];
+  const closeHomeHeaderItems: NativeHeaderItems = [
+    withNativeGlassHeaderItem({
+      accessibilityLabel: "Close Home",
+      icon: { name: "xmark", type: "sfSymbol" as const },
+      identifier: "home-close",
+      onPress: () =>
+        canGoBack ? navigation.goBack() : navigation.dispatch(StackActions.replace("Home")),
+      type: "button" as const,
+    }),
+  ];
 
   const options: AppNativeStackNavigationOptions = {
     ...threadHeaderAppearance(props.usesNativeHeaderGlass),
     headerTitle: props.title,
     title: props.title,
-    headerBackVisible: !layout.usesSplitView,
-    unstable_headerLeftItems: layout.usesSplitView
-      ? () => splitLeftHeaderItems
-      : canGoBack
-        ? undefined
-        : () => compactHomeHeaderItems,
+    headerBackVisible: !layout.usesSplitView && !home,
+    unstable_headerLeftItems: home
+      ? () => closeHomeHeaderItems
+      : layout.usesSplitView
+        ? () => splitLeftHeaderItems
+        : canGoBack
+          ? undefined
+          : () => compactHomeHeaderItems,
     // The workspace navigator adds compose to the Duo detail column's bar.
     unstable_headerRightItems: () =>
       usesDuoHeader || layout.usesSplitView ? threadCenterHeaderItems : compactRightHeaderItems,
@@ -100,6 +113,8 @@ export function useThreadHeaderOptions(props: {
     // Factories re-read only on version changes; include displayed items and hidden callback state such as default refs.
     optionsVersion: [
       splitLeftHeaderItems,
+      closeHomeHeaderItems,
+      home,
       threadCenterHeaderItems,
       compactRightHeaderItems,
       usesDuoHeader,

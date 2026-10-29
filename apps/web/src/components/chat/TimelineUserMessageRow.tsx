@@ -3,6 +3,8 @@ import { filePreviewKind } from "@t3tools/shared/filePreview";
 import { findRevealRef } from "./markdownFindContext";
 import {
   type EnvironmentId,
+  isHomeThreadId,
+  isHomeReportMessageId,
   type MessageId,
   type ScheduledTaskId,
   type ServerProviderSkill,
@@ -330,7 +332,10 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
       ? { environmentId: ctx.activeThreadEnvironmentId, threadId: senderThreadId }
       : null,
   );
-  const senderLabel = senderShell?.title.trim() || "Agent";
+  const senderLabel =
+    senderThreadId && isHomeThreadId(senderThreadId)
+      ? "Home"
+      : senderShell?.title.trim() || "Agent";
   const resolvedContext = resolveUserMessageContext({ ...row.message, text: userMessage.text });
   const previewImages = userImages.filter((image) => image.name.startsWith("preview-annotation-"));
   const revertTurnCount = row.revertTurnCount;
@@ -470,7 +475,18 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
       className="group flex flex-col items-end gap-1"
       data-user-message-attribution={folded ? "agent" : undefined}
     >
-      {userMessage.attribution === "t3code" ? (
+      {isHomeReportMessageId(row.message.id) ? (
+        <p
+          className="me-1 text-2xs text-muted-foreground/70"
+          data-user-message-attribution="home-report"
+        >
+          Watch report from T3 Code
+        </p>
+      ) : senderThreadId && isHomeThreadId(senderThreadId) ? (
+        <p className="me-1 text-2xs text-muted-foreground/70" data-user-message-attribution="home">
+          Sent by Home
+        </p>
+      ) : userMessage.attribution === "t3code" ? (
         <p
           className="me-1 text-2xs text-muted-foreground/70"
           data-user-message-attribution="t3code"
@@ -501,11 +517,13 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
       >
         {/* Outside the fold so a collapsed message still has a heading to navigate to. */}
         <MessageAuthorHeading>
-          {folded
-            ? senderLabel
-            : userMessage.guestName === undefined
-              ? "You"
-              : `${userMessage.guestName} (guest)`}
+          {isHomeReportMessageId(row.message.id)
+            ? "T3 Code"
+            : folded
+              ? senderLabel
+              : userMessage.guestName === undefined
+                ? "You"
+                : `${userMessage.guestName} (guest)`}
         </MessageAuthorHeading>
         {folded ? (
           <FoldedMessageHeader

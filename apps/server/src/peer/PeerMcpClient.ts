@@ -1,5 +1,6 @@
 import {
   type EnvironmentId,
+  type ThreadId,
   OrchestratorMcpFailure,
   type PeerLinkError,
   type ProviderInteractionMode,
@@ -40,6 +41,7 @@ export class PeerMcpClient extends Context.Service<
       readonly tool: string;
       readonly arguments: Record<string, unknown>;
       readonly limits: PeerCallLimits;
+      readonly homeThreadId?: ThreadId;
       readonly success: S;
     }) => Effect.Effect<S["Type"], OrchestratorMcpFailure>;
   }
@@ -158,6 +160,9 @@ const make = Effect.gen(function* () {
         .resolve(input.environmentId)
         .pipe(Effect.mapError(fromLinkError));
       const limitHeader = {
+        ...(input.homeThreadId === undefined
+          ? {}
+          : { [McpInvocationContext.HOME_THREAD_HEADER]: input.homeThreadId }),
         [McpInvocationContext.MODE_LIMIT_HEADER]: `${input.limits.runtimeMode}/${input.limits.interactionMode}`,
       };
       const sessionKey = `${input.environmentId} ${resolved.url}`;

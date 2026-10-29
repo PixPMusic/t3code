@@ -1,4 +1,4 @@
-import { StackActions, useFocusEffect, useNavigation } from "@react-navigation/native";
+import { StackActions, useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { useCallback } from "react";
 import { BackHandler, Keyboard, Platform } from "react-native";
 import {
@@ -22,9 +22,15 @@ function useWorkspaceListNavigation(tab: WorkspaceTab) {
 
 export function useWorkspaceBackNavigation(tab: WorkspaceTab) {
   const navigation = useNavigation();
+  const route = useRoute();
   const dispatch = useWorkspaceTabs()?.dispatch;
   const returnToList = useWorkspaceListNavigation(tab);
   return () => {
+    if (route.name === "HomeAgent") {
+      if (navigation.canGoBack()) navigation.goBack();
+      else navigation.dispatch(StackActions.replace("Home"));
+      return;
+    }
     if (Platform.OS === "android") {
       returnToAndroidWorkspaceList(navigation, () => dispatch?.({ type: "select", tab }));
     } else returnToList();
@@ -32,19 +38,20 @@ export function useWorkspaceBackNavigation(tab: WorkspaceTab) {
 }
 
 export function useAndroidWorkspaceBack(tab: WorkspaceTab) {
+  const route = useRoute();
   const dispatch = useWorkspaceTabs()?.dispatch;
   const goBack = useWorkspaceBackNavigation(tab);
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== "android") return;
-      dispatch?.({ type: "select", tab });
+      if (route.name !== "HomeAgent") dispatch?.({ type: "select", tab });
       const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
         if (Keyboard.isVisible()) Keyboard.dismiss();
         else goBack();
         return true;
       });
       return () => subscription.remove();
-    }, [goBack, dispatch, tab]),
+    }, [goBack, dispatch, tab, route.name]),
   );
   return goBack;
 }

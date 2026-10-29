@@ -5,15 +5,18 @@ import {
   type OrchestrationV2ThreadProjection,
   type RunId,
   OrchestratorMcpFailure,
+  ProviderRequestKind,
   type OrchestrationV2Command,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { modelSelectionCommandType } from "@t3tools/shared/model";
 
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import {
   dispatchFailure,
+  assertFullAccess,
   newCommandId,
   readCaller,
   readThread,
@@ -50,18 +53,30 @@ const dispatch = Effect.fn("mcp.dispatchThreadCommand")(function* (
   return { sequence: result.sequence };
 });
 
+const isApprovalKind = Schema.is(ProviderRequestKind);
+
+const callerIsHome = Effect.fn("mcp.callerIsHome")(function* () {
+  const { scope } = yield* readCaller();
+  return scope.homeThreadId !== undefined;
+});
 const readQuestion = Effect.fn("mcp.readQuestion")(function* (input: {
   threadId?: ThreadId | undefined;
   requestId: RuntimeRequestId;
 }) {
   const context = yield* readThread(input.threadId, ["runtimeRequests", "turnItems"]);
+  const allowApproval = yield* callerIsHome();
   const request = context.projection.runtimeRequests.find(
-    (request) => request.id === input.requestId && request.kind === "user_input",
+    (request) => request.id === input.requestId && (request.kind === "user_input" || allowApproval),
   );
   const item = context.projection.turnItems.find(
-    (item) => item.type === "user_input_request" && item.requestId === input.requestId,
+    (item) =>
+      (item.type === "user_input_request" || (allowApproval && item.type === "approval_request")) &&
+      item.requestId === input.requestId,
   );
-  if (request === undefined || item?.type !== "user_input_request")
+  if (
+    request === undefined ||
+    (item?.type !== "user_input_request" && item?.type !== "approval_request")
+  )
     return yield* new OrchestratorMcpFailure({
       code: "invalid_request",
       message: "The pending user-input request was not found.",
@@ -227,32 +242,53 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
       Effect.gen(function* () {
         if (input.action === "list") {
           const { projection } = yield* readThread(input.threadId, ["runtimeRequests"]);
+          const home = yield* callerIsHome();
           return {
             requestIds: projection.runtimeRequests
-              .filter((request) => request.kind === "user_input" && request.status === "pending")
+              .filter(
+                (request) =>
+                  (request.kind === "user_input" || (home && isApprovalKind(request.kind))) &&
+                  request.status === "pending",
+              )
               .map((request) => request.id),
           };
         }
         const requestId = yield* required(input.requestId, "requestId");
         const { item } = yield* readQuestion({ threadId: input.threadId, requestId });
-        return { requestId, questions: item.questions };
+        return item.type === "user_input_request"
+          ? { requestId, questions: item.questions }
+          : {
+              requestId,
+              kind: item.requestKind,
+              ...(item.prompt === undefined ? {} : { prompt: item.prompt }),
+              ...(item.reason === undefined ? {} : { reason: item.reason }),
+              ...(item.options === undefined ? {} : { options: item.options }),
+            };
       }),
     ),
     writesThread((input) =>
       Effect.gen(function* () {
         const requestId = yield* required(input.requestId, "requestId");
-        const answers = yield* required(input.answers, "answers");
-        const { threads, projection } = yield* readQuestion({
+        const { threads, projection, request, caller, scope, limits } = yield* readQuestion({
           threadId: input.threadId,
           requestId,
         });
+        const response =
+          request.kind === "user_input"
+            ? { answers: yield* required(input.answers, "answers") }
+            : { decision: yield* required(input.decision, "decision") };
+        if (request.kind !== "user_input")
+          yield* assertFullAccess(
+            { threads, caller, scope, limits },
+            "Home answers approvals only in full-access/default mode.",
+          );
         const result = yield* threads
           .dispatch({
             type: "runtime-request.respond",
             threadId: projection.thread.id,
             commandId: yield* newCommandId(),
             requestId,
-            answers,
+            ...response,
           })
           .pipe(Effect.mapError(dispatchFailure));
         return { sequence: result.sequence };

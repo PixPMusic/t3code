@@ -1,3 +1,7 @@
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { appAtomRegistry } from "../rpc/atomRegistry";
+import { homesAtom } from "../state/home";
+import { buildThreadRouteParams } from "../threadRoutes";
 import type { AnyRouter } from "@tanstack/react-router";
 
 import {
@@ -86,6 +90,16 @@ export function installCommandPaletteCommands(
         consume(event);
         const { theme, themeHalves, resolvedTheme } = getThemeSnapshot();
         toggleThemeEditorForTheme({ theme, themeHalves, initialAppearance: resolvedTheme });
+      },
+      "home.open": (event) => {
+        const home = appAtomRegistry.get(homesAtom)[0];
+        if (!home) return false;
+        consume(event);
+        dispatchCommandPalette({ _tag: "SetOpen", open: false });
+        void router.navigate({
+          to: "/$environmentId/$threadId",
+          params: buildThreadRouteParams(scopeThreadRef(home.environmentId, home.threadId)),
+        });
       },
       "usage.open": (event) => {
         consume(event);

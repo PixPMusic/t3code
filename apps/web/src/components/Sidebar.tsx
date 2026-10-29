@@ -1,3 +1,5 @@
+import { SidebarHomeLinks } from "./home/SidebarHomeLinks";
+import { isHomeThreadId } from "@t3tools/contracts";
 import { attachSidebarTree, SIDEBAR_TREE_PROPS } from "../lib/sidebarTree";
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
 import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
@@ -1069,7 +1071,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             ),
           ),
         );
-  const threads = useQuietThreadShells();
+  const threads = useQuietThreadShells().filter((thread) => !isHomeThreadId(thread.id));
   const routeRowThreadKey =
     routeThreadRef === null
       ? null
@@ -2893,6 +2895,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     <>
       <ThreadContextDragGhost />
       <SidebarChromeHeader isElectron={isElectron} />
+      <SidebarHomeLinks />
       <SidebarContent
         className="min-h-full"
         fixedHeader={

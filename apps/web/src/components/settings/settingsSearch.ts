@@ -25,6 +25,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/home"
   | "/settings/threads"
   | "/settings/browser"
   | "/settings/devices"
@@ -95,6 +96,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
+  "/settings/home": "Home",
   "/settings/threads": "Threads",
   "/settings/browser": "Browser",
   "/settings/devices": "Devices",
@@ -129,6 +131,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
   {
     heading: "Agents",
     paths: [
+      "/settings/home",
       "/settings/providers",
       "/settings/threads",
       "/settings/browser",
@@ -216,6 +219,13 @@ const SOURCE_CONTROL_HOST_TERMS = sourceControlClients.definitions
   .join(" ");
 
 export const SETTINGS_SEARCH_ITEMS = [
+  {
+    id: "home",
+    title: "Home",
+    to: "/settings/home",
+    scope: "environment-defaults",
+    searchTerms: ["agent all projects linked environments model turn on off start fresh notes"],
+  },
   {
     id: "storage-worktree-keep-when",
     targetId: "storage-worktrees",
@@ -1180,6 +1190,7 @@ export type SettingsSearchItemId = (typeof SETTINGS_SEARCH_ITEMS)[number]["id"];
 const SEARCH_ITEMS_BY_ID = new Map(SETTINGS_SEARCH_ITEMS.map((item) => [item.id, item] as const));
 
 const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScope | null>> = {
+  "/settings/home": "environment-defaults",
   "/settings/diagnostics": "environment",
   "/settings/projects": "project",
   "/settings/general": null,

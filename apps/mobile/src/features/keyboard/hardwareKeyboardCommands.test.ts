@@ -8,6 +8,10 @@ describe("parseActiveThreadPath", () => {
       environmentId: "local machine",
       threadId: "thread/one",
     });
+    expect(parseActiveThreadPath("/home-agent/mac/home%3Aagent")).toEqual({
+      environmentId: "mac",
+      threadId: "home:agent",
+    });
   });
 
   it("ignores malformed encoded route components", () => {

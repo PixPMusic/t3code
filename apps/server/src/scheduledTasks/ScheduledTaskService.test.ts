@@ -203,6 +203,8 @@ it.effect(
                     ),
                 }),
                 Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+                  homeRoot: "/managed/home",
+                  isInHomeFolder: () => Effect.succeed(false),
                   namedProjectsRoot: "/projects",
                   isScratchProject: () => Effect.succeed(false),
                 }),
@@ -300,6 +302,8 @@ it.effect(
                     ),
                 }),
                 Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+                  homeRoot: "/managed/home",
+                  isInHomeFolder: () => Effect.succeed(false),
                   namedProjectsRoot: "/projects",
                   isScratchProject: () => Effect.succeed(false),
                 }),
@@ -356,6 +360,8 @@ it.effect("thread cleanup notifies subscribers and a finishing run cannot recrea
           }),
           Layer.mock(SecretRequests.SecretRequests)({}),
           Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+            homeRoot: "/managed/home",
+            isInHomeFolder: () => Effect.succeed(false),
             namedProjectsRoot: "/projects",
             isScratchProject: () => Effect.succeed(false),
           }),

@@ -20,7 +20,7 @@ import {
   workspaceHasColumns,
 } from "../workspace/workspace-selection-store";
 import { T3KeyboardCommands } from "../../native/T3KeyboardCommands";
-import { useThreadShell } from "../../state/entities";
+import { useServerConfigs, useThreadShell } from "../../state/entities";
 import type { GitActionProgress } from "../../state/use-vcs-action-state";
 import { GitActionProgressOverlay } from "../threads/GitActionProgressOverlay";
 import { CommandPalette } from "./CommandPalette";
@@ -56,6 +56,14 @@ export function HardwareKeyboardCommandProvider({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const closePalette = useCallback(() => setPaletteOpen(false), []);
   const activeThreadRef = useMemo(() => parseActiveThreadPath(pathname), [pathname]);
+  const configs = useServerConfigs();
+  const homes = [...configs].flatMap(([environmentId, config]) =>
+    config.settings.home.threadId === null
+      ? []
+      : [{ environmentId, threadId: config.settings.home.threadId }],
+  );
+  const home =
+    homes.find((target) => target.environmentId === activeThreadRef?.environmentId) ?? homes[0];
   const activeThread = useThreadShell(activeThreadRef);
   const copyTarget = useMemo(
     () =>
@@ -108,6 +116,7 @@ export function HardwareKeyboardCommandProvider({
     const commands = new Set<HardwareKeyboardCommand>(getRegisteredHardwareKeyboardCommands());
     commands.add("newTask");
     commands.add("commandPalette");
+    if (home) commands.add("home.open");
     if (pathname !== "/" && !pathname.startsWith("/threads/")) {
       for (const command of commands) {
         if (command.startsWith("thread.jump.")) commands.delete(command);
@@ -122,12 +131,16 @@ export function HardwareKeyboardCommandProvider({
     }
     return [...commands];
     // oxlint-disable-next-line react/memo-dependencies -- registrationVersion invalidates the snapshot of the external keyboard-command registry.
-  }, [activeThreadRef, pathname, registrationVersion, navigation]);
+  }, [activeThreadRef, pathname, registrationVersion, navigation, home]);
 
   const onCommand = useCallback(
     (command: HardwareKeyboardCommand) => {
       if (command === "commandPalette") {
         setPaletteOpen(true);
+        return;
+      }
+      if (command === "home.open" && home) {
+        navigation.navigate("HomeAgent", home);
         return;
       }
       if (dispatchHardwareKeyboardCommand(command)) return;
@@ -182,7 +195,7 @@ export function HardwareKeyboardCommandProvider({
         navigation.navigate("ThreadReview", thread);
       }
     },
-    [copyTarget, navigation, pathname, showCopyFeedback],
+    [copyTarget, navigation, pathname, showCopyFeedback, home],
   );
 
   const palette = useMemo(

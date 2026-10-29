@@ -15,6 +15,7 @@ export type HardwareKeyboardCommand =
   | "review"
   | "copyThreadReference"
   | "toggleSidebar"
+  | "home.open"
   | "cycleHost";
 
 type CommandHandler = (command: HardwareKeyboardCommand) => boolean | void;
@@ -78,7 +79,7 @@ export function parseActiveThreadPath(pathname: string): {
   readonly environmentId: EnvironmentId;
   readonly threadId: ThreadId;
 } | null {
-  const match = /^\/threads\/([^/]+)\/([^/]+)(?:\/|$)/.exec(pathname);
+  const match = /^\/(?:threads|home-agent)\/([^/]+)\/([^/]+)(?:\/|$)/.exec(pathname);
   if (!match?.[1] || !match[2]) return null;
   try {
     return {

@@ -1,4 +1,5 @@
 import { uuidv4 } from "../../lib/uuid";
+import { isHomeThreadId } from "@t3tools/contracts";
 import { ThreadUndoNotice } from "./ThreadUndoNotice";
 import { Toolbar } from "../../components/ui/Toolbar";
 import { use } from "react";
@@ -272,7 +273,7 @@ export function HomeRouteScreen() {
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}
           selectedProjectKey={selectedProjectKey}
-          threads={threads}
+          threads={threads.filter((thread) => !isHomeThreadId(thread.id))}
         />
         <ThreadUndoNotice visible={visible} />
       </>
