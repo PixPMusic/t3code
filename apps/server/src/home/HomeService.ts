@@ -319,9 +319,17 @@ const make = Effect.gen(function* () {
           if (input.action === "watch_all") {
             if (home.watchAll) return home;
             const state = yield* progress.read;
+            const baselines = cursors.filter((cursor) => cursor !== null);
             yield* progress.write({
               ...state,
-              cursors: cursors.filter((cursor) => cursor !== null),
+              cursors: [
+                ...state.cursors.filter(
+                  (cursor) =>
+                    home.watches.some((watch) => watch.environmentId === cursor.environmentId) &&
+                    !baselines.some((baseline) => baseline.environmentId === cursor.environmentId),
+                ),
+                ...baselines,
+              ],
             });
             const saved = yield* save({ ...home, watchAll: true });
             yield* notify;
@@ -419,7 +427,7 @@ const make = Effect.gen(function* () {
           const previous = cursor?.sequence ?? 0;
           // A newly registered watch can need events from before this read began.
           if (
-            (home.watchAll && previous < afterSequence) ||
+            (home.watchAll && cursor !== undefined && previous < afterSequence) ||
             home.watches.some(
               (watch) =>
                 watch.environmentId === environmentId && watch.sinceSequence < afterSequence,

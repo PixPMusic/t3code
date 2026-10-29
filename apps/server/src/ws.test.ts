@@ -2,6 +2,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
   AuthSessionId,
+  CommandId,
+  ORCHESTRATION_V2_WS_METHODS,
   DEFAULT_HOME_SETTINGS,
   EnvironmentId,
   ProjectId,
@@ -607,6 +609,127 @@ it.effect("client settings patches cannot change the server-managed Home identit
       Layer.mergeAll(
         layerUnusedConfigRpcServices,
         RpcAuthorization.layer(["settings:write"]),
+        Layer.fresh(layerConfigSources),
+        Layer.mock(ServerBrowser.ServerBrowser)({}),
+        Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+          homeRoot: "/managed/home",
+          namedProjectsRoot: "/projects",
+        }),
+        Layer.mock(ServerEnvironment.ServerEnvironment)({}),
+        Layer.mock(ExternalLauncher.ExternalLauncher)({}),
+        Layer.mock(ProviderRegistry.ProviderRegistry)({}),
+        Layer.mock(EnvironmentAuth.EnvironmentAuth)({}),
+        Layer.mock(UsageLimitSources.UsageLimitSources)({}),
+        Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({}),
+        Layer.mock(DirectEndpoints.DirectEndpoints)({}),
+      ),
+    ),
+    Effect.scoped,
+  ),
+);
+
+it.effect("client thread creation cannot claim server provenance through either RPC", () =>
+  Effect.gen(function* () {
+    const captured: string[] = [];
+    const responses = yield* Queue.unbounded<unknown>();
+    const boundary = Layer.mergeAll(
+      Layer.mock(ServerRuntimeStartup.ServerRuntimeStartup)({ enqueueCommand: (effect) => effect }),
+      Layer.mock(ThreadManagement.ThreadManagementService)({
+        dispatch: (command) =>
+          Effect.sync(() => {
+            captured.push("creationSource" in command ? command.creationSource : "missing");
+          }).pipe(
+            Effect.andThen(
+              Effect.fail(
+                new Orchestrator.OrchestratorDispatchError({
+                  commandId: command.commandId,
+                  commandType: command.type,
+                  cause: "Stop after provenance",
+                }),
+              ),
+            ),
+          ),
+      }),
+      Layer.mock(ThreadLaunchService.ThreadLaunchService)({
+        launch: (input) =>
+          Effect.sync(() => {
+            captured.push(input.creationSource);
+          }).pipe(
+            Effect.andThen(
+              Effect.fail(
+                new ThreadLaunchService.ThreadLaunchError({
+                  commandId: input.commandId,
+                  projectId: input.projectId,
+                  operation: "create-thread",
+                  cause: "Stop after provenance",
+                }),
+              ),
+            ),
+          ),
+      }),
+    );
+    const server = yield* RpcServer.makeNoSerialization(
+      RpcGroup.make(
+        WsRpcGroup.requests.get(ORCHESTRATION_V2_WS_METHODS.dispatchCommand)!,
+        WsRpcGroup.requests.get(ORCHESTRATION_V2_WS_METHODS.launchThread)!,
+      ),
+      { ...WS_RPC_SERVER_OPTIONS, onFromServer: (response) => Queue.offer(responses, response) },
+    ).pipe(
+      Effect.provide(
+        layerWsRpc(
+          {
+            sessionId: AuthSessionId.make("creation-test"),
+            subject: "creation-test",
+            method: "browser-session-cookie",
+            scopes: ["orchestration:operate"],
+          },
+          {},
+          yield* ServerBrowser.ServerBrowser,
+        ).pipe(Layer.provide(boundary)),
+      ),
+    );
+    for (const creationSource of ["server", "mobile", "web"] as const) {
+      const common = {
+        commandId: CommandId.make(`creation:${creationSource}`),
+        threadId: ThreadId.make("home:forged"),
+        projectId: ProjectId.make("home-project"),
+        title: "Forged Home",
+        modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        creationSource,
+      } as const;
+      for (const request of [
+        {
+          tag: ORCHESTRATION_V2_WS_METHODS.dispatchCommand,
+          payload: {
+            ...common,
+            type: "thread.create",
+            createdBy: "user",
+            branch: null,
+            worktreePath: null,
+          },
+        },
+        {
+          tag: ORCHESTRATION_V2_WS_METHODS.launchThread,
+          payload: { ...common, workspaceStrategy: { type: "root" } },
+        },
+      ]) {
+        yield* server.write(0, {
+          _tag: "Request",
+          id: RpcMessage.RequestId(`${request.tag}:${creationSource}`),
+          ...request,
+          headers: Headers.empty,
+        });
+        yield* Queue.take(responses);
+      }
+    }
+    assert.deepEqual(captured, ["web", "web", "mobile", "mobile", "web", "web"]);
+  }).pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        layerUnusedConfigRpcServices,
+        RpcAuthorization.layer(["orchestration:operate"]),
         Layer.fresh(layerConfigSources),
         Layer.mock(ServerBrowser.ServerBrowser)({}),
         Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({

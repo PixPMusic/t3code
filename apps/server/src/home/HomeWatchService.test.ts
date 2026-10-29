@@ -43,7 +43,7 @@ it.effect(
   "reconciles Home identity changes and advances its own cursor without settings events",
   () =>
     Effect.gen(function* () {
-      let current = snapshot(here);
+      let current = { ...snapshot(here), cursors: [] } as HomeService.HomeWatchSnapshot;
       const changes = yield* PubSub.unbounded<void>();
       const reads = yield* Queue.unbounded<{
         input: HomeWatchEventsInput;

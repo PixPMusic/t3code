@@ -40,15 +40,15 @@ const make = Effect.gen(function* () {
     const cursor = home.cursors.find((cursor) => cursor.environmentId === environmentId)?.sequence;
     if (home.watchAll && cursor !== undefined) cursors.push(cursor);
     if (cursors.length === 0) return false;
-    const afterSequence = cursor === undefined ? undefined : Math.min(...cursors);
+    const afterSequence = Math.min(...cursors);
     const result =
       environmentId === here
-        ? yield* events.read(afterSequence === undefined ? {} : { afterSequence })
+        ? yield* events.read({ afterSequence })
         : yield* peers
             .call({
               environmentId,
               tool: "t3_thread_watch_events",
-              arguments: afterSequence === undefined ? {} : { afterSequence },
+              arguments: { afterSequence },
               limits: { runtimeMode: "full-access", interactionMode: "default" },
               success: HomeWatchEventsResult,
             })

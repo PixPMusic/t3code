@@ -1895,7 +1895,9 @@ export const layerWsRpc = (
                         ThreadManagementService.withCreationProvenance(command, {
                           createdBy: "user",
                           creationSource:
-                            "creationSource" in command ? command.creationSource : "web",
+                            "creationSource" in command && command.creationSource === "mobile"
+                              ? "mobile"
+                              : "web",
                         }),
                       )
                   ).pipe(Effect.provide(intakeContext)),
@@ -2070,7 +2072,7 @@ export const layerWsRpc = (
                           },
                         }),
                     createdBy: "user",
-                    creationSource: input.creationSource ?? "web",
+                    creationSource: input.creationSource === "mobile" ? "mobile" : "web",
                   }).pipe(Effect.provide(intakeContext)),
                 )
                 .pipe(

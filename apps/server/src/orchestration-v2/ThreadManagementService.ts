@@ -787,7 +787,31 @@ const make = Effect.gen(function* () {
             }
           })
         : Effect.void;
-    return checkFolder.pipe(
+    const checkHome =
+      (command.type === "message.dispatch" ||
+        command.type === "queue.resume" ||
+        command.type === "queued-run.start" ||
+        command.type === "prepared-run.retry" ||
+        command.type === "queued-message.promote-to-steer") &&
+      isHomeThreadId(command.threadId)
+        ? serverSettings.getSettings.pipe(
+            Effect.orDie,
+            Effect.flatMap((settings) =>
+              settings.home.threadId === command.threadId
+                ? Effect.void
+                : Effect.fail(
+                    new Orchestrator.OrchestratorCommandRejectedError({
+                      commandId: command.commandId,
+                      commandType: command.type,
+                      cause:
+                        "This thread is no longer Home. Open the current Home or turn Home on in Settings.",
+                    }),
+                  ),
+            ),
+          )
+        : Effect.void;
+    return checkHome.pipe(
+      Effect.andThen(checkFolder),
       Effect.andThen(ensureCommandTranscripts(command)),
       Effect.andThen(assertDispatchTargetEnabled(command)),
       Effect.andThen(orchestrator.dispatch(command)),

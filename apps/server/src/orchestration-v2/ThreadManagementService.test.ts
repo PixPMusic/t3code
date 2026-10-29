@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import {
   CommandId,
+  DEFAULT_HOME_SETTINGS,
   EnvironmentId,
   MessageId,
   NodeId,
@@ -796,7 +797,7 @@ it.effect("Force stop refuses once a newer run has started, before killing anyth
   }),
 );
 
-it.effect("refuses direct creation, forks and local delegated tasks in Home's folder", () => {
+it.effect("protects Home's managed folder and refuses work for revoked Home identities", () => {
   const dispatched: string[] = [];
   const homeId = ThreadId.make("home:managed");
   const create: Extract<OrchestrationV2Command, { type: "thread.create" }> = {
@@ -813,8 +814,41 @@ it.effect("refuses direct creation, forks and local delegated tasks in Home's fo
     createdBy: "user",
     creationSource: "web",
   };
+  const revokedId = ThreadId.make("home:revoked");
+  const message: Extract<OrchestrationV2Command, { type: "message.dispatch" }> = {
+    type: "message.dispatch",
+    commandId: CommandId.make("revoked-home-message"),
+    threadId: revokedId,
+    messageId: MessageId.make("revoked-message"),
+    text: "Continue",
+    attachments: [],
+    dispatchMode: { type: "start_immediately" },
+    createdBy: "user",
+    creationSource: "web",
+  };
   const commands: OrchestrationV2Command[] = [
     create,
+    message,
+    { type: "queue.resume", commandId: CommandId.make("revoked-home-resume"), threadId: revokedId },
+    {
+      type: "queued-run.start",
+      commandId: CommandId.make("revoked-home-queued"),
+      threadId: revokedId,
+      runId: RunId.make("queued"),
+    },
+    {
+      type: "prepared-run.retry",
+      commandId: CommandId.make("revoked-home-retry"),
+      threadId: revokedId,
+      runId: RunId.make("prepared"),
+    },
+    {
+      type: "queued-message.promote-to-steer",
+      commandId: CommandId.make("revoked-home-steer"),
+      threadId: revokedId,
+      queuedRunId: RunId.make("queued"),
+      targetRunId: RunId.make("active"),
+    },
     {
       ...create,
       commandId: CommandId.make("home-worktree-alias"),
@@ -863,6 +897,22 @@ it.effect("refuses direct creation, forks and local delegated tasks in Home's fo
       commandId: CommandId.make("ordinary-create"),
       projectId: ProjectId.make("ordinary-project"),
     });
-    expect(dispatched).toEqual(["thread.create", "thread.create"]);
-  }).pipe(Effect.provide(layerDispatchChokepointTest(ServerSettings.layerTest())(dispatched)));
+    yield* threads.dispatch({
+      ...message,
+      threadId: homeId,
+      commandId: CommandId.make("current-home-message"),
+    });
+    expect(dispatched).toEqual(["thread.create", "thread.create", "message.dispatch"]);
+  }).pipe(
+    Effect.provide(
+      layerDispatchChokepointTest(
+        ServerSettings.layerTest({
+          home: { ...DEFAULT_HOME_SETTINGS, threadId: homeId },
+          providerInstances: {
+            [ProviderInstanceId.make("codex_work")]: { driver: "codex", enabled: true },
+          },
+        }),
+      )(dispatched),
+    ),
+  );
 });

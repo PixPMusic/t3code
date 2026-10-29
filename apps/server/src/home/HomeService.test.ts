@@ -243,6 +243,39 @@ it.effect(
       });
       expect(test.sends).toEqual([]);
       yield* home.watch(threadId, { action: "unwatch_all" });
+      const watched = ThreadId.make("remote-work");
+      yield* home.watchLaunch(threadId, {
+        environmentId: remote,
+        threadId: watched,
+        sinceSequence: 40,
+      });
+      test.remoteSequences.delete(remote);
+      yield* home.watch(threadId, { action: "watch_all" });
+      expect((yield* home.watchState).cursors).toContainEqual({
+        environmentId: remote,
+        sequence: 41,
+      });
+      const progress = yield* HomeWatchState.HomeWatchState;
+      const saved = yield* progress.read;
+      yield* progress.write({
+        ...saved,
+        cursors: saved.cursors.filter((cursor) => cursor.environmentId !== remote),
+      });
+      yield* home.report(
+        threadId,
+        remote,
+        {
+          sequence: 45,
+          events: [
+            { sequence: 42, threadId: watched, title: "Offline completion", kind: "completed" },
+            { sequence: 45, threadId: watched, title: "Offline completion", kind: "ended" },
+          ],
+        },
+        40,
+      );
+      expect(test.sends).toHaveLength(1);
+      expect((yield* home.watchState).watches).toEqual([]);
+      yield* home.watch(threadId, { action: "unwatch_all" });
       test.sequence.value = 100;
       test.remoteSequences.set(remote, 200);
       yield* home.watch(threadId, { action: "watch_all" });
