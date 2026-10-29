@@ -1,5 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { ORCHESTRATION_PROTOCOL_VERSION } from "@t3tools/contracts";
+import { ORCHESTRATION_PROTOCOL_VERSION, ServerSettingsError } from "@t3tools/contracts";
 import { expect, it } from "@effect/vitest";
 import * as Crypto from "effect/Crypto";
 import * as Deferred from "effect/Deferred";
@@ -275,6 +275,41 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
         const disabled = yield* serverEnvironment.getDescriptor;
         expect(disabled.capabilities.agentActivityPublishing).toBe(false);
       }).pipe(Effect.provide(layerTest));
+    }),
+  );
+
+  it.effect("retains the configured host name when provider settings cannot materialize", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const baseDir = yield* fs.makeTempDirectoryScoped();
+      const settings = Layer.effect(
+        ServerSettings.ServerSettingsService,
+        Effect.gen(function* () {
+          const current = yield* ServerSettings.ServerSettingsService;
+          return {
+            ...current,
+            getSettings: Effect.fail(
+              new ServerSettingsError({
+                settingsPath: "test settings",
+                operation: "read-secret",
+                cause: new Error("Provider secret unavailable"),
+              }),
+            ),
+          };
+        }),
+      ).pipe(Layer.provide(ServerSettings.layerTest({ environmentLabel: "Studio Mac" })));
+      const descriptor = yield* ServerEnvironment.ServerEnvironment.use(
+        (environment) => environment.getDescriptor,
+      ).pipe(
+        Effect.provide(
+          ServerEnvironment.layer.pipe(
+            Layer.provide(settings),
+            Layer.provide(layerEmptySecretStore),
+            Layer.provide(ServerConfig.layerTest(process.cwd(), baseDir)),
+          ),
+        ),
+      );
+      expect(descriptor.label).toBe("Studio Mac");
     }),
   );
 

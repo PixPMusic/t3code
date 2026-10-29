@@ -292,15 +292,9 @@ export const make = Effect.gen(function* () {
 
   return ServerEnvironment.of({
     getEnvironmentId: Effect.succeed(environmentId),
-    getDescriptor: serverSettings.getSettings.pipe(
-      Effect.catch((error) =>
-        Effect.logWarning("Failed to read the configured environment label.", {
-          settingsPath: error.settingsPath,
-          operation: error.operation,
-          cause: error.cause,
-        }).pipe(Effect.as({ environmentLabel: "" })),
-      ),
-      Effect.flatMap(getDescriptorForSettings),
+    getDescriptor: serverSettings.getEnvironmentLabel.pipe(
+      Effect.orDie,
+      Effect.flatMap((environmentLabel) => getDescriptorForSettings({ environmentLabel })),
     ),
     getDescriptorForSettings,
   });

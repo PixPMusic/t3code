@@ -176,6 +176,7 @@ export class ServerSettingsService extends Context.Service<
     readonly ready: Effect.Effect<void, ServerSettingsError>;
 
     readonly getSettings: Effect.Effect<ServerSettings, ServerSettingsError>;
+    readonly getEnvironmentLabel: Effect.Effect<string, ServerSettingsError>;
 
     readonly updateSettings: (
       patch: ServerSettingsPatch,
@@ -234,6 +235,9 @@ const makeTest = Effect.fn("serverSettings.makeTest")(function* (
     start: Effect.void,
     ready: Effect.void,
     getSettings,
+    getEnvironmentLabel: Ref.get(currentSettingsRef).pipe(
+      Effect.map((settings) => settings.environmentLabel),
+    ),
     updateSettings: (patch) =>
       updateTestSettings((currentSettings) =>
         Effect.succeed(applyServerSettingsPatch(currentSettings, patch)),
@@ -1145,6 +1149,9 @@ const make = Effect.gen(function* () {
     getSettings: getSettingsFromCache.pipe(
       Effect.flatMap(materializeSettingsSecrets),
       Effect.map(resolveTextGenerationProvider),
+    ),
+    getEnvironmentLabel: getSettingsFromCache.pipe(
+      Effect.map((settings) => settings.environmentLabel),
     ),
     updateSettings: (patch) =>
       updateAndPersistSettings((current) =>
