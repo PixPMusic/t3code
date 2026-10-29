@@ -1,3 +1,4 @@
+import * as ThreadManagementProjects from "../orchestration-v2/testkit/ThreadManagementProjects.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import {
@@ -1787,6 +1788,7 @@ describe("OrchestratorMcpService provider resolution", () => {
             },
           });
           const layerThreads = ThreadManagementService.layer.pipe(
+            Layer.provide(ThreadManagementProjects.layer),
             Layer.provideMerge(layerOrchestrator),
             Layer.provide(
               LegacyV1ThreadImporter.layer.pipe(
@@ -2870,6 +2872,7 @@ describe("OrchestratorMcpService thread stop", () => {
           { databaseLayer: layerDatabase, runEffectWorker: false },
         );
         const layerThreads = ThreadManagementService.layer.pipe(
+          Layer.provide(ThreadManagementProjects.layer),
           Layer.provideMerge(layerOrchestrator),
           Layer.provide(ServerSettings.layerTest()),
           Layer.provide(CommandReceiptStore.layer.pipe(Layer.provide(layerDatabase))),

@@ -166,6 +166,8 @@ it.effect(
       yield* home.report(threadId, here, { sequence: 30, events: [] });
       const launchedId = ThreadId.make("new-work");
       yield* home.watchLaunch(threadId, { threadId: launchedId, sinceSequence });
+      yield* home.report(threadId, here, { sequence: 30, events: [] }, 20);
+      expect((yield* home.watchState).watches[0]?.sinceSequence).toBe(10);
       const event = {
         sequence: 20,
         threadId: launchedId,

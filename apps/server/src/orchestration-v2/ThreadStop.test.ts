@@ -1,3 +1,4 @@
+import * as ThreadManagementProjects from "./testkit/ThreadManagementProjects.ts";
 import { assert, it } from "@effect/vitest";
 import {
   CommandId,
@@ -53,6 +54,7 @@ const adapter = {
 } as ProviderAdapter.ProviderAdapterV2["Service"];
 const layerDatabase = SqlitePersistence.layerMemory;
 const layerTest = ThreadManagementService.layer.pipe(
+  Layer.provide(ThreadManagementProjects.layer),
   Layer.provideMerge(
     Layer.mergeAll(
       layerDatabase,

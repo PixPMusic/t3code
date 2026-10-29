@@ -53,6 +53,7 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
@@ -67,6 +68,9 @@ import { DispatchModeLimit, exceededDispatchModeLimit } from "./DispatchModeLimi
 import { projectTurnItemForDetail } from "./WireProjection.ts";
 import * as LegacyV1ThreadImporter from "./legacy/LegacyV1ThreadImporter.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import * as ProjectStore from "./ProjectStore.ts";
+import * as ServerConfig from "../config.ts";
+import { isInHomeFolder } from "../project/homeFolder.ts";
 
 export type ThreadManagementSendMode = "auto" | "queue" | "steer" | "restart";
 
@@ -577,6 +581,9 @@ const make = Effect.gen(function* () {
   const legacyImporter = yield* LegacyV1ThreadImporter.LegacyV1ThreadImporter;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const receipts = yield* CommandReceiptStore.CommandReceiptStoreV2;
+  const projects = yield* ProjectStore.ProjectStoreV2;
+  const config = yield* ServerConfig.ServerConfig;
+  const path = yield* Path.Path;
 
   const assertProviderInstanceEnabled: ThreadManagementServiceShape["assertProviderInstanceEnabled"] =
     (input) =>
@@ -746,7 +753,42 @@ const make = Effect.gen(function* () {
         }),
       );
     }
-    return ensureCommandTranscripts(command).pipe(
+    const checkFolder =
+      command.type === "thread.create"
+        ? Effect.gen(function* () {
+            const homeCreation =
+              command.creationSource === "server" &&
+              command.createdBy === "user" &&
+              isHomeThreadId(command.threadId);
+            if (homeCreation) return;
+            const project = yield* projects.get(command.projectId).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new Orchestrator.OrchestratorDispatchError({
+                    commandId: command.commandId,
+                    commandType: command.type,
+                    cause,
+                  }),
+              ),
+            );
+            const roots = [
+              ...(Option.isSome(project) ? [project.value.workspaceRoot] : []),
+              ...(command.worktreePath === null ? [] : [command.worktreePath]),
+            ];
+            for (const root of roots) {
+              if (isInHomeFolder(path, config.baseDir, root)) {
+                return yield* new Orchestrator.OrchestratorCommandRejectedError({
+                  commandId: command.commandId,
+                  commandType: command.type,
+                  cause:
+                    "Only Home can run in Home's managed folder. Choose a project or Scratch folder.",
+                });
+              }
+            }
+          })
+        : Effect.void;
+    return checkFolder.pipe(
+      Effect.andThen(ensureCommandTranscripts(command)),
       Effect.andThen(assertDispatchTargetEnabled(command)),
       Effect.andThen(orchestrator.dispatch(command)),
     );
@@ -1567,6 +1609,9 @@ export const layer: Layer.Layer<
   | ProviderSessionManager.ProviderSessionManagerV2
   | ServerSettings.ServerSettingsService
   | CommandReceiptStore.CommandReceiptStoreV2
+  | ProjectStore.ProjectStoreV2
+  | ServerConfig.ServerConfig
+  | Path.Path
 > = Layer.effect(ThreadManagementService, make).pipe(
   Layer.provide(layerLegacyV1ThreadImporterNoop),
   Layer.provide(ThreadCommandExecutor.layer),
@@ -1580,4 +1625,7 @@ export const layerWithLegacyImporter: Layer.Layer<
   | ProviderSessionManager.ProviderSessionManagerV2
   | ServerSettings.ServerSettingsService
   | CommandReceiptStore.CommandReceiptStoreV2
+  | ProjectStore.ProjectStoreV2
+  | ServerConfig.ServerConfig
+  | Path.Path
 > = Layer.effect(ThreadManagementService, make).pipe(Layer.provide(ThreadCommandExecutor.layer));

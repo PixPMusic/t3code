@@ -24,6 +24,7 @@ import * as Option from "effect/Option";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as NodePath from "@effect/platform-node/NodePath";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
@@ -31,6 +32,8 @@ import * as TestClock from "effect/testing/TestClock";
 import { AgentScope } from "@t3tools/shared/AgentScope";
 
 import * as ServerSettings from "../serverSettings.ts";
+import * as ProjectStore from "./ProjectStore.ts";
+import * as ServerConfig from "../config.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as Orchestrator from "./Orchestrator.ts";
@@ -77,6 +80,19 @@ it("stamps authoritative provenance on commands that create threads or messages"
   expect(stamped).not.toHaveProperty("delegatedFrom");
 });
 
+const layerProjects = Layer.mergeAll(
+  Layer.mock(ProjectStore.ProjectStoreV2)({
+    get: (id) =>
+      Effect.succeedSome({
+        workspaceRoot: id === "home-project" ? "/managed/home" : "/repo",
+      } as never),
+  }),
+  Layer.succeed(ServerConfig.ServerConfig, {
+    baseDir: "/managed",
+  } as ServerConfig.ServerConfig["Service"]),
+  NodePath.layer,
+);
+
 const layerReceiptsTest = CommandReceiptStore.layer.pipe(
   Layer.provide(SqlitePersistence.layerMemory),
 );
@@ -84,6 +100,7 @@ const layerReceiptsTest = CommandReceiptStore.layer.pipe(
 const layerDispatchChokepointTest =
   (settingsLayer: ReturnType<typeof ServerSettings.layerTest>) => (dispatched: Array<string>) =>
     ThreadManagementService.layer.pipe(
+      Layer.provide(layerProjects),
       Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
@@ -216,6 +233,7 @@ it.effect("waitForThread follows a restart continuation instead of the cut run",
     const stored = (sequence: number, event: object) =>
       ({ sequence, event: { threadId, ...event } }) as unknown as OrchestrationV2StoredEvent;
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(layerProjects),
       Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
@@ -293,6 +311,7 @@ it.effect("waitForThread can wait past an ended run for the thread's delegated w
     const stored = (sequence: number, event: object) =>
       ({ sequence, event: { threadId, ...event } }) as unknown as OrchestrationV2StoredEvent;
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(layerProjects),
       Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
@@ -371,6 +390,7 @@ it.effect("waitForThread settles delegated work on a thread rolled back past its
       completedAt: DateTime.makeUnsafe(1_000),
     } as unknown as OrchestrationV2Run;
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(layerProjects),
       Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
@@ -424,6 +444,7 @@ it.effect("waitForThread returns the cut run once its continuation is declined",
     const declined = yield* Deferred.make<void>();
     let pending = true;
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(layerProjects),
       Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
@@ -513,6 +534,7 @@ it.effect.each(["live", "no-session", "unsupported-runtime"] as const)(
             }),
       } as unknown as ProviderAdapter.ProviderAdapterV2SessionRuntime;
       const layerTest = ThreadManagementService.layer.pipe(
+        Layer.provide(layerProjects),
         Layer.provide(
           Layer.mergeAll(
             Layer.mock(Orchestrator.OrchestratorV2)({
@@ -570,6 +592,7 @@ it.effect.each([
     const runId = RunId.make("run:thread-management:settle-after-run");
     const dispatched: Array<string> = [];
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(layerProjects),
       Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
@@ -655,6 +678,7 @@ it.effect.each([
     const teardowns: Array<string> = [];
     const tornDown = yield* Deferred.make<void>();
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(layerProjects),
       Layer.provide(
         Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({
           isLive: () => Effect.succeed(true),
@@ -736,6 +760,7 @@ it.effect("Force stop refuses once a newer run has started, before killing anyth
     const threadId = ThreadId.make("thread:thread-management:force-stop-superseded");
     let killed = false;
     const layerTest = ThreadManagementService.layer.pipe(
+      Layer.provide(layerProjects),
       Layer.provide(Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({})),
       Layer.provide(
         Layer.mock(Orchestrator.OrchestratorV2)({
@@ -771,42 +796,73 @@ it.effect("Force stop refuses once a newer run has started, before killing anyth
   }),
 );
 
-it.effect(
-  "refuses forks and local delegated tasks that would create another agent in Home's folder",
-  () => {
-    const dispatched: string[] = [];
-    const homeId = ThreadId.make("home:managed");
-    const commands: OrchestrationV2Command[] = [
-      {
-        type: "thread.fork",
-        commandId: CommandId.make("home-fork"),
-        sourceThreadId: homeId,
-        targetThreadId: ThreadId.make("fork"),
-        sourcePoint: { type: "latest_stable" },
-        createdBy: "user",
-        creationSource: "mobile",
-      },
-      {
-        type: "delegated_task.request",
-        commandId: CommandId.make("home-child"),
-        parentThreadId: homeId,
-        parentRunId: RunId.make("home-run"),
-        parentNodeId: NodeId.make("home-node"),
-        task: "Local helper",
-        modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
-        runtimeMode: "full-access",
-        interactionMode: "default",
-        createdBy: "agent",
-        creationSource: "mcp",
-      },
-    ];
-    return Effect.gen(function* () {
-      const threads = yield* ThreadManagementService.ThreadManagementService;
-      for (const command of commands) {
-        const failure = yield* threads.dispatch(command).pipe(Effect.flip);
-        expect(failure._tag).toBe("OrchestratorCommandRejectedError");
-      }
-      expect(dispatched).toEqual([]);
-    }).pipe(Effect.provide(layerDispatchChokepointTest(ServerSettings.layerTest())(dispatched)));
-  },
-);
+it.effect("refuses direct creation, forks and local delegated tasks in Home's folder", () => {
+  const dispatched: string[] = [];
+  const homeId = ThreadId.make("home:managed");
+  const create: Extract<OrchestrationV2Command, { type: "thread.create" }> = {
+    type: "thread.create",
+    commandId: CommandId.make("home-direct-create"),
+    threadId: ThreadId.make("ordinary-home-thread"),
+    projectId: ProjectId.make("home-project"),
+    title: "Implement Home's plan",
+    modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
+    runtimeMode: "full-access",
+    interactionMode: "default",
+    branch: null,
+    worktreePath: null,
+    createdBy: "user",
+    creationSource: "web",
+  };
+  const commands: OrchestrationV2Command[] = [
+    create,
+    {
+      ...create,
+      commandId: CommandId.make("home-worktree-alias"),
+      projectId: ProjectId.make("ordinary-project"),
+      worktreePath: "/managed/home/notes",
+    },
+    { ...create, commandId: CommandId.make("home-forged-id"), threadId: homeId },
+    {
+      type: "thread.fork",
+      commandId: CommandId.make("home-fork"),
+      sourceThreadId: homeId,
+      targetThreadId: ThreadId.make("fork"),
+      sourcePoint: { type: "latest_stable" },
+      createdBy: "user",
+      creationSource: "mobile",
+    },
+    {
+      type: "delegated_task.request",
+      commandId: CommandId.make("home-child"),
+      parentThreadId: homeId,
+      parentRunId: RunId.make("home-run"),
+      parentNodeId: NodeId.make("home-node"),
+      task: "Local helper",
+      modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "test" },
+      runtimeMode: "full-access",
+      interactionMode: "default",
+      createdBy: "agent",
+      creationSource: "mcp",
+    },
+  ];
+  return Effect.gen(function* () {
+    const threads = yield* ThreadManagementService.ThreadManagementService;
+    for (const command of commands) {
+      const failure = yield* threads.dispatch(command).pipe(Effect.flip);
+      expect(failure._tag).toBe("OrchestratorCommandRejectedError");
+    }
+    expect(dispatched).toEqual([]);
+    yield* threads.dispatch({
+      ...create,
+      commandId: CommandId.make("home-server-create"),
+      threadId: homeId,
+      creationSource: "server",
+    });
+    yield* threads.dispatch({
+      ...create,
+      commandId: CommandId.make("ordinary-create"),
+      projectId: ProjectId.make("ordinary-project"),
+    });
+    expect(dispatched).toEqual(["thread.create", "thread.create"]);
+  }).pipe(Effect.provide(layerDispatchChokepointTest(ServerSettings.layerTest())(dispatched)));
+});

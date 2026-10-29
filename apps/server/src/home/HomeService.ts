@@ -73,6 +73,7 @@ export class HomeService extends Context.Service<
       homeThreadId: ThreadId,
       environmentId: EnvironmentId,
       batch: HomeWatchEventsResult,
+      afterSequence?: number,
     ) => Effect.Effect<void, HomeUnavailableError>;
   }
 >()("t3/home/HomeService") {}
@@ -404,13 +405,27 @@ const make = Effect.gen(function* () {
         }),
       );
     }),
-    report: Effect.fn("HomeService.report")(function* (homeThreadId, environmentId, batch) {
+    report: Effect.fn("HomeService.report")(function* (
+      homeThreadId,
+      environmentId,
+      batch,
+      afterSequence = 0,
+    ) {
       yield* lock.withPermits(1)(
         Effect.gen(function* () {
           const home = yield* readWatchState;
           if (home.threadId !== homeThreadId) return;
           const cursor = home.cursors.find((cursor) => cursor.environmentId === environmentId);
           const previous = cursor?.sequence ?? 0;
+          // A newly registered watch can need events from before this read began.
+          if (
+            (home.watchAll && previous < afterSequence) ||
+            home.watches.some(
+              (watch) =>
+                watch.environmentId === environmentId && watch.sinceSequence < afterSequence,
+            )
+          )
+            return;
           if (
             cursor !== undefined &&
             batch.sequence <= previous &&

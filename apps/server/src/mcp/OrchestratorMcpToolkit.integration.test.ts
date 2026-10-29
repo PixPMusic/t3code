@@ -1,3 +1,4 @@
+import * as ThreadManagementProjects from "../orchestration-v2/testkit/ThreadManagementProjects.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import {
@@ -215,6 +216,7 @@ describe("orchestrator MCP toolkit", () => {
         const layerOrchestration = Layer.merge(
           layerOrchestrator,
           ThreadManagementService.layer.pipe(
+            Layer.provide(ThreadManagementProjects.layer),
             Layer.provide(layerOrchestrator),
             Layer.provide(ServerSettings.layerTest()),
             Layer.provide(

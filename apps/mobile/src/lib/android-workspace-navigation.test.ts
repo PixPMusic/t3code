@@ -28,6 +28,7 @@ const router = StackRouter({});
 const options = {
   routeNames: [
     "Home",
+    "HomeAgent",
     "Thread",
     "ThreadFiles",
     "ThreadTerminal",
@@ -125,6 +126,19 @@ describe("Android workspace navigation", () => {
     back();
     expect(state.routes).toEqual(parent.routes);
     expect(state.index).toBe(parent.index);
+    expect(listSelected).toBe(false);
+
+    const home = apply(
+      router.getInitialState(options),
+      StackActions.push("HomeAgent", {
+        ...thread.params,
+        threadId: "home:agent",
+      }),
+    );
+    state = apply(home, StackActions.push("Thread", thread.params));
+    back();
+    expect(state.routes).toEqual(home.routes);
+    expect(state.index).toBe(home.index);
     expect(listSelected).toBe(false);
 
     // Confirming a Git action from the inline inspector can duplicate the current thread.

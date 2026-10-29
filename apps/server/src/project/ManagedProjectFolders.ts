@@ -21,6 +21,7 @@ import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
 import * as ServerConfig from "../config.ts";
+import { isInHomeFolder } from "./homeFolder.ts";
 import * as GitWorkflow from "../git/GitWorkflowService.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as ProjectService from "./ProjectService.ts";
@@ -592,12 +593,7 @@ const make = Effect.gen(function* () {
     folderForThread,
     homeRoot: homeFolder,
     isInHomeFolder: Effect.fn("ManagedProjectFolders.isInHomeFolder")((candidate: string) =>
-      Effect.sync(() => {
-        const relative = path.relative(homeFolder, path.resolve(candidate));
-        return (
-          relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
-        );
-      }),
+      Effect.sync(() => isInHomeFolder(path, config.baseDir, candidate)),
     ),
     ensureHomeProject,
     namedProjectsRoot,

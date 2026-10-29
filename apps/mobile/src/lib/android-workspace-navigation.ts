@@ -6,7 +6,8 @@ function androidWorkspaceBackReturnsToThread(state: NavigationState) {
   const params = current?.params as ReactNavigation.RootParamList["Thread"] | undefined;
   return (
     current?.name === "Thread" &&
-    state.routes[state.index - 1]?.name === "Thread" &&
+    (state.routes[state.index - 1]?.name === "Thread" ||
+      state.routes[state.index - 1]?.name === "HomeAgent") &&
     params !== undefined &&
     !parentThreadIsBelow(state, params)
   );
@@ -30,7 +31,7 @@ export function parentThreadIsBelow(
   const previous = state.routes[state.index - 1];
   const params = previous?.params as ReactNavigation.RootParamList["Thread"] | undefined;
   return (
-    previous?.name === "Thread" &&
+    (previous?.name === "Thread" || previous?.name === "HomeAgent") &&
     params?.environmentId === parent.environmentId &&
     params?.threadId === parent.threadId
   );
@@ -48,7 +49,8 @@ export function linkedThreadStep(
     | ReactNavigation.RootParamList["Thread"]
     | undefined;
   if (
-    state.routes[state.index]?.name === "Thread" &&
+    (state.routes[state.index]?.name === "Thread" ||
+      state.routes[state.index]?.name === "HomeAgent") &&
     params?.environmentId === target?.environmentId &&
     params?.threadId === target?.threadId
   ) {

@@ -55,7 +55,7 @@ const make = Effect.gen(function* () {
             .pipe(
               Effect.mapError((cause) => HomeWatchEvents.watchFeedFailure(environmentId, cause)),
             );
-    yield* homeService.report(threadId, environmentId, result);
+    yield* homeService.report(threadId, environmentId, result, afterSequence);
     return true;
   });
   return HomeWatchService.of({

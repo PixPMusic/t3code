@@ -1,3 +1,4 @@
+import * as ThreadManagementProjects from "./testkit/ThreadManagementProjects.ts";
 import {
   AuthSessionId,
   type AuthEnvironmentScope,
@@ -108,6 +109,7 @@ const serveOrchestrationHttp = (allowed: () => boolean) =>
       Layer.mergeAll(
         runtime,
         ThreadManagementService.layer.pipe(
+          Layer.provide(ThreadManagementProjects.layer),
           Layer.provide(
             Layer.mergeAll(runtime, CommandReceiptStore.layer, ServerSettings.layerTest({})),
           ),

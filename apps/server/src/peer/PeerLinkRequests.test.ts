@@ -1,3 +1,4 @@
+import * as ThreadManagementProjects from "../orchestration-v2/testkit/ThreadManagementProjects.ts";
 import { NodeHttpServer } from "@effect/platform-node";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -148,6 +149,7 @@ const makeLaptop = Effect.gen(function* () {
     ),
   );
   const layerThreads = ThreadManagement.layer.pipe(
+    Layer.provide(ThreadManagementProjects.layer),
     Layer.provide(CommandReceiptStore.layer.pipe(Layer.provide(layerDatabase))),
     Layer.provideMerge(Layer.merge(layerOrchestrator, ServerSettings.layerTest())),
   );

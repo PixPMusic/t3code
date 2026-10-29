@@ -1,3 +1,4 @@
+import * as ThreadManagementProjects from "./testkit/ThreadManagementProjects.ts";
 import { assert, describe, it, vi } from "@effect/vitest";
 import {
   CommandId,
@@ -57,6 +58,7 @@ function makeHarness(
   );
   const layerServerSettings = ServerSettings.layerTest({});
   const layerThreadManagement = ThreadManagement.layer.pipe(
+    Layer.provide(ThreadManagementProjects.layer),
     Layer.provide(layerOrchestrator),
     Layer.provide(layerServerSettings),
     Layer.provide(CommandReceiptStore.layer.pipe(Layer.provide(layerDatabase))),
