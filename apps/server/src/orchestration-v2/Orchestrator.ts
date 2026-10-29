@@ -24,6 +24,7 @@ import {
   CommandId,
   type GuestMessageId,
   isCompactionCommandMessage,
+  isHomeThreadId,
   isOrchestrationV2WorkActive,
   isProviderNativeSubagentThread,
   MessageId,
@@ -13014,6 +13015,32 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       "orchestration_v2.command_type": command.type,
       "orchestration_v2.thread_id": commandThreadId(command),
     });
+
+    // Stop uses this lock too; receipt replay can also resume a queue.
+    const checkHome =
+      (command.type === "message.dispatch" ||
+        command.type === "queue.resume" ||
+        command.type === "queued-run.start" ||
+        command.type === "prepared-run.retry" ||
+        command.type === "queued-message.promote-to-steer") &&
+      isHomeThreadId(command.threadId)
+        ? serverSettings.getSettings.pipe(
+            Effect.orDie,
+            Effect.flatMap((settings) =>
+              settings.home.threadId === command.threadId
+                ? Effect.void
+                : Effect.fail(
+                    new OrchestratorCommandRejectedError({
+                      commandId: command.commandId,
+                      commandType: command.type,
+                      cause:
+                        "This thread is no longer Home. Open the current Home or turn Home on in Settings.",
+                    }),
+                  ),
+            ),
+          )
+        : Effect.void;
+    yield* checkHome;
 
     const existingReceipt = yield* commandReceipts.getByCommandId(command.commandId).pipe(
       Effect.mapError(

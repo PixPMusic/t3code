@@ -2,6 +2,7 @@ import * as ThreadManagementProjects from "./testkit/ThreadManagementProjects.ts
 import { assert, it } from "@effect/vitest";
 import {
   CommandId,
+  DEFAULT_HOME_SETTINGS,
   ContextTransferId,
   EventId,
   MessageId,
@@ -15,11 +16,15 @@ import {
   ProviderTurnId,
   RuntimeRequestId,
   ScheduledTaskId,
+  RunId,
   ThreadId,
   TurnItemId,
 } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Deferred from "effect/Deferred";
+import * as Fiber from "effect/Fiber";
+import * as Result from "effect/Result";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -53,6 +58,7 @@ const adapter = {
   openSession: () => Effect.die("Runs here never reach a provider"),
 } as ProviderAdapter.ProviderAdapterV2["Service"];
 const layerDatabase = SqlitePersistence.layerMemory;
+const layerServerSettings = ServerSettings.layerTest().pipe(Layer.orDie);
 const layerTest = ThreadManagementService.layer.pipe(
   Layer.provide(ThreadManagementProjects.layer),
   Layer.provideMerge(
@@ -64,11 +70,15 @@ const layerTest = ThreadManagementService.layer.pipe(
       ProviderReplayHarness.layerWithRegistry(
         { name: "thread-stop" },
         ProviderAdapterRegistry.layerFromAdapters([adapter]),
-        { databaseLayer: layerDatabase, runEffectWorker: false },
+        {
+          databaseLayer: layerDatabase,
+          runEffectWorker: false,
+          serverSettingsLayer: layerServerSettings,
+        },
       ),
     ),
   ),
-  Layer.provideMerge(ServerSettings.layerTest()),
+  Layer.provideMerge(layerServerSettings),
   Layer.provideMerge(CommandReceiptStore.layer.pipe(Layer.provide(layerDatabase))),
 );
 
@@ -1664,5 +1674,112 @@ it.effect("an unanswered Stop is flagged until Force stop ends the run with its 
       commandId: CommandId.make("force-stop:late-unresponsive"),
     });
     assert.lengthOf(late.storedEvents, 0);
+  }).pipe(Effect.provide(layerTest)),
+);
+
+it.effect("revocation and Stop prevent an in-flight send from restarting the former Home", () =>
+  Effect.gen(function* () {
+    const orchestrator = yield* Orchestrator.OrchestratorV2;
+    const settings = yield* ServerSettings.ServerSettingsService;
+    const homeId = ThreadId.make("home:revocation-race");
+    yield* settings.updateSettings({
+      home: { ...DEFAULT_HOME_SETTINGS, threadId: homeId },
+      providerInstances: {
+        [instanceId]: { driver: ProviderDriverKind.make("codex"), enabled: true },
+      },
+    });
+    yield* createWatchingThread(homeId, 42);
+    const message = {
+      type: "message.dispatch",
+      commandId: CommandId.make("home-before-revoke"),
+      threadId: homeId,
+      messageId: MessageId.make("home-before-revoke"),
+      text: "Continue",
+      attachments: [],
+      dispatchMode: { type: "queue_after_active" },
+      createdBy: "user",
+      creationSource: "web",
+    } as const;
+    yield* orchestrator.dispatch(message);
+    const resume = {
+      type: "queue.resume",
+      commandId: CommandId.make("home-resume-receipt"),
+      threadId: homeId,
+    } as const;
+    yield* orchestrator.dispatch(resume);
+    const validated = yield* Deferred.make<void>();
+    const release = yield* Deferred.make<void>();
+    const paused = {
+      ...orchestrator,
+      getThreadRecords: (...args: Parameters<typeof orchestrator.getThreadRecords>) =>
+        orchestrator.getThreadRecords(...args).pipe(
+          Effect.tap(() => Deferred.succeed(validated, undefined)),
+          Effect.tap(() => Deferred.await(release)),
+        ),
+    };
+    const threads = yield* ThreadManagementService.ThreadManagementService.pipe(
+      Effect.provide(
+        Layer.fresh(
+          ThreadManagementService.layer.pipe(
+            Layer.provide(ThreadManagementProjects.layer),
+            Layer.provide(Layer.succeed(Orchestrator.OrchestratorV2, paused)),
+          ),
+        ),
+      ),
+    );
+    const pending = yield* threads
+      .dispatch({
+        ...message,
+        commandId: CommandId.make("home-in-flight"),
+        messageId: MessageId.make("home-in-flight"),
+      })
+      .pipe(Effect.result, Effect.forkChild);
+    yield* Effect.raceFirst(
+      Deferred.await(validated),
+      Fiber.join(pending).pipe(Effect.flatMap((result) => Effect.die(result))),
+    );
+    yield* settings.updateSettings({ home: DEFAULT_HOME_SETTINGS });
+    const stopped = yield* orchestrator.dispatch({
+      type: "thread.stop",
+      commandId: CommandId.make("home-revoke-stop"),
+      threadId: homeId,
+    });
+    yield* Deferred.succeed(release, undefined);
+    const result = yield* Fiber.join(pending);
+    assert.isTrue(Result.isFailure(result));
+    if (Result.isFailure(result))
+      assert.equal(result.failure._tag, "OrchestratorCommandRejectedError");
+    for (const command of [
+      message,
+      resume,
+      {
+        type: "queued-run.start",
+        commandId: CommandId.make("home-old-queue"),
+        threadId: homeId,
+        runId: RunId.make("queued"),
+      },
+      {
+        type: "prepared-run.retry",
+        commandId: CommandId.make("home-old-retry"),
+        threadId: homeId,
+        runId: RunId.make("prepared"),
+      },
+      {
+        type: "queued-message.promote-to-steer",
+        commandId: CommandId.make("home-old-steer"),
+        threadId: homeId,
+        queuedRunId: RunId.make("queued"),
+        targetRunId: RunId.make("active"),
+      },
+    ] as const) {
+      const failure = yield* orchestrator.dispatch(command).pipe(Effect.flip);
+      assert.equal(failure._tag, "OrchestratorCommandRejectedError");
+    }
+    const projection = yield* orchestrator.getThreadProjection(homeId);
+    assert.isTrue(
+      projection.runs.every((run) => run.status === "interrupted" || run.status === "cancelled"),
+    );
+    assert.lengthOf(projection.runs, 1);
+    assert.equal(yield* orchestrator.getThreadEventSequence(homeId), stopped.sequence);
   }).pipe(Effect.provide(layerTest)),
 );

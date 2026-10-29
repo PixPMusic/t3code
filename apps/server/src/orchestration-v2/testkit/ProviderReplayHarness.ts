@@ -194,6 +194,7 @@ export function runOrchestratorV2ProviderReplayScenario<
       MigrationError | PlatformError.PlatformError | SqlError
     >;
     readonly runEffectWorker?: boolean;
+    readonly serverSettingsLayer?: Layer.Layer<ServerSettings.ServerSettingsService>;
     readonly runContinuationWorker?: boolean;
     readonly recoverOnStartup?: boolean;
     readonly continueThreadsAfterServerUpdate?: boolean;
@@ -236,6 +237,7 @@ export function layerProviderReplay<Transcript extends ProviderReplayTranscript,
       MigrationError | PlatformError.PlatformError | SqlError
     >;
     readonly runEffectWorker?: boolean;
+    readonly serverSettingsLayer?: Layer.Layer<ServerSettings.ServerSettingsService>;
     readonly runContinuationWorker?: boolean;
     readonly recoverOnStartup?: boolean;
     readonly continueThreadsAfterServerUpdate?: boolean;
@@ -269,6 +271,7 @@ export function layerWithRegistry<Error>(
       MigrationError | PlatformError.PlatformError | SqlError
     >;
     readonly runEffectWorker?: boolean;
+    readonly serverSettingsLayer?: Layer.Layer<ServerSettings.ServerSettingsService>;
     readonly runContinuationWorker?: boolean;
     readonly recoverOnStartup?: boolean;
     readonly continueThreadsAfterServerUpdate?: boolean;
@@ -298,12 +301,14 @@ export function layerWithRegistry<Error>(
   const layerProvidedRegistry = registryLayer.pipe(
     Layer.provide(Layer.merge(layerContinuationRequests, McpProviderSessions.layer)),
   );
-  const layerServerSettings = ServerSettings.layerTest({
-    responseStreamingMode: "turn",
-    ...(options.continueThreadsAfterServerUpdate === undefined
-      ? {}
-      : { continueThreadsAfterServerUpdate: options.continueThreadsAfterServerUpdate }),
-  }).pipe(Layer.orDie);
+  const layerServerSettings =
+    options.serverSettingsLayer ??
+    ServerSettings.layerTest({
+      responseStreamingMode: "turn",
+      ...(options.continueThreadsAfterServerUpdate === undefined
+        ? {}
+        : { continueThreadsAfterServerUpdate: options.continueThreadsAfterServerUpdate }),
+    }).pipe(Layer.orDie);
   const layerStores = Layer.mergeAll(
     EventStore.layer,
     ProjectionStore.layer,
