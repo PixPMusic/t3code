@@ -20,7 +20,7 @@ describe("resolveEffortGlyph", () => {
     expect(resolveEffortGlyph(claude, "xhigh")).toEqual({
       count: 5,
       filled: 4,
-      special: null,
+      kind: "bars",
       label: "Xhigh",
     });
   });
@@ -29,20 +29,25 @@ describe("resolveEffortGlyph", () => {
     expect(resolveEffortGlyph(claude, "max")).toMatchObject({
       count: 5,
       filled: 5,
-      special: null,
+      kind: "bars",
     });
     const deepseek = descriptor(["none", "low", "high", "max"]);
-    expect(resolveEffortGlyph(deepseek, "none")?.filled).toBe(0);
+    expect(resolveEffortGlyph(deepseek, "none")).toMatchObject({ kind: "bars", filled: 0 });
     expect(resolveEffortGlyph(deepseek, "high")).toMatchObject({ count: 3, filled: 2 });
     expect(resolveEffortGlyph(deepseek, "max")).toMatchObject({ count: 3, filled: 3 });
   });
 
   it("names Ultra, Ultracode and Ultrathink instead of drawing a level", () => {
-    expect(resolveEffortGlyph(descriptor(["low", "high", "ultra"]), "ultra")?.special).toBe(
-      "Ultra",
-    );
-    expect(resolveEffortGlyph(claude, "ultracode")?.special).toBe("Ultracode");
-    expect(resolveEffortGlyph(claude, "ultrathink")?.special).toBe("Ultrathink");
+    for (const [id, label] of [
+      ["ultra", "Ultra"],
+      ["ultracode", "Ultracode"],
+      ["ultrathink", "Ultrathink"],
+    ] as const) {
+      expect(resolveEffortGlyph(descriptor(["low", "high", id]), id)).toEqual({
+        kind: "label",
+        label,
+      });
+    }
   });
 
   it("draws the lowest level as one bar, and an off level as none", () => {
@@ -51,26 +56,25 @@ describe("resolveEffortGlyph", () => {
     expect(resolveEffortGlyph(descriptor(["off", "low", "high"]), "off")).toEqual({
       count: 2,
       filled: 0,
-      special: null,
+      kind: "bars",
       label: "Off",
     });
     expect(resolveEffortGlyph(descriptor(["off", "on"]), "off")).toMatchObject({
-      count: 3,
-      filled: 0,
+      kind: "thinking",
+      enabled: false,
     });
     expect(resolveEffortGlyph(descriptor(["off", "on"]), "on")).toMatchObject({
-      count: 3,
-      filled: 3,
+      kind: "thinking",
+      enabled: true,
     });
   });
 
-  it.each([true, false])("draws boolean thinking with every bar on or off: %s", (enabled) => {
+  it.each([true, false])("distinguishes binary thinking from an effort scale: %s", (enabled) => {
     expect(
       resolveEffortGlyph({ id: "thinking", label: "Thinking", type: "boolean" }, enabled),
     ).toEqual({
-      count: 3,
-      filled: enabled ? 3 : 0,
-      special: null,
+      kind: "thinking",
+      enabled,
       label: `Thinking ${enabled ? "On" : "Off"}`,
     });
   });

@@ -25,8 +25,8 @@ import {
   isClaudeUltrathinkPrompt,
   normalizeModelSlug,
 } from "@t3tools/shared/model";
-import { memo, type ReactNode, useRef } from "react";
-import { GaugeIcon, ZapIcon } from "lucide-react";
+import { memo, type ReactNode, type SVGProps, useRef } from "react";
+import { BrainIcon, GaugeIcon, ZapIcon } from "lucide-react";
 import {
   Menu,
   MenuGroup,
@@ -512,6 +512,14 @@ export const TraitsMenuContent = memo(function TraitsMenuContentImpl({
   );
 });
 
+function BrainOffIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <BrainIcon {...props}>
+      <path d="m3 3 18 18" />
+    </BrainIcon>
+  );
+}
+
 /** One bolt for Fast. Ultrafast adds an outlined echo behind it, cut away by the surface color. */
 function FastBolt(props: { ultra: boolean }) {
   if (!props.ultra) {
@@ -625,10 +633,14 @@ export const TraitsPicker = memo(function TraitsPicker({
   // Workflow levels such as Ultracode always show their name; the setting names every level.
   // Traits the bars cannot show, such as an agent mode, appear as words in the composer.
   const effortWord = effortGlyph
-    ? (effortGlyph.special ?? (effortDisplay === "label" ? effortGlyph.label : null))
+    ? effortGlyph.kind === "label" || effortDisplay === "label"
+      ? effortGlyph.label
+      : null
     : isComposerOwned
       ? triggerLabel
       : null;
+  const EffortIcon =
+    effortGlyph?.kind === "thinking" ? (effortGlyph.enabled ? BrainIcon : BrainOffIcon) : GaugeIcon;
 
   return (
     <Menu
@@ -674,14 +686,22 @@ export const TraitsPicker = memo(function TraitsPicker({
         >
           {effortGlyph ? (
             <span className="flex items-center gap-1.5">
-              {effortWord === null ? (
+              {effortWord === null && effortGlyph.kind === "thinking" ? (
+                <span className="flex w-6 shrink-0 items-center justify-center">
+                  <ComposerControlIcon
+                    icon={EffortIcon}
+                    size={size}
+                    className={cn("text-current", size === "xs" ? "size-4" : "size-4.5")}
+                  />
+                </span>
+              ) : effortWord === null && effortGlyph.kind === "bars" ? (
                 <EffortGlyph count={effortGlyph.count} filled={effortGlyph.filled} size={size} />
               ) : null}
               {effortWord !== null ? (
                 <>
                   <span data-composer-control-label>{effortWord}</span>
                   {/* Icon-only footers hide labels and reveal this instead. */}
-                  <GaugeIcon
+                  <EffortIcon
                     aria-hidden="true"
                     data-composer-control-compact-icon
                     className="invisible absolute size-3.5"

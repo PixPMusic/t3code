@@ -11,7 +11,7 @@ const NAMED_LEVELS = new Set(["ultra", "ultracode", "ultrathink"]);
 const OFF_LEVELS = new Set(["off", "none"]);
 
 /**
- * One bar per reasoning level; binary thinking lights the whole scale or none of it.
+ * One bar per reasoning level; binary thinking has a distinct icon.
  * Prompt-injected and named modes keep their labels.
  */
 export function resolveEffortGlyph(
@@ -21,9 +21,8 @@ export function resolveEffortGlyph(
   if (descriptor.type === "boolean") {
     return typeof current === "boolean"
       ? {
-          count: 3,
-          filled: current ? 3 : 0,
-          special: null,
+          kind: "thinking" as const,
+          enabled: current,
           label: `${descriptor.label} ${current ? "On" : "Off"}`,
         }
       : null;
@@ -32,20 +31,22 @@ export function resolveEffortGlyph(
   const special = new Set([...(descriptor.promptInjectedValues ?? []), ...NAMED_LEVELS]);
   const levels = descriptor.options.filter((option) => !special.has(option.id));
   if (levels.length < 2) return null;
-  const startsAtOff = OFF_LEVELS.has(levels[0]!.id);
-  const binary = startsAtOff && levels.length === 2;
-  const count = binary ? 3 : startsAtOff ? levels.length - 1 : levels.length;
   if (special.has(current)) {
     const label = descriptor.options.find((option) => option.id === current)?.label ?? current;
-    return { count, filled: count, special: label, label };
+    return { kind: "label" as const, label };
   }
   const index = levels.findIndex((option) => option.id === current);
   if (index < 0) return null;
+  const label = levels[index]!.label;
+  const startsAtOff = OFF_LEVELS.has(levels[0]!.id);
+  if (startsAtOff && levels.length === 2) {
+    return { kind: "thinking" as const, enabled: index > 0, label };
+  }
   return {
-    count,
-    filled: binary ? index * count : startsAtOff ? index : index + 1,
-    special: null,
-    label: levels[index]!.label,
+    kind: "bars" as const,
+    count: startsAtOff ? levels.length - 1 : levels.length,
+    filled: startsAtOff ? index : index + 1,
+    label,
   };
 }
 
@@ -62,8 +63,8 @@ export function effortBarHeights(count: number, maxBar: number): number[] {
  */
 export function EffortGlyph(props: { count: number; filled: number; size?: ComposerControlSize }) {
   const height = props.size === "xs" ? GLYPH_HEIGHT_XS : GLYPH_HEIGHT_SM;
-  const step = 5;
-  const barWidth = 3;
+  const barWidth = props.count <= 3 ? 5 : 3;
+  const step = barWidth + 2;
   const barsWidth = step * (props.count - 1) + barWidth;
   const width = Math.max(24, barsWidth);
   const inset = Math.floor((width - barsWidth) / 2);
