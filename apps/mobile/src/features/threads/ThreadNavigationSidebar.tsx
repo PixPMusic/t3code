@@ -799,7 +799,10 @@ function ThreadNavigationSidebarPane(
         }
       >
         {Platform.OS === "android" && listItems.length === 0 ? (
-          <View className="flex-1 items-center justify-center">{listEmpty}</View>
+          <View className="flex-1">
+            <HomeAgentLinks environmentId={options.selectedEnvironmentId} />
+            <View className="flex-1 items-center justify-center">{listEmpty}</View>
+          </View>
         ) : (
           <SwipeableScrollGateProvider enabled={swipeEnabled}>
             <GestureDetector gesture={sidebarScrollGesture}>

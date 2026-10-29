@@ -75,6 +75,7 @@ vi.mock(import("~/state/environments"), async (original) => ({
 vi.mock(import("~/state/entities"), async (original) => ({
   ...(await original()),
   useProjects: (() => state.projects) as never,
+  useUserProjects: (() => state.projects) as never,
   useThreadShells: () => [],
   waitForProjectRemoval: async () => true,
 }));

@@ -57,6 +57,7 @@ import {
   waitForThreadShell,
 } from "../../state/entities";
 import { environmentShell } from "../../state/shell";
+import { serverEnvironment } from "../../state/server";
 import { ThreadStatusLine } from "./ThreadStatusLine";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
@@ -428,7 +429,9 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
       appAtomRegistry.get(environmentShell.stateValueAtom(ownerEnvironmentId)).status === "live";
     // The shell can leave idle subagent children out, so absence is not deletion there: the
     // route decides from the thread's own detail.
-    const shellOmitsChildren = serverConfig?.shellThreadFamilies === true;
+    const shellOmitsChildren =
+      appAtomRegistry.get(serverEnvironment.configValueAtom(ownerEnvironmentId))
+        ?.shellThreadFamilies === true;
     // A just-launched child can reach this timeline before its shell syncs.
     if (!shellOmitsChildren && isEnvironmentLive() && readThreadShell(threadRef) === null) {
       const location = router.latestLocation;

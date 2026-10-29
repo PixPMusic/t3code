@@ -40,6 +40,7 @@ interface AdaptiveWorkspaceContextValue {
    * sidebar and rail step aside and the thread header drops to one line.
    */
   readonly composerKeyboardActive: boolean;
+  readonly navigationRailVisible: boolean;
   /**
    * Whether the sidebar shows in each orientation, where it floats over the content in portrait
    * (the unfolded Duo). The native split switches between them as a rotation starts.
@@ -76,6 +77,7 @@ export const AdaptiveWorkspaceContext = createContext<AdaptiveWorkspaceContextVa
   openWorkspaceTab: () => undefined,
   setAuxiliaryPaneWidth: () => undefined,
   composerKeyboardActive: false,
+  navigationRailVisible: false,
   sidebarByOrientation: null,
   setComposerEditing: () => undefined,
 });

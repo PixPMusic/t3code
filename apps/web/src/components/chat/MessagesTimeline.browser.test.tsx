@@ -590,8 +590,15 @@ describe("MessagesTimeline agent messages", () => {
   it("folds a message from another agent into a one-line preview", async () => {
     setup();
     const onOpenThread = vi.fn();
+    const senderEnvironmentId = EnvironmentId.make("environment-origin");
     await using screen = await renderTimeline(
-      [message(AGENT_MESSAGE, { createdBy: "agent", senderThreadId: SENDER_THREAD_ID })],
+      [
+        message(AGENT_MESSAGE, {
+          createdBy: "agent",
+          senderThreadId: SENDER_THREAD_ID,
+          context: { version: 1, records: [], senderEnvironmentId },
+        }),
+      ],
       { onOpenThread },
     );
     const row = screen.button(/^Agent/);
@@ -603,7 +610,7 @@ describe("MessagesTimeline agent messages", () => {
     await click(row);
     expect(screen.text()).toContain("The migration drops the index before backfilling it.");
     await click(screen.button("Open thread"));
-    expect(onOpenThread).toHaveBeenCalledWith(SENDER_THREAD_ID);
+    expect(onOpenThread).toHaveBeenCalledWith(SENDER_THREAD_ID, senderEnvironmentId);
 
     await click(screen.button(/^Agent/));
     expect(screen.text()).not.toContain("drops the index");

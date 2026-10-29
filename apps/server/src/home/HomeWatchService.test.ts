@@ -9,6 +9,7 @@ import {
 } from "@t3tools/contracts";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as PubSub from "effect/PubSub";
 import * as Queue from "effect/Queue";
@@ -48,6 +49,7 @@ it.effect(
       const reads = yield* Queue.unbounded<{
         input: HomeWatchEventsInput;
         result: Deferred.Deferred<HomeWatchEventsResult>;
+        fiber: Fiber.Fiber<unknown, unknown>;
       }>();
       const reports = yield* Queue.unbounded<HomeWatchEventsResult>();
       const cancelled = yield* Queue.unbounded<void>();
@@ -79,7 +81,8 @@ it.effect(
               read: (input) =>
                 Effect.gen(function* () {
                   const result = yield* Deferred.make<HomeWatchEventsResult>();
-                  yield* Queue.offer(reads, { input, result });
+                  const fiber = yield* Effect.withFiberSucceed((fiber) => fiber);
+                  yield* Queue.offer(reads, { input, result, fiber });
                   return yield* Deferred.await(result);
                 }).pipe(Effect.onInterrupt(() => Queue.offer(cancelled, undefined))),
             }),
@@ -94,11 +97,19 @@ it.effect(
         yield* Queue.take(reports);
         const following = yield* Queue.take(reads);
         expect(following.input.afterSequence).toBe(20);
+        current = { ...current, watches: [] };
+        yield* Deferred.succeed(following.result, { sequence: 30, events: [] });
+        yield* Queue.take(reports);
+        yield* Fiber.await(following.fiber);
+        current = snapshot(here);
+        yield* PubSub.publish(changes, undefined);
+        const restarted = yield* Queue.take(reads);
+        expect(restarted.input.afterSequence).toBe(10);
         current = { ...current, threadId: ThreadId.make("home:replacement") };
         yield* PubSub.publish(changes, undefined);
         yield* Queue.take(cancelled);
         const replacement = yield* Queue.take(reads);
-        expect(replacement.input.afterSequence).toBe(20);
+        expect(replacement.input.afterSequence).toBe(10);
         current = { ...current, threadId: null };
         yield* PubSub.publish(changes, undefined);
         yield* Queue.take(cancelled);

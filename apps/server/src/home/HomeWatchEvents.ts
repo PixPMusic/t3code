@@ -125,7 +125,7 @@ const make = Effect.gen(function* () {
         if (kind === undefined) continue;
         const thread = yield* threads
           .getThreadShell(stored.event.threadId)
-          .pipe(Effect.orElseSucceed(() => null));
+          .pipe(Effect.mapError((cause) => new HomeUnavailableError({ operation: "read", cause })));
         if (thread === null && kind !== "ended") continue;
         result.push({
           sequence: stored.sequence,

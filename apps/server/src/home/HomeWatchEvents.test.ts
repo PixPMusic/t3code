@@ -10,6 +10,7 @@ import * as EventStore from "../persistence/OrchestrationEventStore.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import { liveThreadShell } from "../mcp/McpToolAccess.testkit.ts";
 import * as HomeWatchEvents from "./HomeWatchEvents.ts";
+import * as Orchestrator from "../orchestration-v2/Orchestrator.ts";
 
 const threadId = ThreadId.make("watched");
 const completed = (sequence: number): OrchestrationV2StoredEvent =>
@@ -39,6 +40,7 @@ it.effect(
       commandId: null,
       event: { type: "thread.deleted", threadId: ThreadId.make("deleted-watch"), payload: {} },
     } as OrchestrationV2StoredEvent);
+    let failLookup = true;
     const layer = HomeWatchEvents.layer.pipe(
       Layer.provide(
         Layer.mergeAll(
@@ -56,7 +58,14 @@ it.effect(
           }),
           Layer.mock(ThreadManagement.ThreadManagementService)({
             getThreadShell: (id) =>
-              Effect.succeed(id === threadId ? liveThreadShell(threadId) : null),
+              failLookup
+                ? Effect.fail(
+                    new Orchestrator.OrchestratorProjectionError({
+                      threadId: id,
+                      cause: "Temporary read failure",
+                    }),
+                  )
+                : Effect.succeed(id === threadId ? liveThreadShell(threadId) : null),
           }),
         ),
       ),
@@ -64,6 +73,9 @@ it.effect(
     return Effect.gen(function* () {
       const feed = yield* HomeWatchEvents.HomeWatchEvents;
       expect(yield* feed.read({})).toEqual({ sequence: 210, events: [] });
+      const failed = yield* feed.read({ afterSequence: 0, timeoutMs: 0 }).pipe(Effect.flip);
+      expect(failed._tag).toBe("HomeUnavailableError");
+      failLookup = false;
       const first = yield* feed.read({ afterSequence: 0, timeoutMs: 0 });
       const second = yield* feed.read({ afterSequence: first.sequence, timeoutMs: 0 });
       const last = yield* feed.read({ afterSequence: second.sequence, timeoutMs: 0 });

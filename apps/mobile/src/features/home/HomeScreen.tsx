@@ -674,6 +674,7 @@ export function HomeScreen(props: HomeScreenProps) {
           }}
         >
           <View className="w-full max-w-[430px]">
+            <HomeAgentLinks environmentId={props.selectedEnvironmentId} />
             <EmptyState
               title={emptyState.title}
               detail={emptyState.detail}
@@ -754,10 +755,11 @@ export function HomeScreen(props: HomeScreenProps) {
     return (
       <View className="flex-1 bg-header">
         <View
-          className="flex-1 items-center justify-center overflow-hidden rounded-t-[28px] bg-screen px-4"
+          className="flex-1 overflow-hidden rounded-t-[28px] bg-screen"
           style={{ paddingBottom: insets.bottom }}
         >
-          {v2ListEmpty}
+          {v2ListHeader}
+          <View className="flex-1 items-center justify-center px-4">{v2ListEmpty}</View>
         </View>
       </View>
     );

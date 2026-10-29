@@ -5,6 +5,7 @@ import * as Duration from "effect/Duration";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
+import * as Queue from "effect/Queue";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as ServerSettings from "../serverSettings.ts";
@@ -62,9 +63,22 @@ const make = Effect.gen(function* () {
     start: Effect.gen(function* () {
       const scope = yield* Scope.Scope;
       const followers = new Map<string, Fiber.Fiber<void, never>>();
+      const completed = yield* Queue.unbounded<void>();
+      yield* Effect.addFinalizer(() => Queue.shutdown(completed));
+      const trackFollower = (key: string, fiber: Fiber.Fiber<void>) => {
+        followers.set(key, fiber);
+        fiber.addObserver(() => {
+          if (followers.get(key) !== fiber) return;
+          followers.delete(key);
+          Queue.offerUnsafe(completed, undefined);
+        });
+      };
       const settingsChanges = yield* settings.subscribeChanges;
       const watchChanges = yield* homeService.subscribeWatchChanges;
-      const changes = Stream.merge(settingsChanges.pipe(Stream.map(() => undefined)), watchChanges);
+      const changes = Stream.merge(
+        Stream.merge(settingsChanges.pipe(Stream.map(() => undefined)), watchChanges),
+        Stream.fromQueue(completed),
+      );
       const reconcile = Effect.fn("HomeWatchService.reconcile")(function* () {
         const home = yield* homeService.watchState;
         const environmentIds =
@@ -93,7 +107,7 @@ const make = Effect.gen(function* () {
             Effect.asVoid,
             Effect.forkIn(scope),
           );
-          followers.set(discovery, fiber);
+          trackFollower(discovery, fiber);
         }
         for (const environmentId of environmentIds) {
           const key = `${home.threadId}:${environmentId}`;
@@ -111,7 +125,7 @@ const make = Effect.gen(function* () {
             Effect.ignoreCause({ log: true }),
             Effect.forkIn(scope),
           );
-          followers.set(key, fiber);
+          trackFollower(key, fiber);
         }
       });
       yield* reconcile().pipe(Effect.ignoreCause({ log: true }));

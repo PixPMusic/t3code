@@ -814,6 +814,7 @@ function AdaptiveWorkspaceLayoutContent(
 
   const contextValue = {
     layout,
+    navigationRailVisible: shouldRenderNavigationRail && navigationRailWidth > 0,
     panes,
     fileInspector,
     primarySidebarSearchQuery,
