@@ -415,13 +415,14 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   };
   const handleStopBackgroundWorkStable = useStableCallback(handleStopBackgroundWork);
   const openRelatedThreadGenerationRef = useRef(0);
-  const onOpenRelatedThread = async (threadId: ThreadId) => {
+  const onOpenRelatedThread = async (threadId: ThreadId, sourceEnvironmentId?: EnvironmentId) => {
     const generation = ++openRelatedThreadGenerationRef.current;
     const ownerEnvironmentId =
-      readThreadShell(scopeThreadRef(environmentId, threadId)) !== null
+      sourceEnvironmentId ??
+      (readThreadShell(scopeThreadRef(environmentId, threadId)) !== null
         ? environmentId
         : (readThreadShells().find((shell) => shell.id === threadId)?.environmentId ??
-          environmentId);
+          environmentId));
     const threadRef = scopeThreadRef(ownerEnvironmentId, threadId);
     const isEnvironmentLive = () =>
       appAtomRegistry.get(environmentShell.stateValueAtom(ownerEnvironmentId)).status === "live";

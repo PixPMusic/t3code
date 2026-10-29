@@ -15,6 +15,7 @@ import { AiError, McpProtocol, McpSchema, McpServer, Tool, Toolkit } from "effec
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import {
   DeviceToolError,
+  EnvironmentId,
   isHomeThreadId,
   OrchestratorMcpFailure,
   PreviewAutomationError,
@@ -82,6 +83,8 @@ import {
 } from "./toolkits/device/tools.ts";
 import * as HtmlHandlers from "./toolkits/html/handlers.ts";
 import { HtmlPreviewTool, HtmlPreviewToolkit, HtmlRenderToolkit } from "./toolkits/html/tools.ts";
+
+const decodeEnvironmentId = Schema.decodeUnknownOption(EnvironmentId);
 
 const mcpResourceMetadataUrl = (request: HttpServerRequest.HttpServerRequest) =>
   HttpServerRequest.toURL(request).pipe(
@@ -230,15 +233,16 @@ const makeMcpAuthMiddleware = Effect.gen(function* () {
     let limited = withModeLimit(invocation, request);
     if (limited === undefined) return invalidModeLimit;
     const homeThread = request.headers[McpInvocationContext.HOME_THREAD_HEADER];
-    if (
-      homeThread !== undefined &&
-      isHomeThreadId(homeThread) &&
-      limited.client?.linked === true &&
-      limited.client.access === "full-access"
-    ) {
+    if (homeThread !== undefined && isHomeThreadId(homeThread) && limited.client?.linked === true) {
       limited = {
         ...limited,
-        client: { ...limited.client, homeThreadId: ThreadId.make(homeThread) },
+        client: {
+          ...limited.client,
+          homeThreadId: ThreadId.make(homeThread),
+          homeEnvironmentId: Option.getOrUndefined(
+            decodeEnvironmentId(request.headers[McpInvocationContext.HOME_ENVIRONMENT_HEADER]),
+          ),
+        },
       };
     }
     const localHome =

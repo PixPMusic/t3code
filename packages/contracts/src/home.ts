@@ -12,25 +12,18 @@ export const HomeWatch = Schema.Struct({
   environmentId: EnvironmentId,
   threadId: ThreadId,
   reason: Schema.Literals(["launched", "requested"]),
-  sinceSequence: NonNegativeInt.pipe(Schema.withDecodingDefault(Effect.succeed(0))),
 });
 export type HomeWatch = typeof HomeWatch.Type;
-export const HomeWatchCursor = Schema.Struct({
-  environmentId: EnvironmentId,
-  sequence: NonNegativeInt,
-});
 export const HomeSettings = Schema.Struct({
   threadId: Schema.NullOr(ThreadId).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
   watchAll: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   watches: Schema.Array(HomeWatch).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
-  cursors: Schema.Array(HomeWatchCursor).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
 });
 export type HomeSettings = typeof HomeSettings.Type;
 export const DEFAULT_HOME_SETTINGS: HomeSettings = {
   threadId: null,
   watchAll: false,
   watches: [],
-  cursors: [],
 };
 export const HomeEnableInput = Schema.Struct({ modelSelection: ModelSelection });
 export type HomeEnableInput = typeof HomeEnableInput.Type;
@@ -39,11 +32,21 @@ export type HomeThreadResult = typeof HomeThreadResult.Type;
 export class HomeUnavailableError extends Schema.TaggedError<HomeUnavailableError>()(
   "HomeUnavailableError",
   {
-    operation: Schema.Literals(["read", "save", "launch", "stop", "off"]),
+    operation: Schema.Literals([
+      "read",
+      "save",
+      "launch",
+      "stop",
+      "off",
+      "incompatible_environment",
+    ]),
+    environmentId: Schema.optional(EnvironmentId),
     cause: Schema.optional(Schema.Defect()),
   },
 ) {
   override get message() {
+    if (this.operation === "incompatible_environment")
+      return `Update environment ${this.environmentId ?? "on the other machine"} to watch or launch with Home.`;
     return this.operation === "off"
       ? "Turn Home on first."
       : "Home could not complete the operation.";

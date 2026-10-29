@@ -423,11 +423,11 @@ const routed = Effect.fn("McpToolAccess.routed")(function* <Tools extends Record
               code: "capability_denied",
               message: "This thread is no longer Home.",
             });
-          if (name === "t3_project_delete" || name === "create_threads")
+          if (name === "t3_project_delete" || name === "create_threads" || name === "schedule_task")
             return yield* new OrchestratorMcpFailure({
               code: "capability_denied",
               message:
-                "Home archives or settles work and launches it with t3_thread_launch in an explicit project or Scratch folder.",
+                "Home archives or settles work and launches it in an explicit project or Scratch folder. Schedule recurring work from a project thread.",
             });
           if (name !== "t3_thread_launch") return yield* handle(params);
           if (params.projectId === undefined && params.scratch !== true)
@@ -441,7 +441,15 @@ const routed = Effect.fn("McpToolAccess.routed")(function* <Tools extends Record
               : undefined;
           const sinceSequence = yield* homeService.value
             .prepareLaunch(threadId, environmentId)
-            .pipe(Effect.mapError(unavailable));
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new OrchestratorMcpFailure({
+                    code: "orchestration_error",
+                    message: error.message,
+                  }),
+              ),
+            );
           const result = yield* handle(params);
           if (Predicate.hasProperty(result, "threadId") && typeof result.threadId === "string")
             yield* homeService.value
@@ -450,7 +458,15 @@ const routed = Effect.fn("McpToolAccess.routed")(function* <Tools extends Record
                 threadId: result.threadId as ThreadId,
                 sinceSequence,
               })
-              .pipe(Effect.mapError(unavailable));
+              .pipe(
+                Effect.mapError(
+                  (error) =>
+                    new OrchestratorMcpFailure({
+                      code: "orchestration_error",
+                      message: error.message,
+                    }),
+                ),
+              );
           return result;
         });
     }

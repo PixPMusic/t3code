@@ -1,5 +1,6 @@
 import { StackActions, useNavigation, useRoute, type Route } from "@react-navigation/native";
 import { use } from "react";
+import { isHomeThreadId } from "@t3tools/contracts";
 import { linkedThreadStep } from "../../lib/android-workspace-navigation";
 import {
   ThreadInspectorNavigationContext,
@@ -12,13 +13,15 @@ export function useOpenLinkedThread() {
   const openInspector = useOpenThreadInspector();
   const openInInspector = use(ThreadInspectorNavigationContext);
   return (target: { readonly environmentId: string; readonly threadId: string }) => {
-    if (openInInspector) {
+    const home = isHomeThreadId(target.threadId);
+    if (!home && openInInspector) {
       openInInspector({ type: "thread", ...target });
       return;
     }
     const state = navigation.getState();
     const step = state ? linkedThreadStep(state, target) : "push";
     if (
+      !home &&
       step === "push" &&
       route.name === "Thread" &&
       route.params?.environmentId &&

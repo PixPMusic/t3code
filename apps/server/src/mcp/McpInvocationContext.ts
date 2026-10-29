@@ -48,6 +48,7 @@ export interface McpClientCaller {
   /** The origin an outside client reached; its thread links open the web app there. */
   readonly webOrigin?: string | undefined;
   readonly homeThreadId?: ThreadId | undefined;
+  readonly homeEnvironmentId?: EnvironmentId | undefined;
 }
 
 /**
@@ -58,6 +59,7 @@ export interface McpClientCaller {
  */
 export const MODE_LIMIT_HEADER = "t3-mode-limit";
 export const HOME_THREAD_HEADER = "t3-home-thread";
+export const HOME_ENVIRONMENT_HEADER = "t3-home-environment";
 
 export interface ClientModes {
   readonly runtimeMode: RuntimeMode;

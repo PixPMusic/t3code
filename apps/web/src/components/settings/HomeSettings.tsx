@@ -77,7 +77,11 @@ function HomeEnvironmentSettings({ environmentId }: { environmentId: Environment
   const homeWorkspaceRoot = environment?.serverConfig?.homeWorkspaceRoot;
   const openInEditor = useOpenInPreferredEditor(environmentId, availableEditors);
   const providers = useEnvironmentProviders().get(environmentId) ?? EMPTY_SERVER_PROVIDERS;
-  const entries = providerInstanceEntriesFor(providers, settings, null);
+  const entries = providerInstanceEntriesFor(providers, settings, null).filter(
+    (entry) =>
+      !entry.snapshot.supportedRuntimeModes?.length ||
+      entry.snapshot.supportedRuntimeModes.includes("full-access"),
+  );
   const enable = useAtomCommand(homeEnvironment.enable);
   const disable = useAtomCommand(homeEnvironment.disable);
   const startFresh = useAtomCommand(homeEnvironment.startFresh);

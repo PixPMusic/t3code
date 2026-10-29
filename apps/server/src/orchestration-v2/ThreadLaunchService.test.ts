@@ -310,6 +310,44 @@ function launchInput(input: {
   };
 }
 
+it.effect.each(["root", "existing_worktree", "home"] as const)(
+  "protects Home's managed folder for a $0 launch",
+  (kind) => {
+    const homeRoot = kind === "existing_worktree" ? "/managed/home" : "/repo";
+    const harness = makeHarness({
+      managedFolders: Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+        homeRoot,
+        namedProjectsRoot: "/projects",
+        isInHomeFolder: (root) =>
+          Effect.succeed(root === homeRoot || root.startsWith(`${homeRoot}/`)),
+        isScratchProject: () => Effect.succeed(false),
+        folderForThread: () => Effect.succeedNone,
+      }),
+    });
+    return Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const input = launchInput({
+        command: `command:home-folder:${kind}`,
+        thread: kind === "home" ? "home:managed" : `thread:managed:${kind}`,
+        workspace:
+          kind === "existing_worktree"
+            ? { type: "existing_worktree", worktreePath: "/managed/home/linked" }
+            : { type: "root" },
+      });
+      if (kind === "home") {
+        assert.equal(
+          (yield* launches.launch({ ...input, creationSource: "server" })).threadId,
+          input.threadId,
+        );
+      } else {
+        const error = yield* launches.launch(input).pipe(Effect.flip);
+        assert.equal(error._tag, "ThreadLaunchError");
+        if (error._tag === "ThreadLaunchError") assert.include(String(error.cause), "Only Home");
+      }
+    }).pipe(Effect.provide(harness.layer));
+  },
+);
+
 it.effect.each(
   (["new", "existing"] as const).flatMap((target) =>
     (["user", "agent"] as const).map((createdBy) => ({ target, createdBy })),

@@ -23,7 +23,15 @@ export const layer = McpToolAccess.toLayer(
               code: "capability_denied",
               message: "Only the current Home can change its watches.",
             });
-          return yield* home.watch(scope.thread.threadId, input).pipe(Effect.mapError(unavailable));
+          return yield* home.watch(scope.thread.threadId, input).pipe(
+            Effect.mapError(
+              (error) =>
+                new OrchestratorMcpFailure({
+                  code: "orchestration_error",
+                  message: error.message,
+                }),
+            ),
+          );
         }),
       ),
       t3_thread_watch_events: McpToolAccess.reads((input) =>

@@ -2,6 +2,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
   AuthSessionId,
+  DEFAULT_HOME_SETTINGS,
   EnvironmentId,
   ProjectId,
   ThreadId,
@@ -10,6 +11,7 @@ import {
   WS_METHODS,
   WsServerRefreshProvidersRpc,
   WsSubscribeServerConfigRpc,
+  WsRpcGroup,
   type OrchestrationV2StoredEvent,
   type OrchestrationV2ThreadShell,
   type OrchestrationProjectShell,
@@ -108,6 +110,7 @@ import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ServerConfigModule from "./config.ts";
 import * as Keybindings from "./keybindings.ts";
 import * as ServerSettings from "./serverSettings.ts";
+import * as RpcAuthorization from "./auth/RpcAuthorization.ts";
 
 import * as EventStore from "./orchestration-v2/EventStore.ts";
 import * as ProjectionMaintenance from "./orchestration-v2/ProjectionMaintenance.ts";
@@ -561,6 +564,66 @@ const layerConfigSources = Layer.mergeAll(
     ),
   ),
   Layer.provideMerge(NodeServices.layer),
+);
+
+it.effect("client settings patches cannot change the server-managed Home identity", () =>
+  Effect.gen(function* () {
+    const settings = yield* ServerSettings.ServerSettingsService;
+    const home = { ...DEFAULT_HOME_SETTINGS, threadId: ThreadId.make("home:current") };
+    yield* settings.updateSettings({ home });
+    const responses = yield* Queue.unbounded<unknown>();
+    const server = yield* RpcServer.makeNoSerialization(
+      RpcGroup.make(WsRpcGroup.requests.get(WS_METHODS.serverUpdateSettings)!),
+      { ...WS_RPC_SERVER_OPTIONS, onFromServer: (response) => Queue.offer(responses, response) },
+    ).pipe(
+      Effect.provide(
+        layerWsRpc(
+          {
+            sessionId: AuthSessionId.make("settings-test"),
+            subject: "settings-test",
+            method: "browser-session-cookie",
+            scopes: ["settings:write"],
+          },
+          {},
+          yield* ServerBrowser.ServerBrowser,
+        ),
+      ),
+    );
+    yield* server.write(0, {
+      _tag: "Request",
+      id: RpcMessage.RequestId("settings-home"),
+      tag: WS_METHODS.serverUpdateSettings,
+      payload: {
+        patch: { defaultAutoPull: true, home: { ...home, threadId: ThreadId.make("home:forged") } },
+      },
+      headers: Headers.empty,
+    });
+    yield* Queue.take(responses);
+    const saved = yield* settings.getSettings;
+    assert.isTrue(saved.defaultAutoPull);
+    assert.deepEqual(saved.home, home);
+  }).pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        layerUnusedConfigRpcServices,
+        RpcAuthorization.layer(["settings:write"]),
+        Layer.fresh(layerConfigSources),
+        Layer.mock(ServerBrowser.ServerBrowser)({}),
+        Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+          homeRoot: "/managed/home",
+          namedProjectsRoot: "/projects",
+        }),
+        Layer.mock(ServerEnvironment.ServerEnvironment)({}),
+        Layer.mock(ExternalLauncher.ExternalLauncher)({}),
+        Layer.mock(ProviderRegistry.ProviderRegistry)({}),
+        Layer.mock(EnvironmentAuth.EnvironmentAuth)({}),
+        Layer.mock(UsageLimitSources.UsageLimitSources)({}),
+        Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({}),
+        Layer.mock(DirectEndpoints.DirectEndpoints)({}),
+      ),
+    ),
+    Effect.scoped,
+  ),
 );
 
 it.effect(

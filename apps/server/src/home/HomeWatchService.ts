@@ -1,6 +1,7 @@
 import { type EnvironmentId, HomeWatchEventsResult, type ThreadId } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Duration from "effect/Duration";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
@@ -31,7 +32,7 @@ const make = Effect.gen(function* () {
     threadId: ThreadId,
     environmentId: EnvironmentId,
   ) {
-    const home = (yield* settings.getSettings).home;
+    const home = yield* homeService.watchState;
     if (home.threadId !== threadId) return false;
     const cursors = home.watches
       .filter((watch) => watch.environmentId === environmentId)
@@ -39,17 +40,21 @@ const make = Effect.gen(function* () {
     const cursor = home.cursors.find((cursor) => cursor.environmentId === environmentId)?.sequence;
     if (home.watchAll && cursor !== undefined) cursors.push(cursor);
     if (cursors.length === 0) return false;
-    const afterSequence = Math.min(...cursors);
+    const afterSequence = cursor === undefined ? undefined : Math.min(...cursors);
     const result =
       environmentId === here
-        ? yield* events.read({ afterSequence })
-        : yield* peers.call({
-            environmentId,
-            tool: "t3_thread_watch_events",
-            arguments: { afterSequence },
-            limits: { runtimeMode: "full-access", interactionMode: "default" },
-            success: HomeWatchEventsResult,
-          });
+        ? yield* events.read(afterSequence === undefined ? {} : { afterSequence })
+        : yield* peers
+            .call({
+              environmentId,
+              tool: "t3_thread_watch_events",
+              arguments: afterSequence === undefined ? {} : { afterSequence },
+              limits: { runtimeMode: "full-access", interactionMode: "default" },
+              success: HomeWatchEventsResult,
+            })
+            .pipe(
+              Effect.mapError((cause) => HomeWatchEvents.watchFeedFailure(environmentId, cause)),
+            );
     yield* homeService.report(threadId, environmentId, result);
     return true;
   });
@@ -57,11 +62,11 @@ const make = Effect.gen(function* () {
     start: Effect.gen(function* () {
       const scope = yield* Scope.Scope;
       const followers = new Map<string, Fiber.Fiber<void, never>>();
-      const changes = yield* settings.subscribeChanges;
-      const reconcile = Effect.fn("HomeWatchService.reconcile")(function* (
-        current: import("@t3tools/contracts").ServerSettings,
-      ) {
-        const home = current.home;
+      const settingsChanges = yield* settings.subscribeChanges;
+      const watchChanges = yield* homeService.subscribeWatchChanges;
+      const changes = Stream.merge(settingsChanges.pipe(Stream.map(() => undefined)), watchChanges);
+      const reconcile = Effect.fn("HomeWatchService.reconcile")(function* () {
+        const home = yield* homeService.watchState;
         const environmentIds =
           home.threadId === null
             ? []
@@ -94,7 +99,13 @@ const make = Effect.gen(function* () {
           const key = `${home.threadId}:${environmentId}`;
           if (followers.has(key)) continue;
           const fiber = yield* follow(home.threadId, environmentId).pipe(
-            Effect.retry(Schedule.spaced("5 seconds")),
+            Effect.retry(
+              Schedule.exponential("5 seconds").pipe(
+                Schedule.modifyDelay(({ duration }) =>
+                  Effect.succeed(Duration.min(duration, Duration.minutes(5))),
+                ),
+              ),
+            ),
             Effect.repeat({ while: (keepFollowing) => keepFollowing }),
             Effect.asVoid,
             Effect.ignoreCause({ log: true }),
@@ -103,9 +114,9 @@ const make = Effect.gen(function* () {
           followers.set(key, fiber);
         }
       });
-      yield* reconcile(yield* settings.getSettings).pipe(Effect.ignoreCause({ log: true }));
+      yield* reconcile().pipe(Effect.ignoreCause({ log: true }));
       yield* changes.pipe(
-        Stream.runForEach(reconcile),
+        Stream.runForEach(() => reconcile().pipe(Effect.ignoreCause({ log: true }))),
         Effect.ignoreCause({ log: true }),
         Effect.forkIn(scope),
       );

@@ -736,7 +736,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
     HomeAgent: createNativeStackScreen({
       screen: HomeAgentRouteScreen,
       linking: "home-agent/:environmentId/:threadId",
-      options: { ...THREAD_HEADER_OPTIONS, presentation: "fullScreenModal" },
+      options: THREAD_HEADER_OPTIONS,
     }),
     NewTaskProject: createNativeStackScreen({
       screen: NewTaskRouteScreen,

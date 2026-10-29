@@ -225,7 +225,18 @@ export const layer = McpToolAccess.toLayer(ProjectToolkit, {
                   ...(caller === undefined
                     ? scope.client?.homeThreadId === undefined
                       ? {}
-                      : { senderThreadId: scope.client.homeThreadId }
+                      : {
+                          senderThreadId: scope.client.homeThreadId,
+                          ...(scope.client.homeEnvironmentId === undefined
+                            ? {}
+                            : {
+                                context: {
+                                  version: 1,
+                                  records: [],
+                                  senderEnvironmentId: scope.client.homeEnvironmentId,
+                                },
+                              }),
+                        }
                     : { senderThreadId: caller.id }),
                   text: input.message ?? "",
                   attachments,

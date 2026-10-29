@@ -34,11 +34,16 @@ it.effect(
         commandId: null,
         event: { type: "runtime-request.updated", threadId, payload: { kind, status: "pending" } },
       } as OrchestrationV2StoredEvent);
+    stored.push({
+      sequence: 210,
+      commandId: null,
+      event: { type: "thread.deleted", threadId: ThreadId.make("deleted-watch"), payload: {} },
+    } as OrchestrationV2StoredEvent);
     const layer = HomeWatchEvents.layer.pipe(
       Layer.provide(
         Layer.mergeAll(
           Layer.mock(EventStore.OrchestrationEventStore)({
-            latestApplicationSequence: Effect.succeed(209),
+            latestApplicationSequence: Effect.succeed(210),
             readAgentEvents: (input) =>
               Stream.fromArray(
                 stored.filter(
@@ -50,25 +55,27 @@ it.effect(
               ),
           }),
           Layer.mock(ThreadManagement.ThreadManagementService)({
-            getThreadShell: () => Effect.succeed(liveThreadShell(threadId)),
+            getThreadShell: (id) =>
+              Effect.succeed(id === threadId ? liveThreadShell(threadId) : null),
           }),
         ),
       ),
     );
     return Effect.gen(function* () {
       const feed = yield* HomeWatchEvents.HomeWatchEvents;
-      expect(yield* feed.read({})).toEqual({ sequence: 209, events: [] });
+      expect(yield* feed.read({})).toEqual({ sequence: 210, events: [] });
       const first = yield* feed.read({ afterSequence: 0, timeoutMs: 0 });
       const second = yield* feed.read({ afterSequence: first.sequence, timeoutMs: 0 });
       const last = yield* feed.read({ afterSequence: second.sequence, timeoutMs: 0 });
       expect([first.events.length, second.events.length, last.events.length]).toEqual([
-        100, 100, 7,
+        100, 100, 8,
       ]);
-      expect([first.sequence, second.sequence, last.sequence]).toEqual([100, 200, 209]);
+      expect([first.sequence, second.sequence, last.sequence]).toEqual([100, 200, 210]);
+      expect(last.events.at(-1)).toMatchObject({ threadId: "deleted-watch", kind: "ended" });
       expect(
         new Set([...first.events, ...second.events, ...last.events].map((event) => event.sequence))
           .size,
-      ).toBe(207);
+      ).toBe(208);
     }).pipe(Effect.provide(layer));
   },
 );

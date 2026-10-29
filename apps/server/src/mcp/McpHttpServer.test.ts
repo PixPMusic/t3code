@@ -1082,7 +1082,7 @@ it.effect(
     Effect.scoped(
       Effect.gen(function* () {
         const clientToken = "client-payload.client-signature";
-        const clientScope: McpInvocationContext.McpInvocationScope = {
+        let clientScope: McpInvocationContext.McpInvocationScope = {
           environmentId,
           requestNamespace: "client:linked",
           thread: undefined,
@@ -1113,13 +1113,21 @@ it.effect(
             starts: McpToolAccess.startsThreads(
               (input) => input,
               (_, modes) =>
-                Effect.succeed({ modes: `${modes.runtimeMode}/${modes.interactionMode}` }),
+                Effect.gen(function* () {
+                  const scope = yield* McpInvocationContext.McpInvocationContext;
+                  const origin = scope.client?.homeThreadId;
+                  return {
+                    modes: `${modes.runtimeMode}/${modes.interactionMode}${origin ? `|${origin}@${scope.client?.homeEnvironmentId}` : ""}`,
+                  };
+                }),
               "stamped",
             ),
           }),
         ).pipe(
           Layer.provideMerge(
-            McpHttpServer.layerMcpTransport.pipe(Layer.provide(ServerSettings.layerTest())),
+            McpHttpServer.layerMcpTransport.pipe(
+              Layer.provide(ServerSettings.layerTest({ linkedEnvironmentsEnabled: true })),
+            ),
           ),
           Layer.provide(McpToolAccessTestkit.liveThreadsLayer),
           Layer.provide(
@@ -1161,12 +1169,17 @@ it.effect(
           ),
         );
         /** Starts a thread as the client, with `limit` as T3-Mode-Limit; the HTTP status or the outcome. */
-        const start = (limit: string | undefined, args: Record<string, string> = {}) =>
+        const start = (
+          limit: string | undefined,
+          args: Record<string, string> = {},
+          origin: Record<string, string> = {},
+        ) =>
           Effect.gen(function* () {
             const headers = {
               accept: "application/json, text/event-stream",
               authorization: `Bearer ${clientToken}`,
               ...(limit === undefined ? {} : { "t3-mode-limit": limit }),
+              ...origin,
             };
             const initialize = yield* httpClient.post("/mcp", {
               headers,
@@ -1214,6 +1227,26 @@ it.effect(
         expect(yield* start("full-access/default", { runtimeMode: "full-access" })).toBe(
           "runtime_mode_escalation_denied",
         );
+        const homeHeaders = {
+          "t3-home-thread": "home:origin",
+          "t3-home-environment": "environment-origin",
+        };
+        expect(yield* start(undefined, {}, homeHeaders)).toBe("auto/default");
+        clientScope = { ...clientScope, client: { ...clientScope.client!, linked: true } };
+        for (const access of [
+          "approval-required",
+          "auto-accept-edits",
+          "auto",
+          "full-access",
+        ] as const) {
+          clientScope = { ...clientScope, client: { ...clientScope.client!, access } };
+          expect(yield* start(undefined, {}, homeHeaders)).toBe(
+            `${access}/default|home:origin@environment-origin`,
+          );
+          expect(
+            yield* start(undefined, {}, { ...homeHeaders, "t3-home-thread": "ordinary" }),
+          ).toBe(`${access}/default`);
+        }
         // A malformed header is refused before anything runs.
         expect(yield* start("auto")).toBe(400);
         expect(yield* start("auto/default/extra")).toBe(400);

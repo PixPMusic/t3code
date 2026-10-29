@@ -16,6 +16,7 @@ import {
 import { InspectorContentScope } from "../threads/thread-inspector-preview";
 import { ThreadRouteScreen } from "../threads/ThreadRouteScreen";
 import { WorkspaceTabsContext } from "../workspace/WorkspaceTabsContext";
+import { HomeAgentRailContext, useHomeAgentNavigationRail } from "./home-agent-navigation";
 
 const layout = deriveLayout({ width: 0, height: 0 });
 const fileInspector = deriveFileInspectorPaneLayout({ layout, viewportWidth: 0 });
@@ -29,6 +30,7 @@ export function HomeAgentRouteScreen(
   }>,
 ) {
   const workspace = useAdaptiveWorkspaceLayout();
+  const rail = useHomeAgentNavigationRail();
   const { width } = useWindowDimensions();
   const panes = deriveWorkspacePaneLayout({
     layout,
@@ -37,33 +39,35 @@ export function HomeAgentRouteScreen(
     auxiliaryPanePreferredVisible: false,
   });
   return (
-    <NativeWorkspaceModeContext value={false}>
-      <NativePrimaryColumnContext value={null}>
-        <WorkspaceTabsContext value={null}>
-          <AdaptiveWorkspaceContext
-            value={{
-              ...workspace,
-              layout,
-              panes,
-              fileInspector,
-              selectDetail: undefined,
-              activateAuxiliaryPaneRole: register,
-              registerWorkspaceInspector: register,
-              showAuxiliaryPane: ignore,
-              toggleAuxiliaryPane: ignore,
-              togglePrimarySidebar: ignore,
-              setPrimarySidebarVisible: ignore,
-              setComposerEditing: ignore,
-              composerKeyboardActive: false,
-              sidebarByOrientation: null,
-            }}
-          >
-            <InspectorContentScope>
-              <ThreadRouteScreen {...props} />
-            </InspectorContentScope>
-          </AdaptiveWorkspaceContext>
-        </WorkspaceTabsContext>
-      </NativePrimaryColumnContext>
-    </NativeWorkspaceModeContext>
+    <HomeAgentRailContext value={rail}>
+      <NativeWorkspaceModeContext value={false}>
+        <NativePrimaryColumnContext value={null}>
+          <WorkspaceTabsContext value={null}>
+            <AdaptiveWorkspaceContext
+              value={{
+                ...workspace,
+                layout,
+                panes,
+                fileInspector,
+                selectDetail: undefined,
+                activateAuxiliaryPaneRole: register,
+                registerWorkspaceInspector: register,
+                showAuxiliaryPane: ignore,
+                toggleAuxiliaryPane: ignore,
+                togglePrimarySidebar: ignore,
+                setPrimarySidebarVisible: ignore,
+                setComposerEditing: ignore,
+                composerKeyboardActive: false,
+                sidebarByOrientation: null,
+              }}
+            >
+              <InspectorContentScope>
+                <ThreadRouteScreen {...props} />
+              </InspectorContentScope>
+            </AdaptiveWorkspaceContext>
+          </WorkspaceTabsContext>
+        </NativePrimaryColumnContext>
+      </NativeWorkspaceModeContext>
+    </HomeAgentRailContext>
   );
 }

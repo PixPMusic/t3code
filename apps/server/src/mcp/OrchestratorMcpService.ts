@@ -2934,7 +2934,18 @@ const make = Effect.gen(function* () {
           ...(parent === undefined
             ? scope.client?.homeThreadId === undefined
               ? {}
-              : { senderThreadId: scope.client.homeThreadId }
+              : {
+                  senderThreadId: scope.client.homeThreadId,
+                  ...(scope.client.homeEnvironmentId === undefined
+                    ? {}
+                    : {
+                        context: {
+                          version: 1,
+                          records: [],
+                          senderEnvironmentId: scope.client.homeEnvironmentId,
+                        },
+                      }),
+                }
             : { senderThreadId: parent.thread.id }),
           messageId,
           text: input.message,

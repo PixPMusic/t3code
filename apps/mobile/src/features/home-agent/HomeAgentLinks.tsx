@@ -1,3 +1,7 @@
+import { use } from "react";
+import { HeaderHeightContext } from "@react-navigation/elements";
+import { useDeviceType } from "../../native/native-layout-metrics";
+import { isDuoDevice } from "../../lib/device-type";
 import { useNavigation } from "@react-navigation/native";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { useServerConfigs } from "../../state/entities";
@@ -6,6 +10,8 @@ import { View } from "react-native";
 
 export function HomeAgentLinks(props: { readonly environmentId?: EnvironmentId | null }) {
   const navigation = useNavigation();
+  const deviceType = useDeviceType();
+  const headerHeight = use(HeaderHeightContext) ?? 0;
   const configs = useServerConfigs();
   const homes = [...configs].filter(
     ([environmentId, config]) =>
@@ -14,21 +20,23 @@ export function HomeAgentLinks(props: { readonly environmentId?: EnvironmentId |
   );
   if (homes.length === 0) return null;
   return (
-    <View className="mx-3 my-2 overflow-hidden rounded-2xl">
-      {homes.map(([environmentId, config]) => (
-        <ListRow
-          key={environmentId}
-          icon="house"
-          label="Home"
-          description={config.environment.label}
-          onPress={() =>
-            navigation.navigate("HomeAgent", {
-              environmentId,
-              threadId: config.settings.home.threadId!,
-            })
-          }
-        />
-      ))}
+    <View style={isDuoDevice(deviceType) ? { paddingTop: headerHeight } : undefined}>
+      <View className="mx-3 my-2 overflow-hidden rounded-2xl">
+        {homes.map(([environmentId, config]) => (
+          <ListRow
+            key={environmentId}
+            icon="house"
+            label="Home"
+            description={config.environment.label}
+            onPress={() =>
+              navigation.navigate("HomeAgent", {
+                environmentId,
+                threadId: config.settings.home.threadId!,
+              })
+            }
+          />
+        ))}
+      </View>
     </View>
   );
 }

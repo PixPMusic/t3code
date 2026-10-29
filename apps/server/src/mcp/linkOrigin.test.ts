@@ -396,6 +396,26 @@ it.layer(Layer.provideMerge(layerTools, layerOrchestration))("work a link starts
         access: "full-access",
       });
 
+      const homeSender = {
+        ...laptop,
+        client: {
+          ...laptop.client!,
+          homeThreadId: ThreadId.make("home:origin"),
+          homeEnvironmentId: EnvironmentId.make("environment-origin"),
+        },
+      };
+      const homeLaunch = yield* launch(homeSender, "Started by Home");
+      const sent = yield* call(homeSender, "t3_thread_send", {
+        threadId: homeLaunch,
+        message: "Home follow-up.",
+      });
+      assert.equal(sent.isError, false);
+      const followUp = (yield* projections.getThreadRecords(homeLaunch, ["messages"])).messages.at(
+        -1,
+      );
+      assert.equal(followUp?.senderThreadId, "home:origin");
+      assert.equal(followUp?.context?.senderEnvironmentId, "environment-origin");
+
       const renamed = yield* call(trusted, "t3_thread_update", {
         threadId: users,
         action: "rename",

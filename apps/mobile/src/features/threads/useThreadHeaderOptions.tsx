@@ -2,6 +2,7 @@ import { useWorkspaceSidebarHeaderItem } from "../layout/useWorkspaceSidebarHead
 import { StackActions, useNavigation, useRoute } from "@react-navigation/native";
 import { threadHeaderAppearance } from "./thread-header-appearance";
 import { isDuoDevice } from "../../lib/device-type";
+import { useHomeAgentRail } from "../home-agent/home-agent-navigation";
 import type { AppNativeStackNavigationOptions } from "../../native/StackHeader";
 import { useDeviceType } from "../../native/native-layout-metrics";
 import { useNativeWorkspaceColumnsSupported } from "../../native/NativeWorkspaceColumns";
@@ -29,6 +30,7 @@ export function useThreadHeaderOptions(props: {
   const usesDuoHeader = usesNativeWorkspaceColumns && isDuoDevice(deviceType);
   const navigation = useNavigation();
   const home = useRoute().name === "HomeAgent";
+  const homeRail = useHomeAgentRail();
   const { layout, startNewTask } = useAdaptiveWorkspaceLayout();
   const sidebarHeaderItem = useWorkspaceSidebarHeaderItem();
   const threadCenterHeaderItems = useThreadGitCenterHeaderItems(props.gitControls);
@@ -94,7 +96,7 @@ export function useThreadHeaderOptions(props: {
     title: props.title,
     headerBackVisible: !layout.usesSplitView && !home,
     unstable_headerLeftItems: home
-      ? () => closeHomeHeaderItems
+      ? () => (homeRail ? [] : closeHomeHeaderItems)
       : layout.usesSplitView
         ? () => splitLeftHeaderItems
         : canGoBack
@@ -115,6 +117,7 @@ export function useThreadHeaderOptions(props: {
       splitLeftHeaderItems,
       closeHomeHeaderItems,
       home,
+      homeRail,
       threadCenterHeaderItems,
       compactRightHeaderItems,
       usesDuoHeader,

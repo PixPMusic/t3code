@@ -130,6 +130,12 @@ it("opens a completion link in the parent inspector", () => {
       inspector: { type: "thread", environmentId: screen.source.environmentId, threadId: "child" },
     },
   });
+  screen.openLinked("home:current");
+  expect(screen.state.routes).toHaveLength(3);
+  expect(screen.state.routes.at(-1)).toMatchObject({
+    name: "Thread",
+    params: { environmentId: screen.source.environmentId, threadId: "home:current" },
+  });
 });
 
 it("switches between subagents and devices in the same parent route", () => {

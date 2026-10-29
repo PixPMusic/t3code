@@ -505,7 +505,9 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
   const descriptors = props.descriptors;
   const baseRoute = { key: `${props.state.key}:workspace`, name: "Workspace" };
   const visibleRoute = projection.detail.at(-1) ?? primaryRoute;
-  const workspacePage = !workspaceUsesColumns(workspace.state.selectedTab, workspace.settingsOpen);
+  const homeAgent = visibleRoute.name === "HomeAgent";
+  const workspacePage =
+    homeAgent || !workspaceUsesColumns(workspace.state.selectedTab, workspace.settingsOpen);
   const baseDescriptor: Descriptor = {
     ...primaryDescriptor,
     navigation: props.descriptors[visibleRoute.key]!.navigation,
@@ -515,11 +517,12 @@ function WorkspaceStackView(props: ViewProps & { readonly nativeColumns: boolean
     render: () => (
       <WorkspaceNativeTabs
         hidden={
-          !workspacePage &&
-          projection.detail.length > 0 &&
-          !primaryVisible &&
-          !layout.usesSplitView &&
-          (metrics?.verticalBarEdge ?? "none") === "none"
+          (homeAgent && (metrics?.verticalBarEdge ?? "none") === "none") ||
+          (!workspacePage &&
+            projection.detail.length > 0 &&
+            !primaryVisible &&
+            !layout.usesSplitView &&
+            (metrics?.verticalBarEdge ?? "none") === "none")
         }
       >
         {props.nativeColumns && !workspacePage ? (

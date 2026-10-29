@@ -5,6 +5,8 @@ import {
   type HomeWatchEventsResult,
   type OrchestrationV2StoredEvent,
   HomeUnavailableError,
+  type OrchestratorMcpFailure,
+  type EnvironmentId,
 } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -14,6 +16,20 @@ import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as OrchestrationEventStore from "../persistence/OrchestrationEventStore.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
+
+export const watchFeedFailure = (environmentId: EnvironmentId, cause: OrchestratorMcpFailure) =>
+  new HomeUnavailableError({
+    operation:
+      (/t3_thread_watch_events/i.test(cause.message) &&
+        /unknown|not found|does not exist|no tool|unrecognized|not available/i.test(
+          cause.message,
+        )) ||
+      /answer.*match this version/i.test(cause.message)
+        ? "incompatible_environment"
+        : "read",
+    environmentId,
+    cause,
+  });
 
 export class HomeWatchEvents extends Context.Service<
   HomeWatchEvents,
@@ -110,8 +126,13 @@ const make = Effect.gen(function* () {
         const thread = yield* threads
           .getThreadShell(stored.event.threadId)
           .pipe(Effect.orElseSucceed(() => null));
-        if (thread === null) continue;
-        result.push({ sequence: stored.sequence, threadId: thread.id, title: thread.title, kind });
+        if (thread === null && kind !== "ended") continue;
+        result.push({
+          sequence: stored.sequence,
+          threadId: stored.event.threadId,
+          title: thread?.title ?? "",
+          kind,
+        });
       }
       return {
         sequence: history.length === 100 ? history.at(-1)!.sequence : through,

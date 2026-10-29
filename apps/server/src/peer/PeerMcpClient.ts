@@ -42,6 +42,7 @@ export class PeerMcpClient extends Context.Service<
       readonly arguments: Record<string, unknown>;
       readonly limits: PeerCallLimits;
       readonly homeThreadId?: ThreadId;
+      readonly homeEnvironmentId?: EnvironmentId;
       readonly success: S;
     }) => Effect.Effect<S["Type"], OrchestratorMcpFailure>;
   }
@@ -163,6 +164,9 @@ const make = Effect.gen(function* () {
         ...(input.homeThreadId === undefined
           ? {}
           : { [McpInvocationContext.HOME_THREAD_HEADER]: input.homeThreadId }),
+        ...(input.homeEnvironmentId === undefined
+          ? {}
+          : { [McpInvocationContext.HOME_ENVIRONMENT_HEADER]: input.homeEnvironmentId }),
         [McpInvocationContext.MODE_LIMIT_HEADER]: `${input.limits.runtimeMode}/${input.limits.interactionMode}`,
       };
       const sessionKey = `${input.environmentId} ${resolved.url}`;

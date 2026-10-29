@@ -488,3 +488,44 @@ it.effect.each(["reads", "writes", "starts_threads"])(
     );
   },
 );
+
+it.effect.each(["t3_project_delete", "create_threads", "schedule_task"])(
+  "Home cannot invoke %s in its managed project",
+  (name) => {
+    const home = ThreadId.make("home:current");
+    const toolkit = Toolkit.make(Tool.make(name, probe));
+    return Effect.gen(function* () {
+      const server = yield* McpServer.McpServer;
+      const result = yield* server
+        .callTool({ name, arguments: {} })
+        .pipe(
+          Effect.provideService(McpInvocationContext.McpInvocationContext, threadCaller(home)),
+          Effect.provideService(McpSchema.McpServerClient, mcpClient),
+        );
+      expect(result.isError).toBe(true);
+      expect(result.content[0]).toMatchObject({
+        type: "text",
+        text: expect.stringContaining("capability_denied"),
+      });
+    }).pipe(
+      Effect.provide(
+        McpHttpServer.toolkitRegistration(
+          toolkit,
+          McpToolAccess.toLayer(toolkit, {
+            [name]: McpToolAccess.reads(() => ran),
+          }),
+        ).pipe(
+          Layer.provideMerge(McpServer.McpServer.layer),
+          Layer.provide(
+            Layer.mock(HomeService.HomeService)({ isHome: () => Effect.succeed(true) }),
+          ),
+          Layer.provide(
+            Layer.mock(ThreadManagement.ThreadManagementService)({
+              getThreadShell: () => Effect.succeed(liveThreadShell(home)),
+            }),
+          ),
+        ),
+      ),
+    );
+  },
+);
