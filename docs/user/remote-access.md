@@ -34,7 +34,7 @@ disconnect an otherwise healthy conversation.
 
 ## Name this host
 
-In the web or desktop app, open Settings → Connections and edit Host name. Connected clients and
+In the web or desktop app, open Settings → Access and edit Host name. Connected clients and
 T3 Connect use the new name without a server restart.
 
 To rename another T3 Connect host, open its row menu in Settings → Connections and choose Host

@@ -279,14 +279,16 @@ export const make = Effect.gen(function* () {
     },
   };
   // Relay publishing can change while the server is running; read it for every descriptor.
-  const getDescriptorForSettings = (settings: { readonly environmentLabel: string }) =>
-    readAgentActivityPublishingActive(secrets).pipe(
-      Effect.map((agentActivityPublishing): ExecutionEnvironmentDescriptor => ({
-        ...defaultDescriptor,
-        label: settings.environmentLabel || defaultLabel,
-        capabilities: { ...defaultDescriptor.capabilities, agentActivityPublishing },
-      })),
-    );
+  const getDescriptorForSettings = Effect.fn("ServerEnvironment.getDescriptorForSettings")(
+    (settings: { readonly environmentLabel: string }) =>
+      readAgentActivityPublishingActive(secrets).pipe(
+        Effect.map((agentActivityPublishing): ExecutionEnvironmentDescriptor => ({
+          ...defaultDescriptor,
+          label: settings.environmentLabel || defaultLabel,
+          capabilities: { ...defaultDescriptor.capabilities, agentActivityPublishing },
+        })),
+      ),
+  );
 
   return ServerEnvironment.of({
     getEnvironmentId: Effect.succeed(environmentId),

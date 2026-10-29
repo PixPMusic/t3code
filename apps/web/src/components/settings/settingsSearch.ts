@@ -1027,7 +1027,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "environment-label",
     title: "Host name",
-    to: "/settings/connections",
+    to: "/settings/access",
     targetId: "connections-environment",
     searchTerms: ["rename environment machine name hostname t3 connect"],
   },
