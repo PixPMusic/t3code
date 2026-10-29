@@ -32,19 +32,6 @@ connection. Pull request diffs and provider settings keep working after the
 previous credential expires. A failed renewal affects that request; it does not
 disconnect an otherwise healthy conversation.
 
-## Name this host
-
-In the web or desktop app, open Settings → Access and edit Host name. Connected clients and
-T3 Connect use the new name without a server restart.
-
-To rename another T3 Connect host, open its row menu in Settings → Connections and choose Host
-name. On mobile, open Settings → Environments, choose a T3 Connect host, and edit Host name.
-You need permission to update that environment’s settings. Labels on manually paired
-connections remain local to your device.
-
-Clear the field to return to the name detected from the host operating system. This setting changes
-the environment name shown by T3 Code; it does not change the machine's operating-system hostname.
-
 ### More machines with T3 Chat
 
 Each T3 Connect account can link up to 3 machines. Phones and browsers do not
@@ -56,6 +43,20 @@ To link T3 Chat, open your account menu on the web or desktop app, go to
 opens and approve. The new limit applies the next time you add a machine. If you
 cancel or downgrade T3 Chat, machines you already linked stay linked, but you
 cannot add more until you are under the limit again.
+
+## Name this host
+
+In the web or desktop app, open **Settings → Sharing & access** and edit
+**Host name**. Connected clients and T3 Connect use the new name without a server restart.
+
+To rename another T3 Connect host, open its row menu in **Settings → Environments**
+and choose **Host name**. On mobile, open **Settings → Environments**, choose a T3 Connect
+host, and edit **Host name**.
+You need permission to update that environment’s settings. Labels on manually paired
+connections remain local to your device.
+
+Clear the field to return to the name detected from the host operating system. This setting changes
+the environment name shown by T3 Code; it does not change the machine's operating-system hostname.
 
 ## Pair over a LAN or private network
 

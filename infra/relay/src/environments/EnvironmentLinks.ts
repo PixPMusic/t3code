@@ -213,7 +213,8 @@ const make = Effect.gen(function* () {
       .update(relayEnvironmentLinks)
       .set({
         environmentLabel: input.label,
-        updatedAt: input.checkedAt,
+        // Link updatedAt also determines tunnel withdrawal; a rename must not advance it.
+        labelUpdatedAt: input.checkedAt,
       })
       .where(
         and(
@@ -222,6 +223,10 @@ const make = Effect.gen(function* () {
           eq(relayEnvironmentLinks.environmentPublicKey, input.environmentPublicKey),
           isNull(relayEnvironmentLinks.revokedAt),
           lte(relayEnvironmentLinks.updatedAt, input.checkedAt),
+          or(
+            isNull(relayEnvironmentLinks.labelUpdatedAt),
+            lte(relayEnvironmentLinks.labelUpdatedAt, input.checkedAt),
+          ),
         ),
       )
       .pipe(
@@ -259,6 +264,7 @@ const make = Effect.gen(function* () {
           environmentId,
           holdWebhooksWhileOffline: inheritedHoldWebhooks,
           environmentLabel: proof.descriptor.label,
+          labelUpdatedAt: now,
           environmentPublicKey: proof.environmentPublicKey,
           endpointHttpBaseUrl: endpoint.httpBaseUrl,
           endpointWsBaseUrl: endpoint.wsBaseUrl,
@@ -276,6 +282,7 @@ const make = Effect.gen(function* () {
           set: {
             environmentPublicKey: proof.environmentPublicKey,
             environmentLabel: proof.descriptor.label,
+            labelUpdatedAt: now,
             endpointHttpBaseUrl: endpoint.httpBaseUrl,
             endpointWsBaseUrl: endpoint.wsBaseUrl,
             endpointProviderKind: endpoint.providerKind,

@@ -47,7 +47,7 @@ it.effect("sends the effective host name to T3 Connect only when it changes", ()
           } as never),
       }),
       Layer.mock(ServerSettingsService.ServerSettingsService)({
-        getSettings: Effect.succeed(settingsWith("")),
+        getEnvironmentLabel: Effect.succeed(""),
         subscribeChanges: PubSub.subscribe(changes).pipe(Effect.map(Stream.fromSubscription)),
       }),
     );

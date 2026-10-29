@@ -17,6 +17,7 @@ import {
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Duration from "effect/Duration";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import * as RpcTest from "effect/rpc/RpcTest";
@@ -173,6 +174,25 @@ describe("settings mutation authorization", () => {
       });
       yield* allowed[WS_METHODS.serverUpdateSettings]({ patch: { environmentLabel: "" } });
       expect(renamed).toEqual(["Studio Mac", ""]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("authorizes decoded duration settings without decoding them as wire numbers", () =>
+    Effect.gen(function* () {
+      const received: Array<number> = [];
+      const handlers = group.toLayerHandler(WS_METHODS.serverUpdateSettings, (input) =>
+        Effect.sync(() => {
+          received.push(Duration.toMillis(input.patch.automaticGitFetchInterval!));
+          return DEFAULT_SERVER_SETTINGS;
+        }),
+      );
+      const client = yield* RpcTest.makeClient(group).pipe(
+        Effect.provide(Layer.mergeAll(handlers, RpcAuthorization.layer([AuthSettingsWriteScope]))),
+      );
+      yield* client[WS_METHODS.serverUpdateSettings]({
+        patch: { automaticGitFetchInterval: Duration.seconds(30) },
+      });
+      expect(received).toEqual([30_000]);
     }).pipe(Effect.scoped),
   );
 

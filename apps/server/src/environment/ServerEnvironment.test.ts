@@ -6,7 +6,6 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
 
 import { DEFAULT_SIGNAL_EXPORT } from "@t3tools/shared/observability";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -314,57 +313,6 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
     }),
   );
 
-  it.effect("recovers label read failures before and after a successful read", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const baseDir = yield* fs.makeTempDirectoryScoped();
-      const failing = yield* Ref.make(true);
-      const settings = Layer.effect(
-        ServerSettings.ServerSettingsService,
-        Effect.gen(function* () {
-          const current = yield* ServerSettings.ServerSettingsService;
-          return {
-            ...current,
-            getEnvironmentLabel: Ref.get(failing).pipe(
-              Effect.flatMap((fail) =>
-                fail
-                  ? Effect.fail(
-                      new ServerSettingsError({
-                        settingsPath: "test settings",
-                        operation: "read-file",
-                      }),
-                    )
-                  : current.getEnvironmentLabel,
-              ),
-            ),
-          };
-        }),
-      ).pipe(Layer.provide(ServerSettings.layerTest({ environmentLabel: "Studio Mac" })));
-      yield* Effect.gen(function* () {
-        const environment = yield* ServerEnvironment.ServerEnvironment;
-        const service = yield* ServerSettings.ServerSettingsService;
-        const initial = yield* environment.getDescriptor;
-        yield* Ref.set(failing, false);
-        expect((yield* environment.getDescriptor).label).toBe("Studio Mac");
-        yield* Ref.set(failing, true);
-        expect((yield* environment.getDescriptor).label).toBe("Studio Mac");
-        yield* Ref.set(failing, false);
-        yield* service.updateSettings({ environmentLabel: "" });
-        expect((yield* environment.getDescriptor).label).toBe(initial.label);
-        yield* Ref.set(failing, true);
-        expect((yield* environment.getDescriptor).label).toBe(initial.label);
-      }).pipe(
-        Effect.provide(
-          ServerEnvironment.layer.pipe(
-            Layer.provideMerge(settings),
-            Layer.provide(layerEmptySecretStore),
-            Layer.provide(ServerConfig.layerTest(process.cwd(), baseDir)),
-          ),
-        ),
-      );
-    }),
-  );
-
   it.effect("applies configured environment label updates without a restart", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
@@ -386,6 +334,7 @@ it.layer(NodeServices.layer)("ServerEnvironmentLive", (it) => {
         });
 
         expect(previousSnapshot).toEqual(renamed);
+        expect(yield* serverEnvironment.getDescriptor).toEqual(initial);
         expect(renamed).toEqual({ ...initial, label: "Studio Mac" });
         expect(reset).toEqual(initial);
       }).pipe(Effect.provide(layerServerEnvironment(baseDir)));

@@ -22,7 +22,6 @@ import { resolveServiceLauncherMode } from "../cloud/serviceLauncherClient.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import * as Ref from "effect/Ref";
 import { resolveServerEnvironmentLabel } from "./ServerEnvironmentLabel.ts";
 import { detectServerEnvironmentMachineKind } from "./ServerEnvironmentMachine.ts";
 
@@ -279,7 +278,6 @@ export const make = Effect.gen(function* () {
       linkFence: true,
     },
   };
-  const lastEnvironmentLabel = yield* Ref.make("");
   // Relay publishing can change while the server is running; read it for every descriptor.
   const getDescriptorForSettings = Effect.fn("ServerEnvironment.getDescriptorForSettings")(
     (settings: { readonly environmentLabel: string }) =>
@@ -295,8 +293,6 @@ export const make = Effect.gen(function* () {
   return ServerEnvironment.of({
     getEnvironmentId: Effect.succeed(environmentId),
     getDescriptor: serverSettings.getEnvironmentLabel.pipe(
-      Effect.tap((label) => Ref.set(lastEnvironmentLabel, label)),
-      Effect.catch(() => Ref.get(lastEnvironmentLabel)),
       Effect.flatMap((environmentLabel) => getDescriptorForSettings({ environmentLabel })),
     ),
     getDescriptorForSettings,

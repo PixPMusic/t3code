@@ -76,8 +76,8 @@ const decodePrepareThread = Schema.decodeUnknownSync(GitPreparePullRequestThread
 const decodeStackedAction = Schema.decodeUnknownSync(GitRunStackedActionInput);
 const decodeSettingsUpdate = Schema.decodeUnknownSync(
   Schema.Struct({
-    patch: ServerSettingsPatch,
-    providerInstanceMutation: Schema.optionalKey(ProviderInstanceMutation),
+    patch: Schema.toType(ServerSettingsPatch),
+    providerInstanceMutation: Schema.optionalKey(Schema.toType(ProviderInstanceMutation)),
   }),
 );
 

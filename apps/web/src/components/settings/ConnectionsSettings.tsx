@@ -289,7 +289,9 @@ export function ConnectionsSettings({ view }: { readonly view: "environments" | 
   const canManageRelay = useEnvironmentScope(primaryEnvironmentId, AuthRelayWriteScope);
   const canManageLocalBackend = !isLocalEnvironmentDisabled() && canMaintain;
   const canEditEnvironmentLabel = useAtomValue(
-    serverEnvironment.updateSettings.permissionAtom(primaryEnvironmentId),
+    serverEnvironment.updateSettings.permissionAtom(primaryEnvironmentId, {
+      patch: { environmentLabel },
+    }),
   );
   const showsAccess = view === "access";
   const authAccessChanges = useEnvironmentQuery(
@@ -658,8 +660,6 @@ export function ConnectionsSettings({ view }: { readonly view: "environments" | 
           ? "Shown to connected clients and in T3 Connect. Clear it to use this computer’s name."
           : "Update this environment to set its host name."
       }
-      serverScoped
-      settingKeys={["environmentLabel"]}
       control={
         <div className="w-full sm:w-64">
           <DraftInput

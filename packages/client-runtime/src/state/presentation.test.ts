@@ -15,6 +15,11 @@ import {
   createEnvironmentSummaryAtoms,
 } from "./presentation.ts";
 import type { EnvironmentCatalogState } from "./connections.ts";
+import {
+  EMPTY_RELAY_ENVIRONMENT_DISCOVERY_STATE,
+  type RelayDiscoveredEnvironment,
+  type RelayEnvironmentDiscoveryState,
+} from "../relay/discovery.ts";
 
 const FIRST = EnvironmentId.make("first");
 const SECOND = EnvironmentId.make("second");
@@ -46,19 +51,111 @@ function harness() {
   });
   const configs = Atom.family((_id: EnvironmentId) => Atom.make<ServerConfig | null>(config()));
   const state = Atom.make(AsyncResult.success(AVAILABLE_CONNECTION_STATE));
+  const discovery = Atom.make<RelayEnvironmentDiscoveryState>(
+    EMPTY_RELAY_ENVIRONMENT_DISCOVERY_STATE,
+  );
   const full = createEnvironmentPresentationAtoms({
     catalogValueAtom: catalog,
     stateAtom: () => state,
     serverConfigValueAtom: configs,
+    relayDiscoveryValueAtom: discovery,
   });
   const summaries = createEnvironmentSummaryAtoms({
     catalogValueAtom: catalog,
     presentationAtom: full.presentationAtom,
   });
-  return { catalog, configs, state, full, ...summaries, registry: AtomRegistry.make() };
+  return { catalog, configs, state, discovery, full, ...summaries, registry: AtomRegistry.make() };
 }
 
 describe("environment summary subscriptions", () => {
+  it("uses discovery names for offline Connect hosts without changing manual aliases or saved routes", () => {
+    const h = harness();
+    const relay = new RelayConnectionTarget({ environmentId: FIRST, label: "Old saved host" });
+    const manual = new BearerConnectionTarget({
+      environmentId: SECOND,
+      label: "My alias",
+      connectionId: "direct",
+    });
+    const catalog: EnvironmentCatalogState = {
+      isReady: true,
+      entries: new Map<EnvironmentId, ConnectionCatalogEntry>([
+        [FIRST, { target: relay, profile: Option.none(), enabled: true }],
+        [
+          SECOND,
+          {
+            target: manual,
+            profile: Option.none(),
+            enabled: true,
+            alternateRoutes: [
+              {
+                target: new RelayConnectionTarget({
+                  environmentId: SECOND,
+                  label: "Other shared host",
+                }),
+                profile: Option.none(),
+              },
+            ],
+          },
+        ],
+      ]),
+    };
+    const discovered = (
+      environmentId: EnvironmentId,
+      label: string,
+    ): RelayDiscoveredEnvironment => ({
+      environment: {
+        environmentId,
+        label,
+        linkedAt: "2026-10-01T00:00:00.000Z",
+        endpoint: {
+          httpBaseUrl: "https://relay.example.test",
+          wsBaseUrl: "wss://relay.example.test",
+          providerKind: "cloudflare_tunnel",
+        },
+      },
+      availability: "offline",
+      status: Option.none(),
+      error: Option.none(),
+    });
+    const publishDiscovery = (label: string) =>
+      h.registry.set(h.discovery, {
+        ...EMPTY_RELAY_ENVIRONMENT_DISCOVERY_STATE,
+        environments: new Map([
+          [FIRST, discovered(FIRST, label)],
+          [SECOND, discovered(SECOND, "New shared name")],
+        ]),
+      });
+    try {
+      h.registry.set(h.catalog, catalog);
+      h.registry.set(h.configs(FIRST), null);
+      h.registry.set(h.configs(SECOND), null);
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Old saved host");
+      const ids = h.registry.get(h.environmentIdsAtom);
+      publishDiscovery("Studio Mac");
+      expect(h.registry.get(h.identitiesAtom).map(({ label }) => label)).toEqual([
+        "Studio Mac",
+        "My alias",
+      ]);
+      expect(
+        h.registry.get(h.environmentsAtom).map(({ environmentLabel }) => environmentLabel),
+      ).toEqual(["Studio Mac", "My alias"]);
+      expect(h.registry.get(h.catalog)).toBe(catalog);
+      expect(h.registry.get(h.environmentIdsAtom)).toBe(ids);
+      const shown = h.registry.get(h.full.presentationAtom(FIRST));
+      publishDiscovery("Studio Mac");
+      expect(h.registry.get(h.full.presentationAtom(FIRST))).toBe(shown);
+      h.registry.set(h.configs(FIRST), {
+        ...config(),
+        environment: { ...config().environment, label: "Live socket name" },
+      });
+      publishDiscovery("Detected Mac");
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Live socket name");
+      h.registry.set(h.configs(FIRST), null);
+      expect(h.registry.get(h.identitiesAtom)[0]?.label).toBe("Detected Mac");
+    } finally {
+      h.registry.dispose();
+    }
+  });
   it("renames a Connect host while leaving a manual alias and its subscribers unchanged", () => {
     const h = harness();
     const manualTarget = new BearerConnectionTarget({
