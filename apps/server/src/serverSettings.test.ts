@@ -94,6 +94,53 @@ const recordProviderUsage = (provider: string, instanceId: string | null = provi
   });
 
 it.layer(NodeServices.layer)("server settings", (it) => {
+  it.effect("reads the configured host label without materializing provider secrets", () => {
+    const cause = new ServerSecretStore.SecretStoreReadError({
+      resource: "provider secret",
+      cause: PlatformError.systemError({
+        _tag: "PermissionDenied",
+        module: "FileSystem",
+        method: "readFile",
+        pathOrDescriptor: "provider secret",
+        description: "Secret backend unavailable.",
+      }),
+    });
+    const layerSettings = ServerSettingsModule.layer.pipe(
+      Layer.provide(layerFailingSecretStore(cause)),
+      Layer.provideMerge(Layer.fresh(SqlitePersistence.layerMemory)),
+      Layer.provideMerge(
+        Layer.fresh(
+          ServerConfig.layerTest(process.cwd(), {
+            prefix: "t3-host-label-secret-test-",
+          }),
+        ),
+      ),
+    );
+    return Effect.gen(function* () {
+      const config = yield* ServerConfig.ServerConfig;
+      const fs = yield* FileSystem.FileSystem;
+      const service = yield* ServerSettingsModule.ServerSettingsService;
+      yield* fs.writeFileString(
+        config.settingsPath,
+        JSON.stringify({
+          environmentLabel: "Studio Mac",
+          providerInstances: {
+            codex: {
+              driver: "codex",
+              environment: [
+                { name: "OPENAI_API_KEY", value: "", sensitive: true, valueRedacted: true },
+              ],
+            },
+          },
+        }),
+      );
+      assert.equal(yield* service.getEnvironmentLabel, "Studio Mac");
+      const error = yield* service.getSettings.pipe(Effect.flip);
+      assert.equal(error.operation, "read-secret");
+      assert.equal(yield* service.getEnvironmentLabel, "Studio Mac");
+    }).pipe(Effect.provide(layerSettings));
+  });
+
   it.effect("serializes concurrent model preference edits without cancelling duplicate adds", () =>
     Effect.gen(function* () {
       const service = yield* ServerSettingsModule.ServerSettingsService;
