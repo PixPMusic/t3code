@@ -24,22 +24,33 @@ const levels = [
 function EffortMenu({
   options = levels,
   prompt = "",
+  thinking = false,
+  serviceTiers = 2,
 }: {
   options?: typeof levels;
   prompt?: string;
+  thinking?: boolean;
+  serviceTiers?: 2 | 3;
 }) {
   const [modelOptions, setModelOptions] = useState<
     ReadonlyArray<ProviderOptionSelection> | undefined
-  >([{ id: "serviceTier", value: "fast" }]);
+  >([...(thinking ? [{ id: "thinking", value: true }] : []), { id: "serviceTier", value: "fast" }]);
   const descriptors: ReadonlyArray<ProviderOptionDescriptor> = [
-    {
-      id: "reasoningEffort",
-      label: "Reasoning",
-      type: "select",
-      currentValue: "medium",
-      options,
-      promptInjectedValues: ["ultrathink"],
-    },
+    thinking
+      ? {
+          id: "thinking",
+          label: "Thinking",
+          type: "boolean",
+          currentValue: true,
+        }
+      : {
+          id: "reasoningEffort",
+          label: "Reasoning",
+          type: "select",
+          currentValue: "medium",
+          options,
+          promptInjectedValues: ["ultrathink"],
+        },
     {
       id: "serviceTier",
       label: "Service Tier",
@@ -48,6 +59,7 @@ function EffortMenu({
       options: [
         { id: "standard", label: "Standard" },
         { id: "fast", label: "Fast" },
+        ...(serviceTiers === 3 ? [{ id: "ultrafast", label: "Ultrafast" }] : []),
       ],
     },
   ];
@@ -114,12 +126,66 @@ it.each([2, 6])(
     await expect.element(slider).toHaveValue(String(count - 1));
     await userEvent.keyboard("{ArrowDown}");
     await expect.element(page.getByRole("menuitemradio", { name: "Standard" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowRight}");
+    await expect.element(page.getByRole("menuitemradio", { name: "Fast" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowLeft}");
     await userEvent.keyboard("{ArrowUp}");
     await expect.element(slider).toHaveFocus();
     await userEvent.keyboard("{Escape}");
     await expect.element(screen.getByRole("button", { name: "Effort" })).toHaveFocus();
   },
 );
+
+it.each([2, 3] as const)(
+  "changes between %i service tiers without closing the menu or losing reasoning",
+  async (count) => {
+    // The menu has no routing behavior.
+    await using screen = await render(<EffortMenu serviceTiers={count} />, {
+      router: false,
+    });
+    await userEvent.tab();
+    await userEvent.keyboard("{ArrowDown}");
+    await expect.element(page.getByRole("slider", { name: "Reasoning" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowDown}");
+    await expect.element(page.getByRole("menuitemradio", { name: "Standard" })).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await expect.element(page.getByRole("menuitemradio", { name: "Standard" })).toBeVisible();
+    await expect.element(page.getByRole("menuitemradio", { name: "Standard" })).toHaveFocus();
+    await userEvent.keyboard(count === 3 ? "{ArrowRight}{ArrowRight}" : "{ArrowRight}");
+    const selectedTier = page.getByRole("menuitemradio", {
+      name: count === 3 ? "Ultrafast" : "Fast",
+    });
+    await expect.element(selectedTier).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await expect.element(selectedTier).toHaveAttribute("aria-checked", "true");
+    await expect.element(screen.getByRole("status")).toHaveTextContent(
+      JSON.stringify([
+        { id: "reasoningEffort", value: "medium" },
+        { id: "serviceTier", value: count === 3 ? "ultrafast" : "fast" },
+      ]),
+    );
+  },
+);
+
+it("toggles boolean Thinking both ways while preserving Service Tier", async () => {
+  // The menu has no routing behavior.
+  await using screen = await render(<EffortMenu thinking />, { router: false });
+  await userEvent.tab();
+  await userEvent.keyboard("{ArrowDown}");
+  const toggle = page.getByRole("menuitemcheckbox", { name: "Thinking" });
+  await expect.element(toggle).toHaveFocus();
+  await expect.element(toggle).toHaveAttribute("aria-checked", "true");
+  await userEvent.keyboard("{Enter}");
+  await expect.element(toggle).toHaveAttribute("aria-checked", "false");
+  await expect.element(screen.getByRole("status")).toHaveTextContent(
+    JSON.stringify([
+      { id: "thinking", value: false },
+      { id: "serviceTier", value: "fast" },
+    ]),
+  );
+  await userEvent.click(toggle);
+  await expect.element(toggle).toHaveAttribute("aria-checked", "true");
+});
 
 it("keeps prompt-controlled Ultrathink disabled", async () => {
   const options = [...levels, { id: "ultrathink", label: "Ultrathink" }];

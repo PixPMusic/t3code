@@ -29,6 +29,7 @@ import { GaugeIcon, ZapIcon } from "lucide-react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import {
   Menu,
+  MenuCheckboxItem,
   MenuGroup,
   MenuPopup,
   MenuRadioGroup,
@@ -45,6 +46,7 @@ import { ComposerControl, ComposerControlIcon, type ComposerControlSize } from "
 import { focusRequestedPermission, useComposerMenuProps } from "./composerEventScope";
 import { useComposerMenuState } from "./useComposerMenuState";
 import { EffortGlyph, resolveEffortGlyph } from "./EffortGlyph";
+import { ComposerMenuSegment, ComposerMenuSegments } from "./ComposerMenuSegments";
 
 type ProviderOptions = ReadonlyArray<ProviderOptionSelection>;
 
@@ -137,13 +139,23 @@ function ReasoningSlider({
           {option?.isDefault ? <DefaultBadge /> : null}
         </span>
       </div>
-      <div className="relative flex h-6 items-center">
+      <div
+        className={cn(
+          "relative flex h-7 items-center rounded-full bg-input/55 px-1",
+          disabled && "opacity-64",
+        )}
+      >
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-2 flex justify-between"
+          className="pointer-events-none absolute inset-y-1 left-1 rounded-full bg-ring/40"
+          style={{ width: `calc(1rem + (100% - 1.5rem) * ${index / (options.length - 1)})` }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-3 flex justify-between"
         >
           {options.map((choice) => (
-            <span key={choice.id} className="z-1 h-2 w-px bg-foreground/40" />
+            <span key={choice.id} className="z-1 size-1 rounded-full bg-foreground/40" />
           ))}
         </div>
         <MenuPrimitive.Item
@@ -172,7 +184,7 @@ function ReasoningSlider({
                   event.stopPropagation();
                 }
               }}
-              className="relative m-0 h-6 w-full cursor-pointer appearance-none rounded-sm bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-64 [&::-moz-range-thumb]:relative [&::-moz-range-thumb]:z-2 [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-foreground/15 [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-foreground/15 [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-2 [&::-webkit-slider-thumb]:-mt-1.5 [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground"
+              className="relative m-0 h-7 w-full cursor-pointer appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-not-allowed [&::-moz-range-thumb]:relative [&::-moz-range-thumb]:z-2 [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground [&::-moz-range-track]:h-7 [&::-moz-range-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-7 [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-2 [&::-webkit-slider-thumb]:mt-1.5 [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground"
             />
           )}
         />
@@ -503,103 +515,167 @@ export const TraitsMenuContent = memo(function TraitsMenuContentImpl({
 
   return (
     <>
-      {selectDescriptors.map((descriptor, index) => {
-        const selectedValue =
-          ultrathinkPromptControlled && descriptor.id === primarySelectDescriptor?.id
-            ? "ultrathink"
-            : (getDescriptorStringValue(descriptor, modelSelection, reportedModelSelection) ?? "");
-        const useSlider =
-          isComposerOwned &&
-          REASONING_SELECT_DESCRIPTOR_IDS.has(descriptor.id) &&
-          descriptor.options.length > 1 &&
-          descriptor.options.some((option) => option.id === selectedValue);
-
-        return (
-          <div key={descriptor.id}>
-            {index > 0 ? <MenuDivider /> : null}
-            <MenuGroup>
-              {useSlider ? null : (
-                <div className="px-2 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
-                  {descriptor.label}
+      {(isComposerOwned ? descriptors : [...selectDescriptors, ...booleanDescriptors]).map(
+        (descriptor, index) => {
+          if (descriptor.type === "boolean") {
+            if (isComposerOwned) {
+              return (
+                <div key={descriptor.id}>
+                  {index > 0 ? <MenuDivider /> : null}
+                  <MenuCheckboxItem
+                    variant="switch"
+                    checked={descriptor.currentValue === true}
+                    closeOnClick={false}
+                    onCheckedChange={(checked) =>
+                      updateDescriptors(
+                        replaceDescriptorCurrentValue(descriptors, descriptor.id, checked),
+                      )
+                    }
+                  >
+                    {descriptor.label}
+                  </MenuCheckboxItem>
                 </div>
-              )}
-              {ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id ? (
-                <div className="px-2 pb-1.5 text-muted-foreground/80 text-xs">
-                  Your prompt contains &quot;ultrathink&quot; in the text. Remove it to change this
-                  option.
-                </div>
-              ) : null}
-              {useSlider ? (
-                <ReasoningSlider
-                  descriptor={descriptor}
-                  value={selectedValue}
-                  disabled={ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id}
-                  onValueChange={(value) => handleSelectChange(descriptor, value)}
-                />
-              ) : (
-                <MenuRadioGroup
-                  value={selectedValue}
-                  onValueChange={(value) => handleSelectChange(descriptor, value)}
-                >
-                  {selectableProviderOptionChoices(descriptor).map((option) => (
-                    <MenuRadioItem
-                      key={option.id}
-                      value={option.id}
-                      hideIndicator
-                      closeOnClick
-                      disabled={
-                        ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id
-                      }
-                    >
-                      <span className="flex w-full min-w-0 flex-col">
-                        <span className="flex min-w-0 items-center gap-1">
-                          <span className="min-w-0 truncate">{option.label}</span>
-                          {option.isDefault ? <DefaultBadge /> : null}
+              );
+            }
+            const selectedValue = descriptor.currentValue === true ? "on" : "off";
+            return (
+              <div key={descriptor.id}>
+                {index > 0 ? <MenuDivider /> : null}
+                <MenuGroup>
+                  <div className="px-2 py-1.5 font-medium text-muted-foreground text-xs">
+                    {descriptor.label}
+                  </div>
+                  <MenuRadioGroup
+                    value={selectedValue}
+                    onValueChange={(value) => {
+                      updateDescriptors(
+                        replaceDescriptorCurrentValue(descriptors, descriptor.id, value === "on"),
+                      );
+                    }}
+                  >
+                    {(["on", "off"] as const).map((value) => (
+                      <MenuRadioItem key={value} value={value} hideIndicator closeOnClick>
+                        <span className="flex w-full min-w-0 items-center justify-between gap-3">
+                          <span>{value === "on" ? "On" : "Off"}</span>
                         </span>
-                        {option.description ? (
-                          <span className="max-w-56 text-pretty text-muted-foreground/80 text-xs">
-                            {option.description}
-                          </span>
-                        ) : null}
-                      </span>
-                    </MenuRadioItem>
-                  ))}
-                </MenuRadioGroup>
-              )}
-            </MenuGroup>
-          </div>
-        );
-      })}
-      {booleanDescriptors.map((descriptor, index) => {
-        const selectedValue = descriptor.currentValue === true ? "on" : "off";
-
-        return (
-          <div key={descriptor.id}>
-            {index > 0 || selectDescriptors.length > 0 ? <MenuDivider /> : null}
-            <MenuGroup>
-              <div className="px-2 py-1.5 font-medium text-muted-foreground text-xs">
-                {descriptor.label}
+                      </MenuRadioItem>
+                    ))}
+                  </MenuRadioGroup>
+                </MenuGroup>
               </div>
-              <MenuRadioGroup
-                value={selectedValue}
-                onValueChange={(value) => {
-                  updateDescriptors(
-                    replaceDescriptorCurrentValue(descriptors, descriptor.id, value === "on"),
-                  );
-                }}
-              >
-                {(["on", "off"] as const).map((value) => (
-                  <MenuRadioItem key={value} value={value} hideIndicator closeOnClick>
-                    <span className="flex w-full min-w-0 items-center justify-between gap-3">
-                      <span>{value === "on" ? "On" : "Off"}</span>
+            );
+          }
+
+          const selectedValue =
+            ultrathinkPromptControlled && descriptor.id === primarySelectDescriptor?.id
+              ? "ultrathink"
+              : (getDescriptorStringValue(descriptor, modelSelection, reportedModelSelection) ??
+                "");
+          const useSlider =
+            isComposerOwned &&
+            REASONING_SELECT_DESCRIPTOR_IDS.has(descriptor.id) &&
+            descriptor.options.length > 1 &&
+            descriptor.options.some((option) => option.id === selectedValue);
+
+          if (
+            isComposerOwned &&
+            descriptor.id === "serviceTier" &&
+            descriptor.options.length >= 2 &&
+            descriptor.options.length <= 3
+          ) {
+            const option = descriptor.options.find((choice) => choice.id === selectedValue);
+            return (
+              <div key={descriptor.id}>
+                {index > 0 ? <MenuDivider /> : null}
+                <div className="grid gap-1.5 px-2 py-1.5">
+                  <div className="flex min-h-5 items-center justify-between gap-3">
+                    <span className="font-medium text-muted-foreground text-xs">
+                      {descriptor.label}
                     </span>
-                  </MenuRadioItem>
-                ))}
-              </MenuRadioGroup>
-            </MenuGroup>
-          </div>
-        );
-      })}
+                    <span className="flex items-center gap-1 text-sm">
+                      <span>{option?.label ?? selectedValue}</span>
+                      {option?.isDefault ? <DefaultBadge /> : null}
+                    </span>
+                  </div>
+                  <ComposerMenuSegments
+                    aria-label={descriptor.label}
+                    value={selectedValue}
+                    onValueChange={(value) => handleSelectChange(descriptor, value)}
+                  >
+                    {descriptor.options.map((choice) => (
+                      <ComposerMenuSegment
+                        key={choice.id}
+                        value={choice.id}
+                        label={choice.label}
+                        description={choice.description}
+                        closeOnClick={false}
+                      >
+                        {choice.label}
+                      </ComposerMenuSegment>
+                    ))}
+                  </ComposerMenuSegments>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div key={descriptor.id}>
+              {index > 0 ? <MenuDivider /> : null}
+              <MenuGroup>
+                {useSlider ? null : (
+                  <div className="px-2 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
+                    {descriptor.label}
+                  </div>
+                )}
+                {ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id ? (
+                  <div className="px-2 pb-1.5 text-muted-foreground/80 text-xs">
+                    Your prompt contains &quot;ultrathink&quot; in the text. Remove it to change
+                    this option.
+                  </div>
+                ) : null}
+                {useSlider ? (
+                  <ReasoningSlider
+                    descriptor={descriptor}
+                    value={selectedValue}
+                    disabled={ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id}
+                    onValueChange={(value) => handleSelectChange(descriptor, value)}
+                  />
+                ) : (
+                  <MenuRadioGroup
+                    value={selectedValue}
+                    onValueChange={(value) => handleSelectChange(descriptor, value)}
+                  >
+                    {selectableProviderOptionChoices(descriptor).map((option) => (
+                      <MenuRadioItem
+                        key={option.id}
+                        value={option.id}
+                        hideIndicator
+                        closeOnClick
+                        disabled={
+                          ultrathinkInBodyText && descriptor.id === primarySelectDescriptor?.id
+                        }
+                      >
+                        <span className="flex w-full min-w-0 flex-col">
+                          <span className="flex min-w-0 items-center gap-1">
+                            <span className="min-w-0 truncate">{option.label}</span>
+                            {option.isDefault ? <DefaultBadge /> : null}
+                          </span>
+                          {option.description ? (
+                            <span className="max-w-56 text-pretty text-muted-foreground/80 text-xs">
+                              {option.description}
+                            </span>
+                          ) : null}
+                        </span>
+                      </MenuRadioItem>
+                    ))}
+                  </MenuRadioGroup>
+                )}
+              </MenuGroup>
+            </div>
+          );
+        },
+      )}
     </>
   );
 });
