@@ -18,6 +18,9 @@ export function useT3ConnectSignOut() {
   const clerk = useClerk();
   const { session } = useSession();
   const { sessions } = useSessionList();
+  const eligibleSessions =
+    sessions?.filter((session) => session.status === "active" || session.status === "pending") ??
+    [];
   const link = usePrimaryCloudLinkState();
   const unlink = useAtomCommand(unlinkPrimaryEnvironment, { reportFailure: false });
   const pending = useRef(false);
@@ -33,7 +36,7 @@ export function useT3ConnectSignOut() {
         (primary.source === "desktop-managed" ||
           isLoopbackHostname(new URL(primary.target.httpBaseUrl).hostname));
       if (isLocalHost && link.target !== null) {
-        const removedSessions = allSessions ? (sessions ?? []) : session ? [session] : [];
+        const removedSessions = allSessions ? eligibleSessions : session ? [session] : [];
         for (const removedSession of removedSessions) {
           if (removedSession.user === null) continue;
           const token = await settlePromise(() =>
@@ -70,6 +73,6 @@ export function useT3ConnectSignOut() {
   return {
     signOut: () => void signOut(false),
     signOutAll: () => void signOut(true),
-    hasOtherSessions: (sessions?.length ?? 0) > 1,
+    hasOtherSessions: eligibleSessions.length > 1,
   };
 }

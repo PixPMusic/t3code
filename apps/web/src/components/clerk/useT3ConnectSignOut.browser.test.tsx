@@ -9,11 +9,13 @@ import { act, render } from "../../../test/render";
 const state = vi.hoisted(() => ({
   session: null as {
     id: string;
+    status: "active" | "pending" | "ended";
     user: { id: string };
     getToken: () => Promise<string | null>;
   } | null,
   sessions: [] as Array<{
     id: string;
+    status: "active" | "pending" | "ended";
     user: { id: string };
     getToken: () => Promise<string | null>;
   }>,
@@ -84,6 +86,7 @@ function setup() {
   vi.clearAllMocks();
   state.session = {
     id: "session-1",
+    status: "active",
     user: { id: "account-1" },
     getToken: vi.fn(async () => "token-1"),
   };
@@ -113,6 +116,7 @@ function deferred() {
 describe("T3 Connect sign-out", () => {
   it("keeps the account signed in until its local host has been unlinked", async () => {
     setup();
+    state.sessions.push({ ...state.session!, id: "ended-session", status: "ended" });
     const unlink = deferred();
     const started = deferred();
     state.unlink.mockImplementation(async () => {
@@ -125,6 +129,9 @@ describe("T3 Connect sign-out", () => {
     await using screen = await render(<SignOutActions />, { router: false });
     await userEvent.click(screen.getByRole("button", { name: "Sign out", exact: true }));
     await started.promise;
+    await expect
+      .element(screen.getByRole("button", { name: "Sign out all" }))
+      .not.toBeInTheDocument();
 
     expect(state.session?.id).toBe("session-1");
     expect(state.linked).toBe(true);
@@ -198,10 +205,13 @@ describe("T3 Connect sign-out", () => {
     setup();
     state.sessions.push({
       id: "session-2",
+      status: "pending",
       user: { id: "account-2" },
       getToken: async () => "token-2",
     });
     await using screen = await render(<SignOutActions />, { router: false });
+    state.sessions.push({ ...state.session!, id: "ended-session", status: "ended" });
+    await screen.rerender(<SignOutActions />);
     await userEvent.click(screen.getByRole("button", { name: "Sign out all" }));
 
     await vi.waitFor(() => expect(state.session).toBeNull());
@@ -215,7 +225,12 @@ describe("T3 Connect sign-out", () => {
   it("does not unlink on account switching, signed-out startup, or unmount", async () => {
     setup();
     await using screen = await render(<SignOutActions />, { router: false });
-    state.session = { id: "session-2", user: { id: "account-2" }, getToken: async () => "token-2" };
+    state.session = {
+      id: "session-2",
+      status: "active",
+      user: { id: "account-2" },
+      getToken: async () => "token-2",
+    };
     await screen.rerender(<SignOutActions />);
     state.session = null;
     await screen.rerender(<SignOutActions />);
