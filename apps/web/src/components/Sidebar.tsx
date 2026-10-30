@@ -1306,9 +1306,17 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           case "new-thread":
             startThreadInProjectFolder(group);
             return;
-          case "copy-path":
-            copyPathToClipboard(group.workspaceRoot, { path: group.workspaceRoot });
+          case "copy-path": {
+            const [entry] = buildSidebarProjectPickerEntries({
+              groups: [group],
+              preferredProjectRef: null,
+              excludedEnvironmentIds,
+            });
+            if (!entry) return;
+            const path = entry.targetProject.workspaceRoot;
+            copyPathToClipboard(path, { path });
             return;
+          }
           case "project-settings":
             openProjectSettings(group);
             return;
