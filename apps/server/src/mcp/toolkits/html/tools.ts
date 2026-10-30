@@ -79,7 +79,7 @@ const HtmlRenderTool = Tool.make(HTML_RENDER_TOOL_NAME, {
       Schema.isMaxLength(HTML_RENDER_MAX_TITLE_LENGTH),
     ),
     height: Schema.Int.annotate({
-      description: `Initial frame height in CSS pixels, ${HTML_RENDER_MIN_HEIGHT} to ${HTML_RENDER_MAX_HEIGHT}. Use the contentHeight from html_preview. Clients replace it with the live content height.`,
+      description: `Initial height in pixels, ${HTML_RENDER_MIN_HEIGHT} to ${HTML_RENDER_MAX_HEIGHT}. Use contentHeight from html_preview; clients fit live content.`,
     }),
   }),
   success: Schema.Struct({
