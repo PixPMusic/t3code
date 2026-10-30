@@ -2,38 +2,41 @@ import { act, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { RegistryContext } from "@effect/atom-react";
 import type { OlderSettledShelfEnvironment } from "@t3tools/client-runtime/state/threads";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { AtomRegistry } from "effect/reactivity";
+import { presentThreadShell } from "@t3tools/client-runtime/state/shell";
+import * as DateTime from "effect/DateTime";
+import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
+import { Atom, AtomRegistry } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 
-import { makeThreadShellFixture } from "../../test-fixtures";
+import { olderSettledThreads } from "../../state/threads";
+import { makeRawThreadShell } from "../../test-fixtures";
 import { useThreadListV2 } from "./useThreadListV2";
 
-vi.mock("../../state/threads", async () => {
-  const { Atom } = await import("effect/reactivity");
-  const shelf = Atom.make<ReadonlyMap<EnvironmentId, OlderSettledShelfEnvironment>>(new Map());
-  return {
-    olderSettledThreads: { shelfAtom: () => shelf },
-    threadFamilies: { mountRows: () => () => {} },
-  };
-});
+vi.mock("../../state/threads", () => ({
+  olderSettledThreads: { shelfAtom: vi.fn() },
+  threadFamilies: { mountRows: () => () => {} },
+}));
 vi.mock("../../state/atom-registry", () => ({ appAtomRegistry: undefined }));
 
 it("reuses a large thread list across tab renders and updates when its inputs change", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   using _globals = { [Symbol.dispose]: () => vi.unstubAllGlobals() };
+  const shelfAtom = Atom.make<ReadonlyMap<EnvironmentId, OlderSettledShelfEnvironment>>(new Map());
+  vi.mocked(olderSettledThreads.shelfAtom).mockReturnValue(shelfAtom);
   const registry = AtomRegistry.make();
   using _registry = { [Symbol.dispose]: () => registry.dispose() };
   const environmentId = EnvironmentId.make("environment-1");
   const otherEnvironmentId = EnvironmentId.make("environment-2");
   const threads = Array.from({ length: 1200 }, (_, index) =>
-    makeThreadShellFixture({
-      id: ThreadId.make(`thread-${index}`),
-      title: `Thread ${index}`,
-      environmentId: index % 2 === 0 ? environmentId : otherEnvironmentId,
-      settledOverride: index < 150 ? "active" : "settled",
-      settledAt: index < 150 ? null : "2026-01-01T00:00:00.000Z",
-    }),
+    presentThreadShell(
+      index % 2 === 0 ? environmentId : otherEnvironmentId,
+      makeRawThreadShell({
+        id: ThreadId.make(`thread-${index}`),
+        title: `Thread ${index}`,
+        settledOverride: index < 150 ? "active" : "settled",
+        settledAt: index < 150 ? null : DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"),
+      }),
+    ),
   );
   const environmentIds = new Set([environmentId, otherEnvironmentId]);
   const input: Parameters<typeof useThreadListV2>[0] = {
@@ -152,4 +155,52 @@ it("reuses a large thread list across tab renders and updates when its inputs ch
   expect(afterClock.layout.items.find((item) => item.thread.id === "thread-0")?.snoozed).toBe(
     false,
   );
+  await act(async () => root.render(<Probe input={input} tab="chats" />));
+  const before = "2026-01-01T12:00:00.000Z";
+  const older = {
+    before,
+    beforeMs: Date.parse(before),
+    counts: new Map([[ProjectId.make("project-test"), 575]]),
+  };
+  await act(async () => {
+    registry.set(
+      shelfAtom,
+      new Map([
+        [
+          environmentId,
+          {
+            older,
+            pages: { reads: [], frontier: { settledAt: before }, status: "pending" },
+          },
+        ],
+      ]),
+    );
+  });
+  const loading = seen.at(-1)!;
+  expect(loading.layout.settledCount).toBe(1100);
+  expect(loading.layout.listedSettledThreads).toHaveLength(0);
+  expect(loading.layout.items).toHaveLength(150);
+  expect(loading.olderSettledShelf.isListed(threads[150]!)).toBe(false);
+  await act(async () => root.render(<Probe input={input} tab="settings" />));
+  expect(seen.at(-1)!.items).toBe(loading.items);
+
+  await act(async () => {
+    registry.set(
+      shelfAtom,
+      new Map([
+        [
+          environmentId,
+          {
+            older,
+            pages: { reads: [], frontier: null, status: "ready" },
+          },
+        ],
+      ]),
+    );
+  });
+  const loaded = seen.at(-1)!;
+  expect(loaded.layout.settledCount).toBe(1100);
+  expect(loaded.layout.items).toHaveLength(160);
+  expect(loaded.olderSettledShelf.isListed(threads[150]!)).toBe(true);
+  expect(loaded.items).not.toBe(loading.items);
 });
