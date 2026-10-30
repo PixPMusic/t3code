@@ -108,6 +108,7 @@ import { selectProjectGroupingSettings } from "@t3tools/client-runtime/state/pro
 import {
   projectGroupsSpanEnvironments,
   resolveSidebarProjectScopeKeys,
+  filterSidebarProjectScopeKeysByEnvironment,
   getSidebarProjectSettingsKey,
   type SidebarProjectSnapshot,
 } from "../sidebarProjectGrouping";
@@ -1194,12 +1195,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     clearSelection();
     setExcludedEnvironmentIds(excludedIds);
     setSearchHighlightKey(null);
-    const visibleScopeKeys = chosenProjectGroups
-      .filter((project) =>
-        project.memberProjectRefs.some((ref) => !excludedIds.has(ref.environmentId)),
-      )
-      .map((project) => project.projectKey);
-    if (visibleScopeKeys.length !== chosenProjectScopeKeys.length) {
+    const visibleScopeKeys = filterSidebarProjectScopeKeysByEnvironment({
+      groups: projectGroups,
+      keys: persistedProjectScopeKeys,
+      settings: projectGroupingSettings,
+      excludedEnvironmentIds: excludedIds,
+    });
+    if (visibleScopeKeys.length !== persistedProjectScopeKeys.length) {
       setPersistedProjectScopeKeys(visibleScopeKeys);
     }
   };
