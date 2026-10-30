@@ -10,6 +10,7 @@ import {
   buildThreadListV2ListItems,
   getThreadListV2OrderedSection,
   threadListInboxReturns,
+  threadListV2LayoutTime,
 } from "./threadListV2";
 import { computeThreadMoveAvailability } from "./threadOrder";
 
@@ -55,6 +56,10 @@ export function useThreadListV2(input: {
   readonly selectedThreadKey: string | null;
 }) {
   const { threads, workingShelfEnabled } = input;
+  const layoutTime = useMemo(
+    () => threadListV2LayoutTime({ threads, now: input.now, searchQuery: input.searchQuery }),
+    [threads, input.now, input.searchQuery],
+  );
   // A thread can stop working when the threads change, or when its exit grace expires.
   const inboxVersion = useSyncExternalStore(
     threadListInboxReturns.subscribe,
@@ -65,9 +70,7 @@ export function useThreadListV2(input: {
     // oxlint-disable-next-line react/memo-dependencies -- the version signals an expired grace
     [threads, workingShelfEnabled, inboxVersion],
   );
-  // Up/down menu availability for every card, computed once per section per
-  // rebuild (see computeThreadMoveAvailability): per-thread planner calls made
-  // list construction quadratic, and this list rebuilds on every minute tick.
+  // Compute move availability per section; per-row planning is quadratic.
   const moveAvailability = useMemo(() => {
     const sectionAvailability = (section: "pinned" | "active") =>
       computeThreadMoveAvailability({
@@ -80,7 +83,7 @@ export function useThreadListV2(input: {
           threads,
           section,
           pendingOrder: input.pendingOrder,
-          now: input.now,
+          now: layoutTime,
           settlementEnvironmentIds: input.settlementEnvironmentIds,
           snoozeEnvironmentIds: input.snoozeEnvironmentIds,
           queuedThreadKeys: input.queuedThreadKeys,
@@ -95,7 +98,7 @@ export function useThreadListV2(input: {
     input.pendingOrder,
     input.pinReorderEnvironmentIds,
     input.activeReorderEnvironmentIds,
-    input.now,
+    layoutTime,
     input.settlementEnvironmentIds,
     input.snoozeEnvironmentIds,
     input.queuedThreadKeys,
@@ -131,7 +134,7 @@ export function useThreadListV2(input: {
         snoozeEnvironmentIds: input.snoozeEnvironmentIds,
         queuedThreadKeys: input.queuedThreadKeys,
         settledLimit: input.settledLimit,
-        now: input.now,
+        now: layoutTime,
         workingShelfEnabled,
         workingShelfExpanded: input.workingShelfExpanded,
         inboxReturnAt: inbox.returnedAt,
@@ -163,7 +166,7 @@ export function useThreadListV2(input: {
       input.snoozeEnvironmentIds,
       input.queuedThreadKeys,
       input.settledLimit,
-      input.now,
+      layoutTime,
       workingShelfEnabled,
       input.workingShelfExpanded,
       inbox.returnedAt,
