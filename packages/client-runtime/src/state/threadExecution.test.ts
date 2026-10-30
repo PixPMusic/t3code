@@ -33,7 +33,7 @@ import {
 const now = DateTime.makeUnsafe("2026-07-28T10:00:00.000Z");
 
 describe("provider goal usage", () => {
-  it("labels goal tokens as excluding cache and identifies the active duration", () => {
+  it("labels goal tokens as excluding cache and identifies the elapsed duration", () => {
     expect(
       presentProviderGoal(
         {
@@ -44,7 +44,7 @@ describe("provider goal usage", () => {
         },
         true,
       ).usage,
-    ).toBe("30.1m uncached tokens · 63h 57m 51s active");
+    ).toBe("30.1m uncached tokens · 63h 57m 51s elapsed");
   });
 
   it("uses the same token accounting label for a goal budget", () => {

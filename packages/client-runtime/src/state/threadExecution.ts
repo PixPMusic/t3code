@@ -446,7 +446,7 @@ export function presentProviderGoal(
     );
   }
   if (goal.timeUsedSeconds !== undefined && goal.timeUsedSeconds >= 60) {
-    usage.push(`${formatDuration(goal.timeUsedSeconds * 1_000)} active`);
+    usage.push(`${formatDuration(goal.timeUsedSeconds * 1_000)} elapsed`);
   }
   if (goal.checks !== undefined && goal.checks > 0) {
     usage.push(`${goal.checks} ${goal.checks === 1 ? "check" : "checks"}`);
