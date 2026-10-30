@@ -44,7 +44,7 @@ vi.mock(import("../hooks/useSettings"), async (original) => ({
   ...(await original()),
   useClientSettings: ((select?: (settings: typeof DEFAULT_CLIENT_SETTINGS) => unknown) =>
     select ? select(DEFAULT_CLIENT_SETTINGS) : DEFAULT_CLIENT_SETTINGS) as never,
-  useLegacySidebarEnabled: () => newThreadState.legacySidebarEnabled,
+  useBoringSidebarEnabled: () => newThreadState.legacySidebarEnabled,
   getClientSettings: () => ({
     ...DEFAULT_CLIENT_SETTINGS,
     legacySidebarEnabled: newThreadState.legacySidebarEnabled,
@@ -100,6 +100,7 @@ vi.mock(import("../state/session"), async (original) => ({
 vi.mock(import("../hooks/useThreadActions"), () => ({
   useThreadActions: (() => ({})) as never,
   useAcknowledgeThreadWoke: () => vi.fn(),
+  canTurnThreadIntoProject: () => false,
 }));
 vi.mock(import("../hooks/useNewProject"), () => ({ useNewProject: () => vi.fn() }));
 vi.mock(import("../connection/useDesktopLocalBootstraps"), () => ({
@@ -145,7 +146,7 @@ function setupNewThread() {
       scripts: [],
     },
   ];
-  useUiStateStore.setState({ projectOrder: [], sidebarProjectScopeKey: null });
+  useUiStateStore.setState({ projectOrder: [], sidebarProjectScopeKeys: [] });
 }
 
 function newThreadUi() {
