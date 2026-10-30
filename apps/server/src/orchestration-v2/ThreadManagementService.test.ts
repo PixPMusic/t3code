@@ -796,7 +796,7 @@ it.effect("Force stop refuses once a newer run has started, before killing anyth
   }),
 );
 
-it.effect("refuses direct creation, forks and local delegated tasks in Home's folder", () => {
+it.effect("refuses ordinary agents entering Home's folder through creation or metadata", () => {
   const dispatched: string[] = [];
   const homeId = ThreadId.make("home:managed");
   const create: Extract<OrchestrationV2Command, { type: "thread.create" }> = {
@@ -822,6 +822,14 @@ it.effect("refuses direct creation, forks and local delegated tasks in Home's fo
       worktreePath: "/managed/home/notes",
     },
     { ...create, commandId: CommandId.make("home-forged-id"), threadId: homeId },
+    ...["/managed/home", "/managed/home/notes", "/repo/../managed/home/notes"].map(
+      (worktreePath): OrchestrationV2Command => ({
+        type: "thread.metadata.update",
+        commandId: CommandId.make(`home-metadata:${worktreePath}`),
+        threadId: create.threadId,
+        worktreePath,
+      }),
+    ),
     {
       type: "thread.fork",
       commandId: CommandId.make("home-fork"),
@@ -863,6 +871,22 @@ it.effect("refuses direct creation, forks and local delegated tasks in Home's fo
       commandId: CommandId.make("ordinary-create"),
       projectId: ProjectId.make("ordinary-project"),
     });
-    expect(dispatched).toEqual(["thread.create", "thread.create"]);
+    for (const update of [
+      { threadId: create.threadId, worktreePath: "/managed/home-other" },
+      { threadId: create.threadId, worktreePath: null },
+      { threadId: create.threadId, title: "Renamed" },
+      { threadId: homeId, worktreePath: "/managed/home" },
+    ]) {
+      yield* threads.dispatch({
+        type: "thread.metadata.update",
+        commandId: CommandId.make(`allowed-metadata:${dispatched.length}`),
+        ...update,
+      });
+    }
+    expect(dispatched).toEqual([
+      "thread.create",
+      "thread.create",
+      ...Array(4).fill("thread.metadata.update"),
+    ]);
   }).pipe(Effect.provide(layerDispatchChokepointTest(ServerSettings.layerTest())(dispatched)));
 });

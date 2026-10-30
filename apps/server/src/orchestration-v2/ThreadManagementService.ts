@@ -754,27 +754,30 @@ const make = Effect.gen(function* () {
       );
     }
     const checkFolder =
-      command.type === "thread.create"
+      command.type === "thread.create" || command.type === "thread.metadata.update"
         ? Effect.gen(function* () {
-            const homeCreation =
-              command.creationSource === "server" &&
-              command.createdBy === "user" &&
-              isHomeThreadId(command.threadId);
-            if (homeCreation) return;
-            const project = yield* projects.get(command.projectId).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new Orchestrator.OrchestratorDispatchError({
-                    commandId: command.commandId,
-                    commandType: command.type,
-                    cause,
-                  }),
-              ),
-            );
-            const roots = [
-              ...(Option.isSome(project) ? [project.value.workspaceRoot] : []),
-              ...(command.worktreePath === null ? [] : [command.worktreePath]),
-            ];
+            const roots: string[] = [];
+            if (command.type === "thread.create") {
+              const homeCreation =
+                command.creationSource === "server" &&
+                command.createdBy === "user" &&
+                isHomeThreadId(command.threadId);
+              if (homeCreation) return;
+              const project = yield* projects.get(command.projectId).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new Orchestrator.OrchestratorDispatchError({
+                      commandId: command.commandId,
+                      commandType: command.type,
+                      cause,
+                    }),
+                ),
+              );
+              if (Option.isSome(project)) roots.push(project.value.workspaceRoot);
+              if (command.worktreePath !== null) roots.push(command.worktreePath);
+            } else if (!isHomeThreadId(command.threadId) && command.worktreePath != null) {
+              roots.push(command.worktreePath);
+            }
             for (const root of roots) {
               if (isInHomeFolder(path, config.baseDir, root)) {
                 return yield* new Orchestrator.OrchestratorCommandRejectedError({
