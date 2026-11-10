@@ -1,3 +1,4 @@
+import { pullRequestOverviewRoute } from "../../../lib/pullRequestNavigation";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
 import { parsePatchFiles } from "@pierre/diffs/utils/parsePatchFiles";
 import type { FileDiffMetadata } from "@pierre/diffs";
@@ -268,7 +269,12 @@ export function PullRequestGuideStopScreen({ route }: StaticScreenProps<GuideSto
                             ...route.params,
                             mode: "review",
                           })
-                        : navigation.dispatch(StackActions.popTo("PullRequest", route.params))
+                        : navigation.dispatch(
+                            pullRequestOverviewRoute(navigation.getState()?.routes ?? []) ===
+                              "Thread"
+                              ? StackActions.popTo("Thread")
+                              : StackActions.popTo("PullRequest", route.params),
+                          )
                   }
                 >
                   <View className="min-w-0 flex-1 gap-1">

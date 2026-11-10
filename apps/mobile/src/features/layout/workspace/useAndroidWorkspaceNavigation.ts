@@ -31,20 +31,21 @@ export function useWorkspaceBackNavigation(tab: WorkspaceTab) {
   };
 }
 
-export function useAndroidWorkspaceBack(tab: WorkspaceTab) {
+export function useAndroidWorkspaceBack(tab: WorkspaceTab, onBack?: () => void) {
   const dispatch = useWorkspaceTabs()?.dispatch;
   const goBack = useWorkspaceBackNavigation(tab);
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== "android") return;
-      dispatch?.({ type: "select", tab });
+      if (!onBack) dispatch?.({ type: "select", tab });
       const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
         if (Keyboard.isVisible()) Keyboard.dismiss();
+        else if (onBack) onBack();
         else goBack();
         return true;
       });
       return () => subscription.remove();
-    }, [goBack, dispatch, tab]),
+    }, [goBack, dispatch, tab, onBack]),
   );
   return goBack;
 }

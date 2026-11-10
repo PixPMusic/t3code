@@ -1,4 +1,9 @@
-import { useIsFocused, useNavigation, type StaticScreenProps } from "@react-navigation/native";
+import {
+  StackActions,
+  useIsFocused,
+  useNavigation,
+  type StaticScreenProps,
+} from "@react-navigation/native";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { type ReactNode } from "react";
 import { View } from "react-native";
@@ -14,7 +19,8 @@ import {
   ThreadInspectorNavigationContext,
   type ThreadInspectorTarget,
 } from "./thread-inspector-navigation";
-import { ThreadPreviewRoute } from "./thread-preview-route";
+import { PullRequestRouteScreen } from "../pull-requests/PullRequestRouteScreen";
+import { PullRequestPreviewRoute, ThreadPreviewRoute } from "./thread-preview-route";
 
 /** A thread shown outside its route: in the inspector pane, or presented full screen with a close. */
 export type ThreadInspectorPresentation =
@@ -68,6 +74,7 @@ export function ThreadInspectorPreview(props: {
   const focused = useIsFocused();
   const { target } = props;
   const maximizeDevice = (deviceKey: string | null) => {
+    if (target.type !== "device") return;
     props.onOpen({ ...target, deviceKey: deviceKey ?? undefined });
     navigation.navigate("ThreadDevicePreview", {
       environmentId: target.environmentId,
@@ -79,7 +86,20 @@ export function ThreadInspectorPreview(props: {
   return (
     <ThreadInspectorNavigationContext value={props.onOpen}>
       <InspectorContentScope>
-        {target.type === "device" ? (
+        {target.type === "pullRequest" ? (
+          <PullRequestPreviewRoute params={target.params}>
+            {(route) => (
+              <PullRequestRouteScreen
+                route={route}
+                inspectorPresentation={{
+                  onClose: props.onClose,
+                  onMaximize: () =>
+                    navigation.dispatch(StackActions.push("PullRequest", route.params)),
+                }}
+              />
+            )}
+          </PullRequestPreviewRoute>
+        ) : target.type === "device" ? (
           <DevicePreviewScreen
             key={`${target.environmentId}:${target.threadId}`}
             environmentId={EnvironmentId.make(target.environmentId)}

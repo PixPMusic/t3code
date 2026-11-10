@@ -1,4 +1,9 @@
 import { StackActions, useNavigation } from "@react-navigation/native";
+import { use } from "react";
+import {
+  ThreadInspectorNavigationContext,
+  useOpenPullRequestInspector,
+} from "../threads/thread-inspector-navigation";
 import { Platform } from "react-native";
 
 import { useSelectWorkspaceDetail } from "./workspace/useSelectWorkspaceDetail";
@@ -12,7 +17,24 @@ import type { WorkspaceDetail, WorkspaceDetailSheet } from "./workspace/workspac
 export function useOpenWorkspaceDetail() {
   const navigation = useNavigation();
   const selectDetail = useSelectWorkspaceDetail();
+  const openPullRequestInspector = useOpenPullRequestInspector();
+  const openInInspector = use(ThreadInspectorNavigationContext);
   return (detail: WorkspaceDetail, sheet?: WorkspaceDetailSheet) => {
+    if (!sheet && detail.name === "PullRequest" && openPullRequestInspector(detail.params)) return;
+    if (
+      !sheet &&
+      detail.name === "Thread" &&
+      openInInspector &&
+      detail.params.environmentId &&
+      detail.params.threadId
+    ) {
+      openInInspector({
+        type: "thread",
+        environmentId: detail.params.environmentId,
+        threadId: detail.params.threadId,
+      });
+      return;
+    }
     if (Platform.OS === "android") selectDetail(detail, sheet);
     else if (sheet) navigation.navigate(sheet.name, sheet.params);
     else navigation.dispatch(StackActions.push(detail.name, detail.params));
