@@ -31,6 +31,10 @@ export function useNavigateToPullRequest(options?: {
     );
     if (!destination) return tryOpenExternalUrl(url, "pull-request");
     const params = withKnownPullRequestSummary(destination);
+    if (navigation.getState()?.routes.at(-1)?.name === "PullRequestInspectorFullscreen") {
+      navigation.dispatch(StackActions.replace("PullRequestInspectorFullscreen", params));
+      return true;
+    }
     if (openInspector(params, options?.source)) return true;
     // Android shows one page at a time; iOS opens it over the current page, so Back returns.
     if (Platform.OS === "android") selectDetail({ name: "PullRequest", params });

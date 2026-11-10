@@ -30,6 +30,7 @@ vi.mock("@react-navigation/native", async () => {
 
 import { useOpenPullRequestInspector, useOpenThreadInspector } from "./thread-inspector-navigation";
 import { useOpenLinkedThread } from "./useOpenLinkedThread";
+import { workspaceRoutesOf } from "../layout/workspace-overlay-routes";
 
 const requireNavigation = NodeModule.createRequire(
   NodeModule.createRequire(import.meta.url).resolve("@react-navigation/native/package.json"),
@@ -195,6 +196,7 @@ it("keeps a focused inspector registered across renders and updates its content"
   const requireMobile = NodeModule.createRequire(import.meta.url);
   const listeners = { focus: new Set<() => void>(), blur: new Set<() => void>() };
   let focused = true;
+  let covered = false;
   let activeRender: (() => React.ReactNode) | undefined;
   const deactivate = vi.fn(() => {
     activeRender = undefined;
@@ -207,6 +209,13 @@ it("keeps a focused inspector registered across renders and updates its content"
   );
   const navigation = {
     isFocused: () => focused,
+    getState: () => ({
+      index: 1,
+      routes: [
+        { key: "file", name: "Thread" },
+        { key: "next", name: covered ? "PullRequestReview" : "Thread" },
+      ],
+    }),
     addListener(event: "focus" | "blur", listener: () => void) {
       listeners[event].add(listener);
       return () => {
@@ -256,6 +265,7 @@ it("keeps a focused inspector registered across renders and updates its content"
       return {
         useAdaptiveWorkspaceLayout: () => ({ registerWorkspaceInspector }),
       };
+    if (name === "./workspace-overlay-routes") return { workspaceRoutesOf };
     if (name === "@react-navigation/native")
       return {
         NavigationContext: navigationContext,
@@ -300,6 +310,12 @@ it("keeps a focused inspector registered across renders and updates its content"
       focused = event === "focus";
       for (const listener of listeners[event]) listener();
     });
+  covered = true;
+  emit("blur");
+  expect(deactivate).not.toHaveBeenCalled();
+  expect(activeRender).toBeDefined();
+  emit("focus");
+  covered = false;
   emit("blur");
   expect(deactivate).toHaveBeenCalledTimes(1);
   registerWorkspaceInspector.mockClear();

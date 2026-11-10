@@ -32,7 +32,10 @@ export function pullRequestOverviewRoute(
   routes: readonly { readonly name: string; readonly params?: object }[],
 ) {
   const detail = routes.findLast(
-    (route) => route.name === "PullRequest" || route.name === "Thread",
+    (route) =>
+      route.name === "PullRequest" ||
+      route.name === "PullRequestInspectorFullscreen" ||
+      route.name === "Thread",
   );
   return detail?.name === "Thread" &&
     detail.params &&
@@ -42,5 +45,7 @@ export function pullRequestOverviewRoute(
     "type" in detail.params.inspector &&
     detail.params.inspector.type === "pullRequest"
     ? "Thread"
-    : "PullRequest";
+    : detail?.name === "PullRequestInspectorFullscreen"
+      ? "PullRequestInspectorFullscreen"
+      : "PullRequest";
 }

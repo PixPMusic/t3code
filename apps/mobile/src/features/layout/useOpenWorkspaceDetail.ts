@@ -20,6 +20,19 @@ export function useOpenWorkspaceDetail() {
   const openPullRequestInspector = useOpenPullRequestInspector();
   const openInInspector = use(ThreadInspectorNavigationContext);
   return (detail: WorkspaceDetail, sheet?: WorkspaceDetailSheet) => {
+    if (!sheet && navigation.getState()?.routes.at(-1)?.name === "PullRequestInspectorFullscreen") {
+      if (detail.name === "PullRequest") {
+        navigation.dispatch(StackActions.replace("PullRequestInspectorFullscreen", detail.params));
+        return;
+      }
+      if (detail.params.environmentId && detail.params.threadId) {
+        navigation.navigate("ThreadInspectorFullscreen", {
+          environmentId: detail.params.environmentId,
+          threadId: detail.params.threadId,
+        });
+        return;
+      }
+    }
     if (!sheet && detail.name === "PullRequest" && openPullRequestInspector(detail.params)) return;
     if (
       !sheet &&

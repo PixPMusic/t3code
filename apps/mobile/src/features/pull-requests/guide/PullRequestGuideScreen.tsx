@@ -273,7 +273,10 @@ export function PullRequestGuideStopScreen({ route }: StaticScreenProps<GuideSto
                             pullRequestOverviewRoute(navigation.getState()?.routes ?? []) ===
                               "Thread"
                               ? StackActions.popTo("Thread")
-                              : StackActions.popTo("PullRequest", route.params),
+                              : StackActions.popTo(
+                                  pullRequestOverviewRoute(navigation.getState()?.routes ?? []),
+                                  route.params,
+                                ),
                           )
                   }
                 >

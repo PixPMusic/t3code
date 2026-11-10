@@ -1,3 +1,7 @@
+import {
+  WorkspaceContentWidthContext,
+  WorkspaceSettledContentWidthContext,
+} from "../layout/workspace-content-width";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { Chip } from "../../components/ui/Chip";
 import { pullRequestTabOffset } from "./pullRequestTabScroll";
@@ -327,13 +331,27 @@ function usePullRequestToolbarHeight(bottomInset: number) {
   return useState(() => (Platform.OS === "android" ? bottomInset + buttonSize + 40 : 0));
 }
 
+export function FullscreenPullRequestRouteScreen(props: StaticScreenProps<PullRequestParams>) {
+  const navigation = useNavigation();
+  return (
+    <WorkspaceContentWidthContext value={null}>
+      <WorkspaceSettledContentWidthContext value={null}>
+        <PullRequestRouteScreen
+          {...props}
+          inspectorPresentation={{ onClose: () => navigation.goBack() }}
+        />
+      </WorkspaceSettledContentWidthContext>
+    </WorkspaceContentWidthContext>
+  );
+}
+
 export function PullRequestRouteScreen({
   route,
   inspectorPresentation,
 }: StaticScreenProps<PullRequestParams> & {
   readonly inspectorPresentation?: {
     readonly onClose: () => void;
-    readonly onMaximize: () => void;
+    readonly onMaximize?: () => void;
   };
 }) {
   const navigation = useNavigation();
@@ -490,8 +508,14 @@ export function PullRequestRouteScreen({
               ? undefined
               : (returnToChat ?? (layout.usesSplitView ? undefined : returnToList))
           }
+          onClose={
+            inspectorPresentation && !inspectorPresentation.onMaximize
+              ? inspectorPresentation.onClose
+              : undefined
+          }
+          closeAccessibilityLabel="Close pull request"
           actions={
-            inspectorPresentation
+            inspectorPresentation?.onMaximize
               ? [
                   {
                     accessibilityLabel: "Maximize pull request",

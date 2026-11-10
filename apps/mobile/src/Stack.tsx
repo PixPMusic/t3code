@@ -29,6 +29,7 @@ import {
 import { AndroidWorkspaceTabsProvider } from "./features/layout/workspace/AndroidWorkspaceTabsProvider";
 import {
   PullRequestRouteScreen,
+  FullscreenPullRequestRouteScreen,
   PullRequestFileRouteScreen,
 } from "./features/pull-requests/PullRequestRouteScreen";
 import { PullRequestFilesSheet } from "./features/pull-requests/PullRequestFiles";
@@ -505,6 +506,13 @@ const RootStackConfig = createWorkspaceStackNavigator({
         parse: { number: Number },
       },
       options: pageRoute({ duoMinimize: "never" }),
+    }),
+    PullRequestInspectorFullscreen: createNativeStackScreen({
+      screen: FullscreenPullRequestRouteScreen,
+      options: {
+        ...modalRoute({ header: "glass", itemStyle: "editor", duoMinimize: "never" }),
+        animation: "none",
+      },
     }),
     PullRequestGuideStop: createNativeStackScreen({
       screen: PullRequestGuideStopScreen,

@@ -94,7 +94,9 @@ export function ThreadInspectorPreview(props: {
                 inspectorPresentation={{
                   onClose: props.onClose,
                   onMaximize: () =>
-                    navigation.dispatch(StackActions.push("PullRequest", route.params)),
+                    navigation.dispatch(
+                      StackActions.push("PullRequestInspectorFullscreen", route.params),
+                    ),
                 }}
               />
             )}

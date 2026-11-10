@@ -87,4 +87,7 @@ it("returns a guide tour to the PR inspector while preserving standalone PR hist
   const stop = { name: "PullRequestGuideStop" };
   expect(pullRequestOverviewRoute([{ name: "Home" }, thread, stop, stop])).toBe("Thread");
   expect(pullRequestOverviewRoute([thread, { name: "PullRequest" }, stop])).toBe("PullRequest");
+  expect(pullRequestOverviewRoute([thread, { name: "PullRequestInspectorFullscreen" }, stop])).toBe(
+    "PullRequestInspectorFullscreen",
+  );
 });
