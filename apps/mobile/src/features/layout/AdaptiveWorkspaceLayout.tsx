@@ -131,6 +131,7 @@ export function Inspector(props: {
   const { registerWorkspaceInspector } = useAdaptiveWorkspaceLayout();
   const navigation = use(NavigationContext);
   const route = use(NavigationRouteContext);
+  const routeKey = route?.key;
   const content: InspectorContent = {
     ...props.content,
     resetKeys: [route?.key, ...(props.content.resetKeys ?? [])],
@@ -145,27 +146,32 @@ export function Inspector(props: {
       ),
     })),
   };
-  const focusedRef = useRef(false);
+  const activeRef = useRef(false);
   const deactivateRef = useRef<(() => void) | null>(null);
 
   const syncRegistration = useEffectEvent(() => {
-    if (!focusedRef.current) {
+    if (!activeRef.current) {
       deactivateRef.current?.();
       return;
     }
     deactivateRef.current = registerWorkspaceInspector(content, route?.key, props.revealKey);
   });
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Navigation focus events own the inspector registration lifetime.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Navigation focus tracks the inspector owner, including presentations covering its workspace.
   useEffect(() => {
     if (navigation === undefined) return;
     const focus = () => {
-      if (focusedRef.current) return;
-      focusedRef.current = true;
+      if (activeRef.current) return;
+      activeRef.current = true;
       syncRegistration();
     };
     const blur = () => {
-      focusedRef.current = false;
+      const state = navigation.getState();
+      const { workspace, overlays } = workspaceRoutesOf(
+        state?.routes.slice(0, state.index + 1) ?? [],
+      );
+      if (overlays.length > 0 && workspace.at(-1)?.key === routeKey) return;
+      activeRef.current = false;
       syncRegistration();
     };
     if (navigation.isFocused()) focus();
@@ -174,15 +180,15 @@ export function Inspector(props: {
     return () => {
       unsubscribeFocus();
       unsubscribeBlur();
-      focusedRef.current = false;
+      activeRef.current = false;
       deactivateRef.current?.();
       deactivateRef.current = null;
     };
-  }, [navigation]);
+  }, [navigation, routeKey]);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Changed column content replaces the focused inspector registration.
   useEffect(() => {
-    if (focusedRef.current) {
+    if (activeRef.current) {
       syncRegistration();
     }
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Changed column content replaces its existing native workspace registration.

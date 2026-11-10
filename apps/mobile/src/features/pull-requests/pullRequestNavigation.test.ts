@@ -1,6 +1,9 @@
 import { EnvironmentId, ProjectId, SourceControlProviderKind } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
-import { nativePullRequestDestination as destination } from "../../lib/pullRequestNavigation";
+import {
+  pullRequestOverviewRoute,
+  nativePullRequestDestination as destination,
+} from "../../lib/pullRequestNavigation";
 
 const context = { environmentId: "remote", projectId: "project" };
 const project = (id: string, canonicalKey: string, provider: string, remoteUrl: string) => ({
@@ -70,4 +73,21 @@ describe("native PR entry points", () => {
       nativePullRequestDestination("https://github.com/org/repo/pull/12", null, projects),
     ).toBeNull();
   });
+});
+
+it("returns a guide tour to the PR inspector while preserving standalone PR history", () => {
+  const thread = {
+    name: "Thread",
+    params: {
+      environmentId: "env",
+      threadId: "chat",
+      inspector: { type: "pullRequest", params: { number: 1 } },
+    },
+  };
+  const stop = { name: "PullRequestGuideStop" };
+  expect(pullRequestOverviewRoute([{ name: "Home" }, thread, stop, stop])).toBe("Thread");
+  expect(pullRequestOverviewRoute([thread, { name: "PullRequest" }, stop])).toBe("PullRequest");
+  expect(pullRequestOverviewRoute([thread, { name: "PullRequestInspectorFullscreen" }, stop])).toBe(
+    "PullRequestInspectorFullscreen",
+  );
 });

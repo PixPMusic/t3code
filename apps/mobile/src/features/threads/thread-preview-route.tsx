@@ -22,6 +22,8 @@ import type {
 } from "@react-navigation/native-stack";
 import type { ReactNode } from "react";
 
+import type { PullRequestParams } from "../pull-requests/usePullRequestDiff";
+
 import { useMobileNavigationTheme } from "../../lib/useMobileNavigationTheme";
 
 function ThreadPreviewNavigator({
@@ -94,6 +96,32 @@ export function ThreadPreviewRoute(
             {(screen) => props.children(screen.route)}
           </Preview.Screen>
         </Preview.Navigator>
+      </NavigationContainer>
+    </NavigationIndependentTree>
+  );
+}
+
+const PullRequestPreview = createThreadPreviewNavigator<{ PullRequest: PullRequestParams }>();
+
+export function PullRequestPreviewRoute(props: {
+  readonly params: PullRequestParams;
+  readonly children: (
+    route: RouteProp<{ PullRequest: PullRequestParams }, "PullRequest">,
+  ) => ReactNode;
+}) {
+  const host = useNavigation();
+  const theme = useMobileNavigationTheme();
+  const { environmentId, projectId, host: forgeHost, repository, number } = props.params;
+  return (
+    <NavigationIndependentTree>
+      <NavigationContainer theme={theme} onUnhandledAction={host.dispatch}>
+        <PullRequestPreview.Navigator
+          key={JSON.stringify([environmentId, projectId, forgeHost, repository, number])}
+        >
+          <PullRequestPreview.Screen name="PullRequest" initialParams={props.params}>
+            {(screen) => props.children(screen.route)}
+          </PullRequestPreview.Screen>
+        </PullRequestPreview.Navigator>
       </NavigationContainer>
     </NavigationIndependentTree>
   );

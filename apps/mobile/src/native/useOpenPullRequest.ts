@@ -9,13 +9,19 @@ import { appAtomRegistry } from "../state/atom-registry";
 import { environmentServerConfigsAtom } from "../state/server";
 import { withKnownPullRequestSummary } from "../state/use-thread-pr";
 
+import { useOpenPullRequestInspector } from "../features/threads/thread-inspector-navigation";
+
 type PullRequestContext = { readonly environmentId: string; readonly projectId: string };
 
 // Avoid useRoute so layouts without route context can open any thread's pull requests.
-export function useNavigateToPullRequest(options?: { readonly replace?: boolean }) {
+export function useNavigateToPullRequest(options?: {
+  readonly replace?: boolean;
+  readonly source?: { readonly environmentId: string; readonly threadId: string };
+}) {
   const navigation = useNavigation();
   const selectDetail = useSelectWorkspaceDetail();
   const projects = useProjects();
+  const openInspector = useOpenPullRequestInspector();
   const replace = options?.replace;
   return async (url: string, context: PullRequestContext | null) => {
     // Read at press time so a config push does not hand every link a new handler.
@@ -25,6 +31,11 @@ export function useNavigateToPullRequest(options?: { readonly replace?: boolean 
     );
     if (!destination) return tryOpenExternalUrl(url, "pull-request");
     const params = withKnownPullRequestSummary(destination);
+    if (navigation.getState()?.routes.at(-1)?.name === "PullRequestInspectorFullscreen") {
+      navigation.dispatch(StackActions.replace("PullRequestInspectorFullscreen", params));
+      return true;
+    }
+    if (openInspector(params, options?.source)) return true;
     // Android shows one page at a time; iOS opens it over the current page, so Back returns.
     if (Platform.OS === "android") selectDetail({ name: "PullRequest", params });
     else if (replace) navigation.dispatch(StackActions.replace("PullRequest", params));
@@ -58,7 +69,10 @@ export function useOpenPullRequest(options?: {
   );
   const projectId =
     options?.context?.projectId ?? first(routeContext?.projectId) ?? thread?.projectId;
-  const navigateToPullRequest = useNavigateToPullRequest({ replace: options?.replace });
+  const navigateToPullRequest = useNavigateToPullRequest({
+    replace: options?.replace,
+    source: environmentId && threadId ? { environmentId, threadId } : undefined,
+  });
   return (url: string) =>
     navigateToPullRequest(
       url,

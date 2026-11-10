@@ -1,3 +1,7 @@
+import {
+  WorkspaceContentWidthContext,
+  WorkspaceSettledContentWidthContext,
+} from "../layout/workspace-content-width";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { Chip } from "../../components/ui/Chip";
 import { pullRequestTabOffset } from "./pullRequestTabScroll";
@@ -40,7 +44,12 @@ import {
 } from "./pullRequestDiffDebug";
 import { usePullRequestDiffHighlightFiles } from "./usePullRequestDiffHighlightFiles";
 import { isTestChangedFile } from "@t3tools/shared/changedFileKind";
-import { useFocusEffect, useNavigation, type StaticScreenProps } from "@react-navigation/native";
+import {
+  useNavigationState,
+  useFocusEffect,
+  useNavigation,
+  type StaticScreenProps,
+} from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RegistryContext, useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { pullRequestReviewKey } from "./pullRequestReviewDrafts";
@@ -322,10 +331,39 @@ function usePullRequestToolbarHeight(bottomInset: number) {
   return useState(() => (Platform.OS === "android" ? bottomInset + buttonSize + 40 : 0));
 }
 
-export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestParams>) {
-  const returnToList = useAndroidWorkspaceBack("pullRequests");
-  const { layout } = useAdaptiveWorkspaceLayout();
+export function FullscreenPullRequestRouteScreen(props: StaticScreenProps<PullRequestParams>) {
   const navigation = useNavigation();
+  return (
+    <WorkspaceContentWidthContext value={null}>
+      <WorkspaceSettledContentWidthContext value={null}>
+        <PullRequestRouteScreen
+          {...props}
+          inspectorPresentation={{ onClose: () => navigation.goBack() }}
+        />
+      </WorkspaceSettledContentWidthContext>
+    </WorkspaceContentWidthContext>
+  );
+}
+
+export function PullRequestRouteScreen({
+  route,
+  inspectorPresentation,
+}: StaticScreenProps<PullRequestParams> & {
+  readonly inspectorPresentation?: {
+    readonly onClose: () => void;
+    readonly onMaximize?: () => void;
+  };
+}) {
+  const navigation = useNavigation();
+  const followsChat = useNavigationState(
+    (state) => state.routes[state.index - 1]?.name === "Thread",
+  );
+  const returnToChat = followsChat ? () => navigation.goBack() : undefined;
+  const returnToList = useAndroidWorkspaceBack(
+    "pullRequests",
+    inspectorPresentation?.onClose ?? returnToChat,
+  );
+  const { layout } = useAdaptiveWorkspaceLayout();
   const insets = useSafeAreaInsets();
   const [toolbarHeight, setToolbarHeight] = usePullRequestToolbarHeight(insets.bottom);
   const contentTopInset = useContentTopInset();
@@ -465,7 +503,28 @@ export function PullRequestRouteScreen({ route }: StaticScreenProps<PullRequestP
         <AppBar
           title={`#${params.number}`}
           subtitle={connected ? params.repository : `${params.repository} · Offline`}
-          onBack={layout.usesSplitView ? undefined : returnToList}
+          onBack={
+            inspectorPresentation
+              ? undefined
+              : (returnToChat ?? (layout.usesSplitView ? undefined : returnToList))
+          }
+          onClose={
+            inspectorPresentation && !inspectorPresentation.onMaximize
+              ? inspectorPresentation.onClose
+              : undefined
+          }
+          closeAccessibilityLabel="Close pull request"
+          actions={
+            inspectorPresentation?.onMaximize
+              ? [
+                  {
+                    accessibilityLabel: "Maximize pull request",
+                    icon: "arrow.up.left.and.arrow.down.right",
+                    onPress: inspectorPresentation.onMaximize,
+                  },
+                ]
+              : undefined
+          }
           menus={[
             {
               title: `${capitalizeTerm(terminology.singular)} actions`,

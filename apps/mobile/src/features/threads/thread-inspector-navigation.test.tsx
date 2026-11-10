@@ -9,11 +9,12 @@ const harness = vi.hoisted(() => ({
   dispatch: (_action: unknown) => {},
   getState: (): unknown => undefined,
   getRoute: (): unknown => undefined,
+  supported: true,
 }));
 
 vi.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 vi.mock("../layout/AdaptiveWorkspaceLayout", () => ({
-  useWorkspacePaneState: () => ({ fileInspector: { supported: true } }),
+  useWorkspacePaneState: () => ({ fileInspector: { supported: harness.supported } }),
 }));
 vi.mock("@react-navigation/native", async () => {
   const { createRequire } = await import("node:module");
@@ -27,8 +28,9 @@ vi.mock("@react-navigation/native", async () => {
   };
 });
 
-import { useOpenThreadInspector } from "./thread-inspector-navigation";
+import { useOpenPullRequestInspector, useOpenThreadInspector } from "./thread-inspector-navigation";
 import { useOpenLinkedThread } from "./useOpenLinkedThread";
+import { workspaceRoutesOf } from "../layout/workspace-overlay-routes";
 
 const requireNavigation = NodeModule.createRequire(
   NodeModule.createRequire(import.meta.url).resolve("@react-navigation/native/package.json"),
@@ -39,10 +41,18 @@ const { StackRouter, StackActions } = requireNavigation("@react-navigation/route
 };
 
 function setup(fromAgents: boolean, fullscreen = false) {
+  harness.supported = true;
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   const router = StackRouter({});
   const options = {
-    routeNames: ["Home", "Thread", "ThreadAgents", "ThreadInspectorFullscreen"],
+    routeNames: [
+      "Home",
+      "Thread",
+      "ThreadAgents",
+      "ThreadInspectorFullscreen",
+      "ThreadPullRequests",
+      "GitOverview",
+    ],
     routeParamList: {},
     routeGetIdList: {},
   };
@@ -65,12 +75,15 @@ function setup(fromAgents: boolean, fullscreen = false) {
       StackActions.push("ThreadAgents", fullscreen ? { ...source, threadId: "child" } : source),
     );
   let openInspector: ReturnType<typeof useOpenThreadInspector>;
+  let openPullRequest: ReturnType<typeof useOpenPullRequestInspector>;
   let openLinkedThread: ReturnType<typeof useOpenLinkedThread>;
   function Probe() {
     const open = useOpenThreadInspector();
+    const openPr = useOpenPullRequestInspector();
     const openLinked = useOpenLinkedThread();
     useLayoutEffect(() => {
       openInspector = open;
+      openPullRequest = openPr;
       openLinkedThread = openLinked;
     });
     return null;
@@ -88,6 +101,14 @@ function setup(fromAgents: boolean, fullscreen = false) {
       let opened = false;
       act(() => {
         opened = openInspector(from, target);
+      });
+      return opened;
+    },
+    openPullRequest(params: Parameters<typeof openPullRequest>[0], from = source) {
+      act(() => root.render(<Probe />));
+      let opened = false;
+      act(() => {
+        opened = openPullRequest(params, from);
       });
       return opened;
     },
@@ -175,6 +196,7 @@ it("keeps a focused inspector registered across renders and updates its content"
   const requireMobile = NodeModule.createRequire(import.meta.url);
   const listeners = { focus: new Set<() => void>(), blur: new Set<() => void>() };
   let focused = true;
+  let covered = false;
   let activeRender: (() => React.ReactNode) | undefined;
   const deactivate = vi.fn(() => {
     activeRender = undefined;
@@ -187,6 +209,13 @@ it("keeps a focused inspector registered across renders and updates its content"
   );
   const navigation = {
     isFocused: () => focused,
+    getState: () => ({
+      index: 1,
+      routes: [
+        { key: "file", name: "Thread" },
+        { key: "next", name: covered ? "PullRequestReview" : "Thread" },
+      ],
+    }),
     addListener(event: "focus" | "blur", listener: () => void) {
       listeners[event].add(listener);
       return () => {
@@ -236,6 +265,7 @@ it("keeps a focused inspector registered across renders and updates its content"
       return {
         useAdaptiveWorkspaceLayout: () => ({ registerWorkspaceInspector }),
       };
+    if (name === "./workspace-overlay-routes") return { workspaceRoutesOf };
     if (name === "@react-navigation/native")
       return {
         NavigationContext: navigationContext,
@@ -280,6 +310,12 @@ it("keeps a focused inspector registered across renders and updates its content"
       focused = event === "focus";
       for (const listener of listeners[event]) listener();
     });
+  covered = true;
+  emit("blur");
+  expect(deactivate).not.toHaveBeenCalled();
+  expect(activeRender).toBeDefined();
+  emit("focus");
+  covered = false;
   emit("blur");
   expect(deactivate).toHaveBeenCalledTimes(1);
   registerWorkspaceInspector.mockClear();
@@ -296,4 +332,82 @@ it("keeps a focused inspector registered across renders and updates its content"
   act(() => root.unmount());
   expect(activeRender).toBeUndefined();
   expect(listeners.focus.size + listeners.blur.size).toBe(0);
+});
+
+it("switches PR identities without replacing the chat or its draft params", () => {
+  using screen = setup(false);
+  const params = {
+    environmentId: "other-environment",
+    projectId: "project",
+    host: "github.com",
+    repository: "demo/repo",
+    number: 12,
+  };
+  expect(screen.openPullRequest(params)).toBe(true);
+  expect(screen.state.routes.at(-1)).toMatchObject({
+    key: screen.parentKey,
+    params: {
+      ...screen.source,
+      prompt: "retained prompt",
+      inspector: { type: "pullRequest", params },
+    },
+  });
+  const next = { ...params, environmentId: "third-environment", number: 13 };
+  expect(screen.openPullRequest(next)).toBe(true);
+  expect(screen.state.routes).toHaveLength(2);
+  expect(screen.state.routes.at(-1)).toMatchObject({
+    key: screen.parentKey,
+    params: {
+      inspector: { type: "pullRequest", params: next },
+    },
+  });
+});
+
+it("leaves compact and standalone navigation to the PR opener", () => {
+  using screen = setup(false);
+  const params = {
+    environmentId: "environment",
+    projectId: "project",
+    repository: "demo/repo",
+    number: 12,
+  };
+  const original = screen.state;
+  harness.supported = false;
+  expect(screen.openPullRequest(params)).toBe(false);
+  expect(screen.state).toEqual(original);
+  harness.supported = true;
+  screen.dispatch(StackActions.push("ThreadInspectorFullscreen", screen.source));
+  expect(screen.openPullRequest(params)).toBe(false);
+});
+
+it.each(["ThreadPullRequests", "GitOverview"])(
+  "opens PRs from %s back in the source chat",
+  (sheet) => {
+    using screen = setup(false);
+    screen.dispatch(StackActions.push(sheet, screen.source));
+    const params = {
+      environmentId: "env",
+      projectId: "project",
+      repository: "demo/repo",
+      number: 1,
+    };
+    expect(screen.openPullRequest(params)).toBe(true);
+    expect(screen.state.routes).toHaveLength(2);
+    expect(screen.state.routes.at(-1)).toMatchObject({
+      key: screen.parentKey,
+      params: { inspector: { type: "pullRequest", params } },
+    });
+  },
+);
+
+it("does not consume a PR from another sidebar thread or a new-task draft", () => {
+  using screen = setup(false);
+  const params = { environmentId: "env", projectId: "project", repository: "demo/repo", number: 1 };
+  const original = screen.state;
+  expect(screen.openPullRequest(params, { ...screen.source, threadId: "other" })).toBe(false);
+  expect(screen.state).toEqual(original);
+  screen.dispatch(
+    StackActions.replace("Thread", { draft: { requestId: "draft", projectId: "project" } }),
+  );
+  expect(screen.openPullRequest(params)).toBe(false);
 });

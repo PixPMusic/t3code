@@ -27,3 +27,25 @@ export function nativePullRequestDestination(
     ...(target.host === undefined ? {} : { host: target.host }),
   };
 }
+
+export function pullRequestOverviewRoute(
+  routes: readonly { readonly name: string; readonly params?: object }[],
+) {
+  const detail = routes.findLast(
+    (route) =>
+      route.name === "PullRequest" ||
+      route.name === "PullRequestInspectorFullscreen" ||
+      route.name === "Thread",
+  );
+  return detail?.name === "Thread" &&
+    detail.params &&
+    "inspector" in detail.params &&
+    detail.params.inspector &&
+    typeof detail.params.inspector === "object" &&
+    "type" in detail.params.inspector &&
+    detail.params.inspector.type === "pullRequest"
+    ? "Thread"
+    : detail?.name === "PullRequestInspectorFullscreen"
+      ? "PullRequestInspectorFullscreen"
+      : "PullRequest";
+}
