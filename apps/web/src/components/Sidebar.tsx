@@ -710,10 +710,15 @@ function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
             getId: (thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
           }),
     workingThreads: sortWorkingThreadsBySend(working),
+    // A snooze with no wake time wakes last.
     snoozedThreads: snoozed.toSorted(
       (left, right) =>
-        firstValidTimestampMs(left.snoozedUntil ?? null) -
-        firstValidTimestampMs(right.snoozedUntil ?? null),
+        (left.snoozedUntil == null
+          ? Number.POSITIVE_INFINITY
+          : firstValidTimestampMs(left.snoozedUntil)) -
+        (right.snoozedUntil == null
+          ? Number.POSITIVE_INFINITY
+          : firstValidTimestampMs(right.snoozedUntil)),
     ),
     settledThreads: sortSettledThreads(settled),
     visibleThreads: visible,
@@ -774,14 +779,15 @@ function isOptimisticDropReleased(input: {
     if (
       canonicalSection === optimisticDrop.section &&
       thread.pinnedAt == null &&
-      (!optimisticDrop.clearsSnooze || thread.snoozedUntil == null)
+      (!optimisticDrop.clearsSnooze || (thread.snoozedUntil == null && thread.snoozedAt == null))
     ) {
       return true;
     }
     return false;
   }
   if (canonicalSection !== optimisticDrop.section) return false;
-  if (optimisticDrop.clearsSnooze && thread.snoozedUntil != null) return false;
+  if (optimisticDrop.clearsSnooze && (thread.snoozedUntil != null || thread.snoozedAt != null))
+    return false;
   const destinationKeys = optimisticDrop.section === "pinned" ? pinnedKeys : activeKeys;
   const canonicalDestination = destinationKeys.flatMap((key) => {
     const canonical = canonicalByKey.get(key);
@@ -3470,9 +3476,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                               actionSweep?.keys.has(threadKey) ? actionSweep.action : null
                             }
                             snoozeWakeLabelText={
-                              section === "snoozed" && thread.snoozedUntil != null
+                              section === "snoozed"
                                 ? snoozeWakeLabel(
-                                    thread.snoozedUntil,
+                                    thread.snoozedUntil ?? null,
                                     { now: new Date().toISOString() },
                                     messages,
                                   )
