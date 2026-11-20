@@ -376,7 +376,9 @@ The **Views** menu saves and restores a search, filter, and sort setup, as it do
 requests.
 
 To list a Linear team's issues beside a project's, connect Linear with an API key under
-Settings → Source control & issues, then choose the team for that project there.
+Settings → Source control & issues, then choose the team for that project there. The team only
+decides what the Issues page lists: once Linear is connected, a Linear issue linked to any thread,
+No project threads included, opens and can be changed as far as your Linear account allows.
 
 Select an issue to open it beside the list: description, comments, state changes, linked pull
 requests, labels, assignees, and reactions. Linked pull requests open in the same panel. You can
